@@ -1,8 +1,6 @@
 import axios from "axios";
-// const baseURL = "https://saf.aim-less.com/api";
-// const baseURL = "http://54.206.101.158/api";
 
- const baseURL = "http://localhost:5000/api";
+const baseURL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 const axiosInstance = axios.create({
   baseURL,
   headers: {

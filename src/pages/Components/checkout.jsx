@@ -11,19 +11,8 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-// Initialize Stripe with your publishable key
-const stripePromise = loadStripe(
-  "pk_live_51QXz3MRpf6nBaPfeHrMN5CbwAY2KoguP7mB8rt400veyvix4VLmHPfNnQ1M2xlWMJBszylk6hweYYk0CDWySvhTA00Z6ayoPJ5"
-// "pk_test_51R4HwEP1U1i66wzc0CML1t20v7wPQrvuXPKrrXpnBJ0XVdIEDHuPazuL1ZPIVlQcbk4fSpCTrjla8nsMFog708Vl0031BNIGKo"
-
-);
-//  maryam's test key
-
-//  "pk_live_51QXz3MRpf6nBaPfeHrMN5CbwAY2KoguP7mB8rt400veyvix4VLmHPfNnQ1M2xlWMJBszylk6hweYYk0CDWySvhTA00Z6ayoPJ5"
-
-// const stripePromise = loadStripe(
-//   "pk_test_51OpbgVEUOaf2osppFuZpU9bkzw5Lml8DnipRkYfyRwXkyCubUe6gdvAjHvtMRLN8KLBI11eCDqk36ScyDj1kdfCI002FULOKh8"
-// );
+// Initialize Stripe from environment variable
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 import {
   X,
   ChevronLeft,
