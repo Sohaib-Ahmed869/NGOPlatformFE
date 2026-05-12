@@ -1,0 +1,75 @@
+/* Custom styles for the phone input component */
+.phone-input {
+  width: 100% !important;
+}
+
+.phone-input .form-control {
+  width: 100% !important;
+  height: 48px !important;
+  background-color: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding-left: 48px !important;
+  font-size: 1rem !important;
+  outline: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.phone-input .form-control:focus {
+  border-color: #0F172A !important;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2) !important;
+}
+
+.phone-button {
+  background-color: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-right: none !important;
+  border-radius: 0.5rem 0 0 0.5rem !important;
+}
+
+.phone-dropdown {
+  border-radius: 0.5rem !important;
+  margin-top: 4px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Custom styles for the country select component */
+.country-select__control {
+  background-color: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  height: 48px !important;
+  box-shadow: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.country-select__control:hover {
+  border-color: #d1d5db !important;
+}
+
+.country-select__control--is-focused {
+  border-color: #0F172A !important;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2) !important;
+}
+
+.country-select__menu {
+  border-radius: 0.5rem !important;
+  margin-top: 4px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.country-select__option--is-focused {
+  background-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.country-select__option--is-selected {
+  background-color: #0F172A !important;
+}
+
+.country-select__placeholder {
+  color: #9ca3af !important;
+}
+
+.country-select__indicator-separator {
+  background-color: #e5e7eb !important;
+}
