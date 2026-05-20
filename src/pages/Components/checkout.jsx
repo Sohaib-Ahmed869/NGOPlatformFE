@@ -710,6 +710,7 @@ const UnifiedCheckout = () => {
         quantity: item.quantity || 1,
         onBehalfOf: onBehalfOf[item.id] || null,
         donationType: item.donationType || "Sadaqah",
+        ...(item.programId && { programId: item.programId }),
         ...(item.source && { source: item.source }),
         ...(item.isRecurring && { isRecurring: true }),
         ...(item.recurringDetails && {

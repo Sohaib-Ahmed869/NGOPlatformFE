@@ -1,373 +1,291 @@
-import { useState, useEffect } from "react"
-import { CreditCard, Calendar, DollarSign, RepeatIcon, ChevronRight, Hash, Layers } from "lucide-react"
-import PageLoader from "../../components/PageLoader";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { CreditCard, Calendar, DollarSign, RepeatIcon, Hash, Layers, TrendingUp } from "lucide-react";
+import Loader from "../../components/Loader";
+import KpiCard, { DEFAULT_SPARKS } from "../../components/KpiCard";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Legend,
-} from "recharts"
-import axiosInstance from "../../services/axios"
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
+import axiosInstance from "../../services/axios";
 
-const StatCard = ({ title, value, icon: Icon, color, tooltip }) => (
-  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-accent">{title}</p>
-        <p className="text-2xl font-bold text-primary mt-1">{value}</p>
-      </div>
-      <div className="p-3 bg-background rounded-full">
-        <Icon className="w-6 h-6 text-accent" />
-      </div>
-    </div>
-    {tooltip && <div className="mt-2 text-xs text-accent">{tooltip}</div>}
-  </div>
-)
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.4 } }),
+};
 
-const DonationCard = ({ donation }) => {
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "completed":
-        return "bg-accent/10 text-primary"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "processing":
-        return "bg-blue-100 text-blue-800"
-      case "failed":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+const getThemeColor = (varName, fallback) => {
+  if (typeof window === "undefined") return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || fallback;
+};
+
+// Soft donut colors
+const DONUT_COLORS = ["#34D399", "#818CF8", "#FB923C", "#F472B6", "#38BDF8", "#FBBF24"];
+
+/* SVG Donut with rounded stroke caps and gaps */
+const DonutChart = ({ segments, size = 160 }) => {
+  const r = 58;
+  const c = 2 * Math.PI * r;
+  const gap = 8; // gap in stroke-dasharray units
+  let offset = 0;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (total === 0) {
+    return (
+      <div className="flex items-center justify-center" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+        </svg>
+      </div>
+    );
   }
+  return (
+    <svg width={size} height={size} viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+      {segments.filter(s => s.value > 0).map((seg, i) => {
+        const pct = seg.value / total;
+        const dashLen = Math.max(0, pct * c - gap);
+        const dashGap = c - dashLen;
+        const el = (
+          <circle key={i} cx="70" cy="70" r={r} fill="none"
+            stroke={seg.color} strokeWidth="16"
+            strokeLinecap="round"
+            strokeDasharray={`${dashLen} ${dashGap}`}
+            strokeDashoffset={-offset}
+            transform="rotate(-90 70 70)"
+            style={{ transition: "stroke-dasharray 0.6s ease" }}
+          />
+        );
+        offset += pct * c;
+        return el;
+      })}
+      <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{total}</text>
+      <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">total</text>
+    </svg>
+  );
+};
+
+const DonationRow = ({ donation, formatCurrency }) => {
+  const statusStyles = {
+    completed: "bg-green-50 text-green-700",
+    pending: "bg-yellow-50 text-yellow-700",
+    processing: "bg-blue-50 text-blue-700",
+    failed: "bg-red-50 text-red-700",
+  };
+  const typeLabel = donation.donationType || donation.items?.[0]?.donationType || donation.paymentType || "Donation";
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-medium text-primary">Donation #{donation.donationId}</p>
-          <p className="text-sm text-accent mt-1">{new Date(donation.createdAt).toLocaleDateString()}</p>
+    <div className="flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+          <DollarSign className="w-4 h-4 text-accent" />
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(donation.paymentStatus)}`}>
-          {donation.paymentStatus.charAt(0).toUpperCase() + donation.paymentStatus.slice(1)}
+        <div>
+          <p className="text-sm font-medium text-primary">#{donation.donationId}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-[11px] text-text-muted">{new Date(donation.createdAt).toLocaleDateString()}</p>
+            <span className="text-[10px] text-accent/80 bg-accent/8 px-1.5 py-0.5 rounded font-medium capitalize">{typeLabel}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusStyles[donation.paymentStatus] || "bg-gray-100 text-gray-600"}`}>
+          {donation.paymentStatus}
+        </span>
+        <span className="text-sm font-semibold text-primary min-w-[70px] text-right">
+          {formatCurrency(donation.totalAmount)}
         </span>
       </div>
-      <div className="mt-4 space-y-2">
-        <div className="flex items-center text-sm text-accent">
-          <DollarSign className="w-4 h-4 mr-2 text-teal-400" />${donation.totalAmount.toFixed(2)}
-        </div>
-        <div className="flex items-center text-sm text-accent">
-          <CreditCard className="w-4 h-4 mr-2 text-teal-400" />
-          {donation.paymentMethod?.type ? 
-            donation.paymentMethod.type.charAt(0).toUpperCase() + donation.paymentMethod.type.slice(1) :
-            (typeof donation.paymentMethod === 'string' ? 
-              donation.paymentMethod.charAt(0).toUpperCase() + donation.paymentMethod.slice(1) : 
-              'N/A')
-          }
-        </div>
-        {donation.paymentType === "recurring" && (
-          <div className="flex items-center text-sm text-accent">
-            <RepeatIcon className="w-4 h-4 mr-2 text-teal-400" />
-            Recurring ({donation.recurringDetails?.frequency || 'N/A'})
-          </div>
-        )}
-      </div>
     </div>
-  )
-}
+  );
+};
+
+const CHART_COLORS = ["var(--tenant-accent, #C9A84C)", "var(--tenant-primary, #2C2418)", "#94a3b8"];
 
 const UserDashboard = () => {
-  const [stats, setStats] = useState(null)
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        setLoading(true)
+        setLoading(true);
         const [statsResponse, ordersResponse] = await Promise.all([
           axiosInstance.get("/orders/stats"),
           axiosInstance.get("/orders/my-orders"),
-        ])
+        ]);
 
-        // Get the updated stats from the API (includes totalDonated, paidDonated, pendingAmount, etc.)
-        const baseStats = statsResponse.data.stats
+        const baseStats = statsResponse.data.stats;
+        const allOrders = ordersResponse.data.orders;
 
-        // Calculate donation type counts from the orders
-        const singleDonations = ordersResponse.data.orders.filter((order) => order.paymentType === "single").length
+        const singleDonations = allOrders.filter((o) => o.paymentType === "single").length;
+        const recurringDonations = allOrders.filter((o) => o.paymentType === "recurring").length;
+        const installmentDonations = allOrders.filter((o) => o.paymentType === "installments").length;
+        const totalDonationCount = allOrders.length;
+        const averageDonation = totalDonationCount > 0 ? (baseStats.totalDonated || 0) / totalDonationCount : 0;
 
-        const recurringDonations = ordersResponse.data.orders.filter(
-          (order) => order.paymentType === "recurring",
-        ).length
-
-        const installmentDonations = ordersResponse.data.orders.filter(
-          (order) => order.paymentType === "installments",
-        ).length
-
-        const totalDonationCount = ordersResponse.data.orders.length
-        const averageDonation = totalDonationCount > 0 ? (baseStats.totalDonated || 0) / totalDonationCount : 0
-        const completedOrders = ordersResponse.data.orders.filter((order) => order.paymentStatus === "completed")
-
-        const updatedStats = {
+        setStats({
           ...baseStats,
           averageDonation,
-          completedOrders: completedOrders.length,
+          completedOrders: allOrders.filter((o) => o.paymentStatus === "completed").length,
           totalDonationCount,
           singleDonations,
           recurringDonations,
           installmentDonations,
-        }
-
-        setStats(updatedStats)
-        setOrders(ordersResponse.data.orders)
+        });
+        setOrders(allOrders);
       } catch (error) {
-        console.error("Failed to fetch dashboard data:", error)
+        console.error("Failed to fetch dashboard data:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
+    fetchDashboardData();
+  }, []);
 
-    fetchDashboardData()
-  }, [])
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount || 0);
 
-  // Format currency in USD
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount || 0)
-  }
+  if (loading) return <Loader />;
 
-  if (loading) {
-    return (
-      <PageLoader />
-    )
-  }
+  // Chart data
+  const shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthlyData = (stats?.monthlyStats || [])
+    .map((item) => {
+      const clean = item.month?.toString().trim();
+      let idx = shortMonthNames.findIndex((m) => m.toLowerCase() === clean?.toLowerCase());
+      if (idx === -1) {
+        const fullNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        idx = fullNames.findIndex((m) => m.toLowerCase() === clean?.toLowerCase());
+      }
+      if (idx === -1 && !isNaN(clean)) idx = parseInt(clean) - 1;
+      if (idx === -1) idx = 0;
+      return { month: shortMonthNames[idx], monthNum: idx + 1, count: item.count || 0 };
+    })
+    .sort((a, b) => a.monthNum - b.monthNum);
+
+  const pieData = [
+    { name: "Single", value: stats?.singleDonations || 0 },
+    { name: "Recurring", value: stats?.recurringDonations || 0 },
+    { name: "Installment", value: stats?.installmentDonations || 0 },
+  ].filter((d) => d.value > 0);
+
+  const accentColor = getThemeColor("--tenant-accent", "#C9A84C");
+  const primaryColor = getThemeColor("--tenant-primary", "#2C2418");
+
+  // Real sparkline data from monthly stats
+  const sparkAmounts = monthlyData.map((d) => d.count);
+  // Monthly totals for amount sparkline
+  const monthlyAmounts = (stats?.monthlyStats || [])
+    .map((item) => item.total || 0)
+    .slice(-6);
 
   return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
-      <h1 className="text-xl font-bold text-primary">My Donations Dashboard</h1>
+    <motion.div
+      className="lg:p-6 mt-20 lg:mt-0 min-h-screen"
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Header */}
+      <motion.div variants={fadeUp} custom={0} className="mb-6">
+        <h1 className="text-xl font-heading font-bold text-primary">My Donations</h1>
+        <p className="text-sm text-text-muted mt-0.5">Track your giving and impact</p>
+      </motion.div>
 
-      {/* First Row - 3 KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard
-          title="Total Donations Amount"
-          value={formatCurrency(stats?.totalDonated || 0)}
-          icon={Hash}
-          color="bg-background"
-          tooltip="Total amount of all donations from user (including future recurring payments)"
-        />
-
-        <StatCard
-          title="Paid Donations Amount"
-          value={formatCurrency(stats?.paidDonated || 0)}
-          icon={Calendar}
-          color="bg-background"
-          tooltip="Total amount of payments actually received"
-        />
-
-        <StatCard
-          title="Average Donation"
-          value={formatCurrency(stats?.averageDonation || 0)}
-          icon={DollarSign}
-          color="bg-background"
-          tooltip="Total donations amount / Total number of donations"
-        />
+      {/* KPI Row 1 — Financial */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <KpiCard title="Total Donated" value={formatCurrency(stats?.totalDonated)} icon={DollarSign}
+          color={accentColor} sparkData={monthlyAmounts} defaultSpark={DEFAULT_SPARKS.rising} index={1} />
+        <KpiCard title="Paid Amount" value={formatCurrency(stats?.paidDonated)} icon={CreditCard}
+          color="#8B5CF6" sparkData={sparkAmounts} defaultSpark={DEFAULT_SPARKS.steady} index={2} />
+        <KpiCard title="Average Donation" value={formatCurrency(stats?.averageDonation)} icon={TrendingUp}
+          color="#06B6D4" defaultSpark={DEFAULT_SPARKS.wave} index={3} />
       </div>
 
-      {/* Second Row - 4 KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          title="Total Donations"
-          value={stats?.totalDonationCount || 0}
-          icon={Hash}
-          color="bg-background"
-          tooltip="Total count of all donations made"
-        />
-        <StatCard
-          title="Single Donations"
-          value={stats?.singleDonations || 0}
-          icon={CreditCard}
-          color="bg-background"
-          tooltip="One-time payments"
-        />
-        <StatCard
-          title="Recurring Donations"
-          value={stats?.recurringDonations || 0}
-          icon={RepeatIcon}
-          color="bg-background"
-          tooltip="Ongoing subscriptions"
-        />
-        <StatCard
-          title="Installment Donations"
-          value={stats?.installmentDonations || 0}
-          icon={Layers}
-          color="bg-background"
-          tooltip="Fixed-term payments"
-        />
+      {/* KPI Row 2 — Counts */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <KpiCard title="Total Donations" value={stats?.totalDonationCount || 0} icon={Hash}
+          color={accentColor} delta={`${stats?.completedOrders || 0} completed`} defaultSpark={DEFAULT_SPARKS.rising} index={4} />
+        <KpiCard title="One-Time" value={stats?.singleDonations || 0} icon={CreditCard}
+          color="#059669" defaultSpark={DEFAULT_SPARKS.steady} index={5} />
+        <KpiCard title="Recurring" value={stats?.recurringDonations || 0} icon={RepeatIcon}
+          color="#8B5CF6" defaultSpark={DEFAULT_SPARKS.dip} index={6} />
+        <KpiCard title="Installments" value={stats?.installmentDonations || 0} icon={Layers}
+          color="#F59E0B" defaultSpark={DEFAULT_SPARKS.flat} index={7} />
       </div>
 
-      {/* Charts Section - Row Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Monthly Donation Trend */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          <h2 className="text-lg font-semibold text-primary mb-4">Monthly Donation Trend</h2>
-          <div className="h-72">
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Area Chart — 2 cols */}
+        <motion.div variants={fadeUp} custom={9}
+          className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <h2 className="text-sm font-semibold text-primary mb-4">Monthly Trend</h2>
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={
-                  stats?.monthlyStats
-                    ?.map((item) => {
-                      // More robust month parsing
-                      const monthNames = [
-                        'January', 'February', 'March', 'April', 'May', 'June',
-                        'July', 'August', 'September', 'October', 'November', 'December'
-                      ];
-                      
-                      const shortMonthNames = [
-                        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                      ];
-                      
-                      // Clean the month string
-                      const cleanMonth = item.month?.toString().trim();
-                      
-                      // Find month index - try full names first, then short names
-                      let monthIndex = monthNames.findIndex(m => 
-                        m.toLowerCase() === cleanMonth?.toLowerCase()
-                      );
-                      
-                      if (monthIndex === -1) {
-                        monthIndex = shortMonthNames.findIndex(m => 
-                          m.toLowerCase() === cleanMonth?.toLowerCase()
-                        );
-                      }
-                      
-                      // If still not found, try parsing as number
-                      if (monthIndex === -1 && !isNaN(cleanMonth)) {
-                        monthIndex = parseInt(cleanMonth) - 1;
-                      }
-                      
-                      // Default to 0 if parsing failed
-                      if (monthIndex === -1) {
-                        monthIndex = 0;
-                      }
-                      
-                      return {
-                        ...item,
-                        monthNumber: monthIndex + 1,
-                        monthName: shortMonthNames[monthIndex],
-                        count: item.count || 0,
-                      };
-                    })
-                    // Sort by month number to ensure correct order
-                    .sort((a, b) => a.monthNumber - b.monthNumber) || []
-                }
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="monthName"
-                  label={{ value: "Month", position: "insideBottomRight", offset: -5 }}
-                  tickFormatter={(value) => value}
+              <AreaChart data={monthlyData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="donationGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={accentColor} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={accentColor} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}
+                  formatter={(value) => [`${value} donations`, "Count"]}
                 />
-                <YAxis
-                  label={{ value: "Donations", angle: -90, position: "insideLeft", offset: 15 }}
-                  tickMargin={10}
-                  width={80}
-                  domain={[0, "dataMax + 5"]}
-                />
-                <Tooltip formatter={(value) => [`${value} donations`, "Count"]} />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  name="Number of Donations"
-                  stroke="#059669"
-                  strokeWidth={2}
-                  dot={{ stroke: "#059669", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
+                <Area type="monotone" dataKey="count" stroke={accentColor} strokeWidth={2.5}
+                  fill="url(#donationGrad)" dot={{ fill: accentColor, strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, strokeWidth: 0 }} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Donation Types Pie Chart */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          <h2 className="text-lg font-semibold text-primary mb-4">Donation Types Distribution</h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={[
-                    { name: "Single Donations", value: stats?.singleDonations || 0, fill: "#059669" },
-                    { name: "Recurring Donations", value: stats?.recurringDonations || 0, fill: "#10B981" },
-                    { name: "Installment Donations", value: stats?.installmentDonations || 0, fill: "#34D399" },
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={true}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  nameKey="name"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                ></Pie>
-                <Tooltip formatter={(value, name) => [`${value} donations`, name]} />
-                <Legend layout="vertical" verticalAlign="middle" align="right" />
-              </PieChart>
-            </ResponsiveContainer>
+        {/* Donut Chart — 1 col */}
+        <motion.div variants={fadeUp} custom={10}
+          className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center justify-center">
+          <h2 className="text-sm font-semibold text-primary mb-4 self-start">Donation Types</h2>
+          <DonutChart segments={[
+            { name: "Single", value: stats?.singleDonations || 0, color: DONUT_COLORS[0] },
+            { name: "Recurring", value: stats?.recurringDonations || 0, color: DONUT_COLORS[1] },
+            { name: "Installment", value: stats?.installmentDonations || 0, color: DONUT_COLORS[2] },
+          ]} />
+          <div className="flex gap-4 mt-4">
+            {[
+              { name: "Single", color: DONUT_COLORS[0], val: stats?.singleDonations || 0 },
+              { name: "Recurring", color: DONUT_COLORS[1], val: stats?.recurringDonations || 0 },
+              { name: "Installment", color: DONUT_COLORS[2], val: stats?.installmentDonations || 0 },
+            ].map((item) => (
+              <div key={item.name} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                <span className="text-[11px] text-text-muted">{item.name} ({item.val})</span>
+              </div>
+            ))}
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Paid vs Pending Donations Chart */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-        <h2 className="text-lg font-semibold text-primary mb-4">Donation Status Overview</h2>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={[
-                  { name: "Paid Donations", value: stats?.paidDonated || 0, fill: "#059669" },
-                  { name: "Pending Donations", value: stats?.pendingAmount || 0, fill: "#F59E0B" },
-                ]}
-                cx="50%"
-                cy="50%"
-                labelLine={true}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-                nameKey="name"
-                label={({ name, percent, value }) => 
-                  value > 0 ? `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(0)}%)` : ''
-                }
-              ></Pie>
-              <Tooltip formatter={(value, name) => [formatCurrency(value), name]} />
-              <Legend layout="vertical" verticalAlign="middle" align="right" />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* Recent Donations Table */}
+      <motion.div variants={fadeUp} custom={11}
+        className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-primary">Recent Donations</h2>
+          <span className="text-[11px] text-text-muted">{orders.length} total</span>
         </div>
-      </div>
+        {orders.length === 0 ? (
+          <div className="py-8 text-center text-sm text-text-muted">No donations yet</div>
+        ) : (
+          <div>
+            {orders.slice(0, 8).map((order) => (
+              <DonationRow key={order._id} donation={order} formatCurrency={formatCurrency} />
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+};
 
-      {/* Recent Donations */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold text-primary">Recent Donations</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {orders.slice(0, 6).map((order) => (
-            <DonationCard key={order._id} donation={order} />
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default UserDashboard
+export default UserDashboard;

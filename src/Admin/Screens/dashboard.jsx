@@ -4,9 +4,6 @@ import { useState, useEffect } from "react"
 import {
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,6 +15,8 @@ import {
 } from "recharts"
 import { DollarSign, TrendingUp, Users, Calendar, ArrowUp, ArrowDown, Clock, RefreshCcw } from "lucide-react"
 import axiosInstance from "../../services/axios"
+import Loader from "../../components/Loader"
+import KpiCard, { DEFAULT_SPARKS } from "../../components/KpiCard"
 
 // Chart colors read from CSS variables at runtime
 function getChartColors() {
@@ -32,30 +31,35 @@ const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-xl shadow-lg border border-gray-100 ${className}`}>{children}</div>
 )
 
-const StatCard = ({ title, value, change, icon: Icon, trend, tooltip }) => (
-  <Card className="p-6 hover:shadow-xl transition-shadow duration-300">
-    <div className="flex items-center justify-between">
-      <div className="flex-1">
-        <p className="text-sm text-gray-600 font-medium">{title}</p>
-        <h3 className="text-2xl font-bold mt-1 text-primary">{value}</h3>
-        {change && (
-          <div className="flex items-center mt-2">
-            {trend === "up" ? (
-              <ArrowUp className="w-4 h-4 text-accent" />
-            ) : (
-              <ArrowDown className="w-4 h-4 text-red-600" />
-            )}
-            <span className={`text-sm ml-1 ${trend === "up" ? "text-accent" : "text-red-600"}`}>{change}</span>
-          </div>
-        )}
-      </div>
-      <div className="p-4 bg-background rounded-full">
-        <Icon className="w-6 h-6 text-accent" />
-      </div>
-    </div>
-    {tooltip && <div className="mt-2 text-xs text-gray-500">{tooltip}</div>}
-  </Card>
-)
+const DONUT_COLORS = ["#34D399", "#818CF8", "#FB923C", "#F472B6", "#38BDF8", "#FBBF24"];
+
+/* SVG Donut with rounded caps */
+const DonutChart = ({ segments, size = 160, label }) => {
+  const r = 58; const c = 2 * Math.PI * r; const gap = 8;
+  let offset = 0;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  return (
+    <svg width={size} height={size} viewBox="0 0 140 140">
+      <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+      {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
+        const pct = seg.value / total;
+        const dashLen = Math.max(0, pct * c - gap);
+        const el = (
+          <circle key={i} cx="70" cy="70" r={r} fill="none"
+            stroke={seg.color} strokeWidth="16" strokeLinecap="round"
+            strokeDasharray={`${dashLen} ${c - dashLen}`}
+            strokeDashoffset={-offset}
+            transform="rotate(-90 70 70)" />
+        );
+        offset += pct * c;
+        return el;
+      })}
+      <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{total}</text>
+      <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">{label || "total"}</text>
+    </svg>
+  );
+};
+
 
 const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true)
@@ -85,21 +89,37 @@ const AdminDashboard = () => {
     recentActivity: [],
   })
 
-  // Add state for donor stats
   const [donorStats, setDonorStats] = useState({
     totalDonors: 0,
     totalAmount: 0,
     averageDonation: 0,
     recurringDonations: 0,
   })
+  const [dateFilter, setDateFilter] = useState("all")
+
+  const getDateRange = (preset) => {
+    const now = new Date();
+    const params = {};
+    if (preset === "7d") {
+      params.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
+    } else if (preset === "15d") {
+      params.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 15).toISOString();
+    } else if (preset === "30d") {
+      params.startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString();
+    } else if (preset === "90d") {
+      params.startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString();
+    }
+    return params;
+  };
 
   // Fetch all dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true)
       try {
+        const dateParams = getDateRange(dateFilter);
         const [orderStats, subscriptionStats, topDonors, donorStats] = await Promise.all([
-          axiosInstance.get("/admin/orders/dashboard/stats"),
+          axiosInstance.get("/admin/orders/dashboard/stats", { params: dateParams }),
           axiosInstance.get("/admin/subscriptions/dashboard/subscription-stats"),
           axiosInstance.get("/admin/orders/dashboard/top-donors"),
           axiosInstance.get("/admin/donors/dashboard/stats"), // Added donor stats endpoint
@@ -107,21 +127,23 @@ const AdminDashboard = () => {
 
         console.log("Order Stats Response:", orderStats.data.stats)
 
+        const s = orderStats.data.stats;
         setDashboardData({
           orderStats: {
-            // Use the new stats structure
-            totalAmount: orderStats.data.stats.totalAmount || orderStats.data.stats.totalDonated || 0,
-            totalAmountReceived: orderStats.data.stats.totalAmountReceived || orderStats.data.stats.paidDonated || orderStats.data.stats.paidAmount || 0,
-            paidAmount: orderStats.data.stats.paidAmount || orderStats.data.stats.paidDonated || 0,
-            pendingAmount: orderStats.data.stats.pendingAmount || 0,
-            averageDonation: orderStats.data.stats.averageDonation || 0,
-            recurringDonations: orderStats.data.stats.recurringDonations || 0,
-            oneTimeDonations: orderStats.data.stats.oneTimeDonations || 0,
-            installmentDonations: orderStats.data.stats.installmentDonations || 0,
-            activeRecurring: orderStats.data.stats.activeRecurring || 0,
-            monthlyRecurringRevenue: orderStats.data.stats.monthlyRecurringRevenue || 0,
-            successRate: orderStats.data.stats.successRate || 0,
-            totalDonations: orderStats.data.stats.totalDonations || 0,
+            totalAmount: s.totalAmount || s.totalDonated || 0,
+            totalAmountReceived: s.totalAmountReceived || s.paidDonated || s.paidAmount || 0,
+            paidAmount: s.paidAmount || s.paidDonated || 0,
+            pendingAmount: s.pendingAmount || 0,
+            averageDonation: s.averageDonation || 0,
+            recurringDonations: s.recurringDonations || 0,
+            oneTimeDonations: s.oneTimeDonations || 0,
+            installmentDonations: s.installmentDonations || 0,
+            activeRecurring: s.activeRecurring || 0,
+            monthlyRecurringRevenue: s.monthlyRecurringRevenue || 0,
+            successRate: s.successRate || 0,
+            totalDonations: s.totalDonations || 0,
+            monthlyTrend: s.monthlyTrend || [],
+            recentDonations: s.recentDonations || [],
           },
           subscriptionStats: subscriptionStats.data.data.stats,
           topDonors: topDonors.data.topDonors,
@@ -145,7 +167,7 @@ const AdminDashboard = () => {
     }
 
     fetchDashboardData()
-  }, [])
+  }, [dateFilter])
 
   if (error) {
     return (
@@ -155,13 +177,7 @@ const AdminDashboard = () => {
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background/30 p-6 flex items-center justify-center">
-        <p className="text-accent">Loading dashboard data...</p>
-      </div>
-    )
-  }
+  if (isLoading) return <Loader />
 
   const { orderStats, subscriptionStats, topDonors } = dashboardData
 
@@ -294,92 +310,60 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background/30 lg:p-6 space-y-6">
-      <div className="flex justify-between items-center flex-col lg:flex-row mt-20 lg:mt-0">
+      <div className="flex justify-between items-start flex-col lg:flex-row gap-4 mt-20 lg:mt-0">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Dashboard Overview</h1>
-          <p className="text-accent mt-1">Monitor your donation metrics and impact</p>
+          <h1 className="text-2xl font-heading font-bold text-primary">Dashboard Overview</h1>
+          <p className="text-sm text-text-muted mt-0.5">Monitor your donation metrics and impact</p>
         </div>
-        <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm">
-          <Calendar className="w-4 h-4 text-accent" />
-          <span className="text-sm text-gray-600">Last updated: </span>
-          <span className="text-sm font-medium text-primary">{new Date().toLocaleDateString()}</span>
+        <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-gray-100 shadow-sm">
+          {[
+            { key: "all", label: "All Time" },
+            { key: "90d", label: "90 Days" },
+            { key: "30d", label: "30 Days" },
+            { key: "15d", label: "15 Days" },
+            { key: "7d", label: "This Week" },
+          ].map(({ key, label }) => (
+            <button key={key} onClick={() => setDateFilter(key)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                dateFilter === key
+                  ? "bg-accent text-white shadow-sm"
+                  : "text-text-muted hover:text-primary hover:bg-gray-50"
+              }`}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        <StatCard
-          title="Total Donations Amount"
-          value={`$${orderStats.totalAmount.toLocaleString()}`}
-          icon={DollarSign}
-          tooltip="Total amount of all donations from all users"
-        />
-
-        <StatCard
-          title="Total Amount Received"
-          value={`$${orderStats.totalAmountReceived.toLocaleString()}`}
-          icon={DollarSign}
-          tooltip="Total amount of payments received (including paid recurring and installments)"
-        />
-
-        <StatCard
-          title="Pending Amount"
-          value={`$${orderStats.pendingAmount.toLocaleString()}`}
-          icon={Clock}
-          tooltip="Remaining payments to be received from all users"
-        />
-
-        <StatCard
-          title="Monthly Recurring Revenue"
-          value={`$${orderStats.monthlyRecurringRevenue.toLocaleString()}`}
-          icon={TrendingUp}
-          tooltip="Monthly revenue from paid recurring transactions"
-        />
-
-        <StatCard
-          title="Active Recurring"
-          value={orderStats.activeRecurring}
-          icon={RefreshCcw}
-          tooltip="Number of active recurring and installment donations"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <KpiCard title="Total Donations" value={`$${orderStats.totalAmount.toLocaleString()}`}
+          icon={DollarSign} color="#059669"
+          sparkData={orderStats.monthlyTrend?.map(m => m.amount)} defaultSpark={DEFAULT_SPARKS.rising} />
+        <KpiCard title="Amount Received" value={`$${orderStats.totalAmountReceived.toLocaleString()}`}
+          icon={DollarSign} color="#8B5CF6"
+          sparkData={orderStats.monthlyTrend?.map(m => m.count)} defaultSpark={DEFAULT_SPARKS.steady} />
+        <KpiCard title="Pending" value={`$${orderStats.pendingAmount.toLocaleString()}`}
+          icon={Clock} color="#F59E0B" defaultSpark={DEFAULT_SPARKS.dip} />
+        <KpiCard title="Monthly Recurring" value={`$${orderStats.monthlyRecurringRevenue.toLocaleString()}`}
+          icon={TrendingUp} color="#EC4899" defaultSpark={DEFAULT_SPARKS.wave} />
+        <KpiCard title="Active Recurring" value={orderStats.activeRecurring}
+          icon={RefreshCcw} color="#06B6D4"
+          delta={`${Math.round(orderStats.successRate || 0)}% success`} defaultSpark={DEFAULT_SPARKS.rising} />
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <StatCard
-          title="Total Donations"
-          value={orderStats.totalDonations}
-          icon={Users}
-          tooltip="Total number of donations made"
-        />
-
-        <StatCard
-          title="One-Time Donations"
-          value={orderStats.oneTimeDonations}
-          icon={DollarSign}
-          tooltip="Number of one-time donations"
-        />
-
-        <StatCard
-          title="Recurring Donations"
-          value={orderStats.recurringDonations}
-          icon={RefreshCcw}
-          tooltip="Number of recurring donations"
-        />
-
-        <StatCard
-          title="Installment Donations"
-          value={orderStats.installmentDonations}
-          icon={Calendar}
-          tooltip="Number of installment donations"
-        />
-
-        <StatCard
-          title="Average Donation"
-          value={`${orderStats.averageDonation.toLocaleString()}`}
-          icon={TrendingUp}
-          tooltip="Average donation amount across all users"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard title="Total Count" value={orderStats.totalDonations}
+          icon={Users} color="#059669" defaultSpark={DEFAULT_SPARKS.rising} />
+        <KpiCard title="One-Time" value={orderStats.oneTimeDonations}
+          icon={DollarSign} color="#8B5CF6" defaultSpark={DEFAULT_SPARKS.steady} />
+        <KpiCard title="Recurring" value={orderStats.recurringDonations}
+          icon={RefreshCcw} color="#EC4899" defaultSpark={DEFAULT_SPARKS.dip} />
+        <KpiCard title="Installments" value={orderStats.installmentDonations}
+          icon={Calendar} color="#F59E0B" defaultSpark={DEFAULT_SPARKS.flat} />
+        <KpiCard title="Average" value={`$${Math.round(orderStats.averageDonation).toLocaleString()}`}
+          icon={TrendingUp} color="#06B6D4" defaultSpark={DEFAULT_SPARKS.wave} />
       </div>
 
       {/* Charts Grid */}
@@ -464,115 +448,45 @@ const AdminDashboard = () => {
           </div>
         </Card>
 
-        {/* Payment Status Breakdown Pie Chart */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold text-primary mb-6">Payment Status Breakdown</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={revenueBreakdownData}
-                  cx="50%"
-                  cy="45%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  nameKey="name"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                >
-                  {revenueBreakdownData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => [`${value.toLocaleString()}`, ""]}
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "0.5rem",
-                  }}
-                />
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36}
-                  wrapperStyle={{
-                    paddingTop: "20px",
-                    fontSize: "14px"
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <div className="bg-background rounded-lg p-3">
-              <p className="text-sm text-accent">Amount Received</p>
-              <p className="text-lg font-semibold text-primary">
-                ${orderStats.totalAmountReceived.toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-accent/5 rounded-lg p-3">
-              <p className="text-sm text-text-muted">Pending Amount</p>
-              <p className="text-lg font-semibold text-primary">
-                ${orderStats.pendingAmount.toLocaleString()}
-              </p>
-            </div>
+        {/* Payment Status Donut */}
+        <Card className="p-6 flex flex-col items-center">
+          <h2 className="text-lg font-semibold text-primary mb-6 self-start">Payment Status</h2>
+          <DonutChart label="payments" segments={[
+            { name: "Received", value: orderStats.totalAmountReceived || 0, color: DONUT_COLORS[0] },
+            { name: "Pending", value: orderStats.pendingAmount || 0, color: DONUT_COLORS[2] },
+          ]} />
+          <div className="flex gap-4 mt-4">
+            {[
+              { name: "Received", color: DONUT_COLORS[0], val: `$${orderStats.totalAmountReceived?.toLocaleString()}` },
+              { name: "Pending", color: DONUT_COLORS[2], val: `$${orderStats.pendingAmount?.toLocaleString()}` },
+            ].map((item) => (
+              <div key={item.name} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                <span className="text-[11px] text-text-muted">{item.name}: {item.val}</span>
+              </div>
+            ))}
           </div>
         </Card>
 
-        {/* Donation Types Breakdown */}
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold text-primary mb-6">Donation Types</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={retentionData}
-                  cx="50%"
-                  cy="45%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  nameKey="name"
-                  label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
-                >
-                  {retentionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => [value, "Count"]}
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "0.5rem",
-                  }}
-                />
-                <Legend 
-                  verticalAlign="bottom" 
-                  height={36}
-                  wrapperStyle={{
-                    paddingTop: "20px",
-                    fontSize: "14px"
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <div className="bg-background rounded-lg p-3">
-              <p className="text-sm text-accent">One-Time</p>
-              <p className="text-lg font-semibold text-primary">{orderStats.oneTimeDonations}</p>
-            </div>
-            <div className="bg-accent/10 rounded-lg p-3">
-              <p className="text-sm text-accent">Recurring</p>
-              <p className="text-lg font-semibold text-accent">{orderStats.recurringDonations}</p>
-            </div>
-            <div className="bg-accent/10 rounded-lg p-3">
-              <p className="text-sm text-accent">Installments</p>
-              <p className="text-lg font-semibold text-accent">{orderStats.installmentDonations}</p>
-            </div>
+        {/* Donation Types Donut */}
+        <Card className="p-6 flex flex-col items-center">
+          <h2 className="text-lg font-semibold text-primary mb-6 self-start">Donation Types</h2>
+          <DonutChart label="donations" segments={[
+            { name: "One-Time", value: orderStats.oneTimeDonations || 0, color: DONUT_COLORS[0] },
+            { name: "Recurring", value: orderStats.recurringDonations || 0, color: DONUT_COLORS[1] },
+            { name: "Installments", value: orderStats.installmentDonations || 0, color: DONUT_COLORS[2] },
+          ]} />
+          <div className="flex gap-4 mt-4">
+            {[
+              { name: "One-Time", color: DONUT_COLORS[0], val: orderStats.oneTimeDonations },
+              { name: "Recurring", color: DONUT_COLORS[1], val: orderStats.recurringDonations },
+              { name: "Installments", color: DONUT_COLORS[2], val: orderStats.installmentDonations },
+            ].map((item) => (
+              <div key={item.name} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                <span className="text-[11px] text-text-muted">{item.name} ({item.val})</span>
+              </div>
+            ))}
           </div>
         </Card>
 
@@ -598,6 +512,51 @@ const AdminDashboard = () => {
           </div>
         </Card>
       </div>
+
+      {/* Recent Donations */}
+      {orderStats.recentDonations?.length > 0 && (
+        <Card className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-primary">Recent Donations</h2>
+            <span className="text-[11px] text-text-muted">{orderStats.recentDonations.length} latest</span>
+          </div>
+          <div>
+            {orderStats.recentDonations.map((d) => {
+              const statusStyles = {
+                completed: "bg-green-50 text-green-700",
+                pending: "bg-yellow-50 text-yellow-700",
+                processing: "bg-blue-50 text-blue-700",
+                failed: "bg-red-50 text-red-700",
+                active: "bg-green-50 text-green-700",
+              };
+              return (
+                <div key={d._id} className="flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <DollarSign className="w-4 h-4 text-accent" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-primary">#{d.donationId}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-[11px] text-text-muted">{d.donorName} · {new Date(d.createdAt).toLocaleDateString()}</p>
+                        <span className="text-[10px] bg-accent/8 text-accent/80 px-1.5 py-0.5 rounded font-medium capitalize">{d.donationType}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusStyles[d.paymentStatus] || "bg-gray-100 text-gray-600"}`}>
+                      {d.paymentStatus}
+                    </span>
+                    <span className="text-sm font-semibold text-primary min-w-[70px] text-right">
+                      ${d.totalAmount?.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

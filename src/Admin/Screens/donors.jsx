@@ -1,8 +1,11 @@
 //donors.jsx
 import React, { useState, useEffect } from "react";
-import PageLoader from "../../components/PageLoader";
+import { motion } from "framer-motion";
+import Loader from "../../components/Loader";
 import {
   Search,
+  LayoutGrid,
+  List,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,7 +19,7 @@ import {
   Heart,
   TrendingUp,
   Download,
-  Loader,
+  Loader2,
 } from "lucide-react";
 import {
   LineChart,
@@ -28,6 +31,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import axiosInstance from "../../services/axios";
+import KpiCard from "../../components/KpiCard";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -429,6 +433,7 @@ const DonorsPage = () => {
     direction: "desc",
   });
   const [selectedDonor, setSelectedDonor] = useState(null);
+  const [viewMode, setViewMode] = useState("grid");
   const [isExporting, setIsExporting] = useState(false);
   const [donors, setDonors] = useState([]);
   const [stats, setStats] = useState({
@@ -537,240 +542,195 @@ const DonorsPage = () => {
     );
   }
 
-  return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-primary">Donors</h1>
-      </div>
+  const fadeUp = { hidden: { opacity: 0, y: 16 }, visible: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.4 } }) };
 
-      {isLoading ? (
-        <PageLoader />
+  return (
+    <motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen" initial="hidden" animate="visible">
+      {/* Header */}
+      <motion.div variants={fadeUp} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-primary">Donors</h1>
+          <p className="text-sm text-text-muted mt-0.5">{pagination.total || 0} total donors</p>
+        </div>
+      </motion.div>
+
+      {isLoading && donors.length === 0 ? (
+        <Loader />
       ) : (
         <>
-          {/* Stats Cards */}
+          {/* KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Total Donors</p>
-                  <p className="text-2xl font-bold text-primary">{stats.totalDonors || 0}</p>
-                  <p className="text-xs text-accent">
-                  Total Number of donors
-                  </p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <User className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Total Donations</p>
-                  <p className="text-2xl font-bold text-primary">
-                ${(stats.totalAmount || 0).toLocaleString()}         
-              </p>
-                  <p className="text-xs text-accent">
-                  Total amount of donations by all donors (including paid and unpaid installments and recurring donations)
-                  </p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <DollarSign className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Average Donation</p>
-                  <p className="text-2xl font-bold text-primary">
-                ${(stats.averageDonation || 0).toLocaleString()}
-              </p>
-                  <p className="text-xs text-accent">
-                  Average of donations by all donors
-                  </p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <TrendingUp className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Recurring Donors</p>
-                  <p className="text-2xl font-bold text-primary">
-                {stats.recurringDonations || 0}
-              </p>
-                  <p className="text-xs text-accent">
-                    Number of donors with recurring donations
-                  </p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <Heart className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
+            <KpiCard title="Total Donors" value={stats.totalDonors || 0} icon={User} color="#059669" animate={false} />
+            <KpiCard title="Total Donations" value={`$${(stats.totalAmount || 0).toLocaleString()}`} icon={DollarSign} color="#8B5CF6" animate={false} />
+            <KpiCard title="Average Donation" value={`$${(stats.averageDonation || 0).toLocaleString()}`} icon={TrendingUp} color="#06B6D4" animate={false} />
+            <KpiCard title="Recurring Donors" value={stats.recurringDonations || 0} icon={Heart} color="#EC4899" animate={false} />
           </div>
 
-          {/* Donors Table */}
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-              <div className="flex flex-col lg:flex-row gap-2 items-center space-x-4 w-full md:w-auto">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search donors..."
-                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                </div>
-                <select
-                  className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                >
-                  <option value="All">All Types</option>
-                  <option value="single">One-time</option>
-                  <option value="recurring">Recurring</option>
-                  <option value="installments">Installments</option>
-                </select>
+          {/* Toolbar */}
+          <motion.div variants={fadeUp} custom={1}
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative">
+                <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search donors..."
+                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-56" />
               </div>
-              <button
-                onClick={handleExportDonors}
-                disabled={isExporting}
-                className="flex items-center space-x-2 px-4 py-2 bg-background text-accent rounded-lg hover:bg-accent/10 transition-colors disabled:opacity-50"
-              >
-                {isExporting ? (
-                  <Loader className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Download className="w-5 h-5" />
-                )}
-                <span>Export</span>
-              </button>
+              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
+                <option value="All">All Types</option>
+                <option value="single">One-time</option>
+                <option value="recurring">Recurring</option>
+                <option value="installments">Installments</option>
+              </select>
+              {/* View toggle */}
+              <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                <button onClick={() => setViewMode("grid")}
+                  className={`p-2 transition-colors ${viewMode === "grid" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50"}`}>
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button onClick={() => setViewMode("table")}
+                  className={`p-2 transition-colors ${viewMode === "table" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50"}`}>
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              {isLoading ? (
-                <div className="text-center py-4">Loading...</div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Donor ID
+            <button onClick={handleExportDonors} disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 disabled:opacity-50">
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Export
+            </button>
+          </motion.div>
+
+          {/* Grid View */}
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {donors.map((donor, i) => (
+                <motion.div key={donor.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => setSelectedDonor(donor)}>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <User className="w-5 h-5 text-accent" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-primary truncate">{donor.name}</p>
+                      <p className="text-xs text-text-muted truncate">{donor.email}</p>
+                    </div>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                      donor.donationType === "recurring" ? "bg-violet-50 text-violet-700" :
+                      donor.donationType === "installments" ? "bg-amber-50 text-amber-700" :
+                      "bg-emerald-50 text-emerald-700"
+                    }`}>{donor.donationType || "one-time"}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-background rounded-lg p-2.5 text-center">
+                      <p className="text-xs text-text-muted">Donated</p>
+                      <p className="text-sm font-bold text-primary">${donor.totalDonated?.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-2.5 text-center">
+                      <p className="text-xs text-text-muted">Count</p>
+                      <p className="text-sm font-bold text-primary">{donor.donationCount || 0}</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-2.5 text-center">
+                      <p className="text-xs text-text-muted">Last</p>
+                      <p className="text-sm font-bold text-primary">
+                        {donor.lastDonationDate ? new Date(donor.lastDonationDate).toLocaleDateString("en-AU", { day: "numeric", month: "short" }) : "—"}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            /* Table View */
+            <motion.div variants={fadeUp} custom={2}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">ID</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("name")}>
+                        Donor <ChevronDown className="w-3 h-3 inline ml-0.5" />
                       </th>
-                      <th
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort("name")}
-                      >
-                        Donor <ChevronDown className="w-4 h-4 inline-block ml-1" />
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("totalDonated")}>
+                        Donated <ChevronDown className="w-3 h-3 inline ml-0.5" />
                       </th>
-                      <th
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort("totalDonated")}
-                      >
-                        Total Donated <ChevronDown className="w-4 h-4 inline-block ml-1" />
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Type</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("lastDonationDate")}>
+                        Last Donation <ChevronDown className="w-3 h-3 inline ml-0.5" />
                       </th>
-                      <th
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort("lastDonationDate")}
-                      >
-                        Last Donation <ChevronDown className="w-4 h-4 inline-block ml-1" />
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider"></th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody>
                     {donors.map((donor) => (
-                      <tr key={donor.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <p className="text-sm font-medium text-primary">
-                            {donor.id.slice(-4)}
-                          </p>
+                      <tr key={donor.id} className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors">
+                        <td className="px-4 py-3.5 text-sm font-medium text-text-muted">{donor.id.slice(-4)}</td>
+                        <td className="px-4 py-3.5">
+                          <p className="text-sm font-medium text-primary">{donor.name}</p>
+                          <p className="text-xs text-text-muted">{donor.email}</p>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-primary">
-                              {donor.name}
-                            </div>
-                            <div className="text-sm text-accent">{donor.email}</div>
-                          </div>
+                        <td className="px-4 py-3.5 text-sm font-semibold text-primary">${donor.totalDonated?.toLocaleString()}</td>
+                        <td className="px-4 py-3.5">
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${
+                            donor.donationType === "recurring" ? "bg-violet-50 text-violet-700" :
+                            donor.donationType === "installments" ? "bg-amber-50 text-amber-700" :
+                            "bg-emerald-50 text-emerald-700"
+                          }`}>{donor.donationType || "one-time"}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-primary">
-                            ${donor.totalDonated.toLocaleString()}
-                          </div>
+                        <td className="px-4 py-3.5 text-sm text-text-muted">
+                          {donor.lastDonationDate ? new Date(donor.lastDonationDate).toLocaleDateString() : "—"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-accent">
-                          {new Date(donor.lastDonationDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-accent">
-                          <button
-                            onClick={() => setSelectedDonor(donor)}
-                            className="text-accent hover:text-primary"
-                          >
-                            View Details
-                          </button>
+                        <td className="px-4 py-3.5">
+                          <button onClick={() => setSelectedDonor(donor)} className="text-xs text-accent hover:text-primary font-medium">Details</button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            </motion.div>
+          )}
 
-            {/* Pagination */}
-            <div className="flex justify-between items-center mt-6">
-              <div className="text-sm text-accent">
-                Showing {(pagination.currentPage - 1) * pagination.perPage + 1} to{" "}
-                {Math.min(pagination.currentPage * pagination.perPage, pagination.total)} of{" "}
-                {pagination.total} entries
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg ${
-                    currentPage === 1
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-accent hover:bg-background"
-                  }`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => i + 1).map(
-                  (pageNum) => (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1 rounded-lg ${
-                        currentPage === pageNum
-                          ? "bg-accent text-white"
-                          : "text-accent hover:bg-background"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                )}
-                <button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === pagination.pages}
-                  className={`p-2 rounded-lg ${
-                    currentPage === pagination.pages
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-accent hover:bg-background"
-                  }`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+          {/* Empty state */}
+          {donors.length === 0 && !isLoading && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+              <User className="w-10 h-10 mx-auto mb-3 text-text-muted" />
+              <p className="text-primary font-medium mb-1">No donors found</p>
+              <p className="text-sm text-text-muted">
+                {searchTerm || selectedType !== "All" ? "Try adjusting your filters" : "No donors in the system yet"}
+              </p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-text-muted">
+                {(pagination.currentPage - 1) * pagination.perPage + 1}–{Math.min(pagination.currentPage * pagination.perPage, pagination.total)} of {pagination.total}
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+                {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                  let pg;
+                  if (pagination.pages <= 5) pg = i + 1;
+                  else if (currentPage <= 3) pg = i + 1;
+                  else if (currentPage >= pagination.pages - 2) pg = pagination.pages - (4 - i);
+                  else pg = currentPage - 2 + i;
+                  return (
+                    <button key={i} onClick={() => setCurrentPage(pg)}
+                      className={`w-8 h-8 rounded-lg text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
+                  );
+                })}
+                <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === pagination.pages}
+                  className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Donor Detail Slide-over */}
           {selectedDonor && (
@@ -778,7 +738,7 @@ const DonorsPage = () => {
           )}
         </>
       )}
-    </div>
+    </motion.div>
   );
 };
 

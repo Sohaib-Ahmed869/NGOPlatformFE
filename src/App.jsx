@@ -71,11 +71,13 @@ import PreviousSubscriptions from "./User/Screens/previousSubs";
 import PaymentMethods from "./User/Screens/payments";
 import ProfileSettings from "./User/Screens/profile";
 import UserDashboard from "./User/Screens/dashboard";
+import MyPrograms from "./User/Screens/MyPrograms";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Program pages
 import ProgramsPage from "./pages/Programs/ProgramsPage";
 import ProgramDetailPage from "./pages/Programs/ProgramDetail";
+import ProgramCheckout from "./pages/Programs/ProgramCheckout";
 import AdminPrograms from "./Admin/Screens/Programs";
 
 // SaaS pages
@@ -134,6 +136,7 @@ const TenantRoutes = () => (
     <Route path="/order-confirmation" element={<OrderConfirmation />} />
     <Route path="/programs" element={<ProgramsPage />} />
     <Route path="/programs/:id" element={<ProgramDetailPage />} />
+    <Route path="/program-checkout" element={<ProgramCheckout />} />
 
     {/* Admin Routes */}
     <Route path="/admin/login" element={<AdminLogin />} />
@@ -168,6 +171,7 @@ const TenantRoutes = () => (
       }
     >
       <Route path="donations" element={<UserDonations />} />
+      <Route path="programs" element={<MyPrograms />} />
       <Route path="subscriptions/active" element={<ActiveSubscriptions />} />
       <Route path="dashboard" element={<UserDashboard />} />
       <Route
@@ -260,7 +264,7 @@ const AppLayout = ({ children }) => {
     ].includes(location.pathname) ||
     location.pathname.startsWith("/reset-password") ||
     location.pathname.startsWith("/register");
-  const needsSpacer = ["/checkout", "/order-confirmation"].includes(
+  const needsSpacer = ["/checkout", "/order-confirmation", "/program-checkout"].includes(
     location.pathname
   );
 

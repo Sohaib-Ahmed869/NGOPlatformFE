@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { ArrowRight, Target } from "lucide-react";
 import { useCart } from "../Components/cart";
 import { useTenant } from "../../context/TenantContext";
 import donationTypeService from "../../services/donationtypeservice";
+import programService from "../../services/program.service";
 import DonationSection from "../Home/Donation/donation";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { toast } from "react-hot-toast";
@@ -163,10 +166,122 @@ const QuickDonate = () => {
   );
 };
 
+const ActivePrograms = () => {
+  const [programs, setPrograms] = useState([]);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const res = await programService.getAll();
+        const active = (res.data || []).filter((p) => p.status === "published");
+        setPrograms(active);
+      } catch {
+        /* ignore — section just won't show */
+      }
+    };
+    fetch();
+  }, []);
+
+  if (programs.length === 0) return null;
+
+  return (
+    <section className="py-16 px-4 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          className="text-center mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
+          <span className="inline-block text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-2">
+            Active Programs
+          </span>
+          <h2 className="text-2xl md:text-3xl font-heading font-bold text-primary">
+            Support a specific cause
+          </h2>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {programs.slice(0, 6).map((program, i) => {
+            const pct =
+              program.goalAmount > 0
+                ? Math.min(100, Math.round((program.raisedAmount / program.goalAmount) * 100))
+                : 0;
+            return (
+              <motion.div
+                key={program._id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+              >
+                <Link
+                  to={`/programs/${program._id}`}
+                  className="block bg-background rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-accent/20 transition-all duration-300 overflow-hidden group"
+                >
+                  {program.images?.[program.coverImageIndex || 0] ? (
+                    <img src={program.images[program.coverImageIndex || 0].url} alt={program.title}
+                      className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="h-1 bg-gradient-to-r from-accent to-accent-light" />
+                  )}
+                  <div className="p-5">
+                    <h3 className="text-base font-semibold text-primary mb-1.5 group-hover:text-accent transition-colors">
+                      {program.title}
+                    </h3>
+                    <p className="text-sm text-text-muted line-clamp-2 mb-4">
+                      {program.description || "Help us reach our goal."}
+                    </p>
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs text-text-muted mb-1">
+                        <span className="font-medium text-primary">
+                          ${program.raisedAmount?.toLocaleString()} raised
+                        </span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-accent to-accent-light rounded-full"
+                          initial={{ width: 0 }}
+                          whileInView={{ width: `${pct}%` }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.8, delay: 0.2 }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-text-muted">
+                      <span>Goal: ${program.goalAmount?.toLocaleString()}</span>
+                      <span className="text-accent font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                        Donate <ArrowRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {programs.length > 6 && (
+          <div className="text-center mt-8">
+            <Link
+              to="/programs"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent/80 transition-colors"
+            >
+              View all programs <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
 const DonatePage = () => {
   return (
     <div>
       <QuickDonate />
+      <ActivePrograms />
       <DonationSection />
       <NewsletterSection />
     </div>

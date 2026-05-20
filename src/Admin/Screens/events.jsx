@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import PageLoader from "../../components/PageLoader";
+import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
+import Loader from "../../components/Loader";
 import {
   Calendar,
   Plus,
@@ -13,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  XCircle,
 } from "lucide-react";
 import axiosInstance from "../../services/axios";
 
@@ -120,78 +123,79 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
   }, [event]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-2xl">
+          <h2 className="text-lg font-heading font-semibold text-primary">
             {event?._id ? "Edit Event" : "Create Event"}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 text-gray-400 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
             {/* Image Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-primary mb-1.5">
                 Event Image
               </label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
-                <div className="space-y-1 text-center">
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="mx-auto h-48 w-96 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImagePreview(null);
-                          setImage(null);
-                          // Only clear imageUrl if it's a new form or we're explicitly replacing the image
-                          if (!event?._id) {
-                            setFormData((prev) => ({ ...prev, imageUrl: "" }));
-                          }
-                        }}
-                        className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-lg"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="flex text-sm text-gray-600">
-                        <label className="relative cursor-pointer bg-white rounded-md font-medium text-accent hover:text-accent">
-                          <span>Upload a file</span>
-                          <input
-                            type="file"
-                            className="sr-only"
-                            accept="image/*"
-                            onChange={handleImageChange}
-                          />
-                        </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl hover:border-accent/40 transition-colors">
+                <div className="flex justify-center px-6 pt-5 pb-6">
+                  <div className="space-y-1 text-center">
+                    {imagePreview ? (
+                      <div className="relative">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="mx-auto h-48 w-96 object-cover rounded-xl"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImagePreview(null);
+                            setImage(null);
+                            // Only clear imageUrl if it's a new form or we're explicitly replacing the image
+                            if (!event?._id) {
+                              setFormData((prev) => ({ ...prev, imageUrl: "" }));
+                            }
+                          }}
+                          className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600 mt-2">
+                          <label className="relative cursor-pointer rounded-xl font-medium text-accent hover:text-accent/80 transition-colors">
+                            <span>Upload a file</span>
+                            <input
+                              type="file"
+                              className="sr-only"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                            />
+                          </label>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PNG, JPG, GIF up to 5MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Event Title
+              <label className="block text-sm font-medium text-primary mb-1.5">
+                Event Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -200,14 +204,14 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, title: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Description
+              <label className="block text-sm font-medium text-primary mb-1.5">
+                Description <span className="text-red-500">*</span>
               </label>
               <textarea
                 required
@@ -219,14 +223,14 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                   }))
                 }
                 rows={4}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all resize-none"
               />
             </div>
 
             {/* Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Event Date
+              <label className="block text-sm font-medium text-primary mb-1.5">
+                Event Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
@@ -235,15 +239,15 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, date: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
               />
             </div>
 
             {/* Time */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Start Time
+                <label className="block text-sm font-medium text-primary mb-1.5">
+                  Start Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -255,12 +259,12 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       startTime: e.target.value,
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  End Time
+                <label className="block text-sm font-medium text-primary mb-1.5">
+                  End Time <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="time"
@@ -272,16 +276,16 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       endTime: e.target.value,
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
                 />
               </div>
             </div>
 
-            {/* Location */}
-            <div className="space-y-4">
+            {/* Location - City/Venue side by side */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  City
+                <label className="block text-sm font-medium text-primary mb-1.5">
+                  City <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -293,12 +297,12 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       location: { ...prev.location, city: e.target.value },
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Venue
+                <label className="block text-sm font-medium text-primary mb-1.5">
+                  Venue <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -310,31 +314,33 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       location: { ...prev.location, venue: e.target.value },
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.location.address}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      location: { ...prev.location, address: e.target.value },
-                    }))
-                  }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
                 />
               </div>
             </div>
 
+            {/* Address */}
+            <div>
+              <label className="block text-sm font-medium text-primary mb-1.5">
+                Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.location.address}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    location: { ...prev.location, address: e.target.value },
+                  }))
+                }
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
+              />
+            </div>
+
             {/* Registration Link */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-primary mb-1.5">
                 Registration Link
               </label>
               <input
@@ -346,13 +352,13 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                     registrationLink: e.target.value,
                   }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
               />
             </div>
 
             {/* Status */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-primary mb-1.5">
                 Status
               </label>
               <select
@@ -360,7 +366,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, status: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
               >
                 <option value="upcoming">Upcoming</option>
                 <option value="ongoing">Ongoing</option>
@@ -368,20 +374,19 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex gap-3 mt-2 justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-light disabled:opacity-70"
+              className="px-4 py-2.5 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isSubmitting
                 ? event?._id
@@ -483,6 +488,7 @@ const EventCard = ({ event, onEdit, onDelete }) => {
 const EventsPage = () => {
   const [events, setEvents] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -554,17 +560,15 @@ const EventsPage = () => {
     }
   };
 
-  const handleDelete = async (eventId) => {
-    if (window.confirm("Are you sure you want to delete this event?")) {
-      try {
-        await axiosInstance.delete(`/admin/events/${eventId}`);
-
-        // Refresh events list
-        fetchEvents();
-      } catch (error) {
-        console.error("Error deleting event:", error);
-        alert("Failed to delete event. Please try again.");
-      }
+  const handleDelete = async () => {
+    if (!deleteModal) return;
+    try {
+      await axiosInstance.delete(`/admin/events/${deleteModal}`);
+      setDeleteModal(null);
+      fetchEvents();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      toast.error("Failed to delete event");
     }
   };
 
@@ -575,122 +579,136 @@ const EventsPage = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <motion.div
+      className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Events</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-primary">Events</h1>
+          <p className="text-sm text-text-muted mt-0.5">
+            {events.length} event{events.length !== 1 ? "s" : ""} total
+          </p>
+        </div>
         <button
           onClick={() => {
             setSelectedEvent(null);
             setShowForm(true);
           }}
-          className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light"
+          className="inline-flex items-center px-4 py-2 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent-light transition-colors"
         >
-          <Plus className="w-5 h-5 mr-2" />
+          <Plus className="w-4 h-4 mr-2" />
           Create Event
         </button>
       </div>
 
-      {/* Search */}
-      <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 bg-white p-4 rounded-lg shadow-sm">
-        <div className="flex items-center space-x-4 w-full md:w-auto">
-          <div className="relative flex-1 md:flex-initial">
+      {/* Card wrapper with toolbar */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search events..."
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-colors"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setPage(1); // Reset to first page on new search
+                setPage(1);
               }}
             />
-            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
           </div>
+        </div>
+
+        {/* Error State */}
+        {error && (
+          <div className="mx-4 mt-4 flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl">
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <XCircle className="w-4 h-4 text-red-500" />
+            </div>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="p-4">
+          {loading ? (
+            <Loader />
+          ) : (
+            <>
+              {/* Events Grid */}
+              {events.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {events.map((event) => (
+                    <EventCard
+                      key={event._id}
+                      event={event}
+                      onEdit={openEditForm}
+                      onDelete={(id) => setDeleteModal(id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* Empty State */
+                !error && (
+                  <div className="flex flex-col items-center justify-center py-16 px-4">
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                      <Calendar className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">No events found</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      Get started by creating a new event.
+                    </p>
+                  </div>
+                )
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-5 mt-5 border-t border-gray-100">
+                  <span className="text-xs text-text-muted">
+                    Page {page} of {totalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={page === 1}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
+                      <button
+                        key={pg}
+                        onClick={() => setPage(pg)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
+                          pg === page
+                            ? "bg-accent text-white"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {pg}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={page === totalPages}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-red-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading ? (
-        <PageLoader />
-      ) : (
-        <>
-          {/* Events Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => (
-              <EventCard
-                key={event._id}
-                event={event}
-                onEdit={openEditForm}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {events.length === 0 && !loading && !error && (
-            <div className="text-center py-12">
-              <h3 className="text-lg font-medium text-gray-900">
-                No events found
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                Get started by creating a new event.
-              </p>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center space-x-2 mt-6">
-              <button
-                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                disabled={page === 1}
-                className="p-2 border rounded-md disabled:opacity-50"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <span className="px-4 py-2">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() =>
-                  setPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={page === totalPages}
-                className="p-2 border rounded-md disabled:opacity-50"
-                aria-label="Next page"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-        </>
-      )}
 
       {/* Event Form Modal */}
       {showForm && (
@@ -703,7 +721,31 @@ const EventsPage = () => {
           }}
         />
       )}
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteModal && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteModal(null)} />
+            <motion.div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center"
+              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
+              <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Trash2 className="w-6 h-6 text-red-500" />
+              </div>
+              <h3 className="text-base font-semibold text-primary mb-1">Delete Event?</h3>
+              <p className="text-sm text-text-muted mb-5">This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteModal(null)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium">Cancel</button>
+                <button onClick={handleDelete}
+                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600">Delete</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 

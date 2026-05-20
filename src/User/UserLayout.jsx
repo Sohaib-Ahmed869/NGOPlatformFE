@@ -80,7 +80,7 @@ const UserLayout = () => {
             <button
               className="px-4 py-2 text-white rounded-lg transition-colors"
               style={{ backgroundColor: 'var(--tenant-accent, #C9A84C)' }}
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/donate")}
             >
               Make a Donation
             </button>

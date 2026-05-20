@@ -8,7 +8,7 @@ import { downloadReceipt, downloadPaidPaymentsReceipt } from "./recieptDownloade
 import { formatEndDate } from "./formatEndDate"
 import { generateAnnualStatement, getAvailableFinancialYears } from "./AnnualDonation"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
-import PageLoader from "../../components/PageLoader";
+import AppLoader from "../../components/Loader";
 
 const ITEMS_PER_PAGE = 10
 
@@ -374,7 +374,7 @@ const UserDonations = () => {
 
   if (loading) {
     return (
-      <PageLoader />
+      <AppLoader />
     )
   }
 

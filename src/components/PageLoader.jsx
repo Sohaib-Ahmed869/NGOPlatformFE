@@ -6,9 +6,9 @@
  *   if (loading) return <PageLoader />;
  *   if (loading) return <PageLoader text="Loading donations..." />;
  */
-export default function PageLoader({ text = "Loading..." }) {
+export default function PageLoader({ text = "Loading...", fullScreen = false }) {
   return (
-    <div className="flex flex-col items-center justify-center h-64">
+    <div className={`flex flex-col items-center justify-center ${fullScreen ? "min-h-screen bg-background" : "h-64"}`}>
       <div className="relative">
         {/* Outer ring */}
         <div className="w-10 h-10 rounded-full border-[3px] border-accent/20" />

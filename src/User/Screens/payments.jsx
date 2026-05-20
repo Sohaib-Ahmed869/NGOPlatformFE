@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import PageLoader from "../../components/PageLoader";
+import AppLoader from "../../components/Loader";
 import {
   CreditCard,
   Trash2,
@@ -496,7 +496,7 @@ const PaymentMethods = () => {
       {/* Saved Cards */}
       <div className="space-y-4">
         {loading ? (
-          <PageLoader text="Loading payment methods..." />
+          <AppLoader label="Loading payment methods..." />
         ) : paymentMethods.length === 0 ? (
           <div className="text-center py-8 bg-white rounded-xl border border-accent/10">
             <CreditCard className="w-12 h-12 mx-auto text-gray-400" />

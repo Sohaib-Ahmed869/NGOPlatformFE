@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import PageLoader from "../../components/PageLoader";
+import Loader from "../../components/Loader";
 import {
   User,
   Mail,
@@ -298,7 +298,7 @@ const ProfileSettings = () => {
 
   if (loading) {
     return (
-      <PageLoader />
+      <Loader />
     );
   }
 

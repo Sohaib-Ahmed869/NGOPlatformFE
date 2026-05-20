@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import PageLoader from "../../components/PageLoader";
+import Loader from "../../components/Loader";
 import {
   Upload,
   Trash2,
@@ -173,7 +173,7 @@ export default function Branding() {
 
   if (loading) {
     return (
-      <PageLoader />
+      <Loader />
     );
   }
 

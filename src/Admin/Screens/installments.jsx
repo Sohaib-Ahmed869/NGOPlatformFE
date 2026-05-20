@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import PageLoader from "../../components/PageLoader";
+import { motion } from "framer-motion";
+import Loader from "../../components/Loader";
 import {
   TrendingUp,
   Search,
@@ -9,7 +10,7 @@ import {
   ChevronDown,
   Calendar,
   Filter,
-  Loader,
+  Loader2,
   CheckCircle,
   Info,
   FileText,
@@ -23,6 +24,7 @@ import logo from "../../assets/logo.png";
 import footer2 from "../../assets/footer3.png";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
+import KpiCard from "../../components/KpiCard";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -209,237 +211,145 @@ const AdminInstallments = () => {
 
   if (loading) {
     return (
-      <PageLoader />
+      <Loader />
     );
   }
 
+  const statusStyle = (s) => ({ active: "bg-green-50 text-green-700", completed: "bg-green-50 text-green-700", pending: "bg-yellow-50 text-yellow-700", failed: "bg-red-50 text-red-700", cancelled: "bg-gray-100 text-gray-600", ended: "bg-gray-100 text-gray-600" }[s] || "bg-gray-100 text-gray-600");
+
+  // Donut data from Chart.js getStatusDistribution
+  const donutData = (() => {
+    const COLORS = ["#34D399", "#FB923C", "#818CF8", "#F472B6"];
+    const dist = getStatusDistribution();
+    return (dist.labels || []).map((label, i) => ({
+      name: label, value: dist.datasets?.[0]?.data?.[i] || 0, color: COLORS[i % COLORS.length],
+    }));
+  })();
+  const donutTotal = donutData.reduce((s, d) => s + d.value, 0);
+
   return (
-    <div className="space-y-6">
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Installment Amount</p>
-              <p className="text-2xl font-bold text-primary">
-                ${stats.totalAmount.toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">Total amount of all installment donations</p>
-            </div>
-            <div className="p-3 bg-amber-50 rounded-full">
-              <DollarSign className="w-6 h-6 text-amber-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active Installments</p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.activeInstallments}
-              </p>
-              <p className="text-xs text-gray-500">Number of active installment plans</p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <Layers className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Installments</p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.totalInstallments}
-              </p>
-              <p className="text-xs text-gray-500">Total number of installment plans</p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <CheckCircle className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Average Installment</p>
-              <p className="text-2xl font-bold text-primary">
-                ${stats.averageInstallment.toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">Average amount per installment plan</p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <Info className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
+    <motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <div>
+        <h1 className="text-2xl font-heading font-bold text-primary">Installments</h1>
+        <p className="text-sm text-text-muted mt-0.5">{filteredDonations.length} installment plans</p>
       </div>
 
-      {/* Status Distribution Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-accent/10 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Installment Status Distribution</h2>
-        <div className="w-full max-w-md mx-auto">
-          <Pie data={getStatusDistribution()} options={chartOptions} />
-        </div>
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <KpiCard title="Total Amount" value={`$${stats.totalAmount.toLocaleString()}`} icon={DollarSign} color="#F59E0B" animate={false} />
+        <KpiCard title="Active" value={stats.activeInstallments} icon={Layers} color="#059669" animate={false} />
+        <KpiCard title="Total Plans" value={stats.totalInstallments} icon={CheckCircle} color="#8B5CF6" animate={false} />
+        <KpiCard title="Average" value={`$${stats.averageInstallment.toLocaleString()}`} icon={Info} color="#06B6D4" animate={false} />
+      </div>
+
+      {/* Status Donut */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center">
+        <h2 className="text-sm font-semibold text-primary mb-4 self-start">Status Distribution</h2>
+        {(() => {
+          const r = 58, c = 2 * Math.PI * r, gap = 8;
+          let offset = 0;
+          return (
+            <>
+              <svg width={160} height={160} viewBox="0 0 140 140">
+                <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                {donutTotal > 0 && donutData.filter(s => s.value > 0).map((seg, i) => {
+                  const pct = seg.value / donutTotal;
+                  const dashLen = Math.max(0, pct * c - gap);
+                  const el = <circle key={i} cx="70" cy="70" r={r} fill="none" stroke={seg.color} strokeWidth="16"
+                    strokeLinecap="round" strokeDasharray={`${dashLen} ${c - dashLen}`}
+                    strokeDashoffset={-offset} transform="rotate(-90 70 70)" />;
+                  offset += pct * c;
+                  return el;
+                })}
+                <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{donutTotal}</text>
+                <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">plans</text>
+              </svg>
+              <div className="flex gap-4 mt-4 flex-wrap justify-center">
+                {donutData.filter(s => s.value > 0).map((s) => (
+                  <div key={s.name} className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
+                    <span className="text-[11px] text-text-muted">{s.name} ({s.value})</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-accent/10">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Installment Donations</h2>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                />
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-              <div className="relative">
-                <button
-                  onClick={() => setShowFilterMenu(!showFilterMenu)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  <Filter className="w-4 h-4" />
-                  Filter
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-                {showFilterMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                    <div className="p-2">
-                      <div className="text-xs font-medium text-gray-500 px-2 py-1">Status</div>
-                      <button
-                        onClick={() => {
-                          setStatusFilter("all");
-                          setShowFilterMenu(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "all" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        All
-                      </button>
-                      <button
-                        onClick={() => {
-                          setStatusFilter("completed");
-                          setShowFilterMenu(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "completed" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        Completed
-                      </button>
-                      <button
-                        onClick={() => {
-                          setStatusFilter("pending");
-                          setShowFilterMenu(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "pending" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        Pending
-                      </button>
-                      <button
-                        onClick={() => {
-                          setStatusFilter("cancelled");
-                          setShowFilterMenu(false);
-                        }}
-                        className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "cancelled" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        Cancelled
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search installments..."
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-56" />
             </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
+        </div>
 
+        {filteredDonations.length === 0 ? (
+          <div className="p-12 text-center">
+            <Layers className="w-10 h-10 mx-auto mb-3 text-text-muted" />
+            <p className="text-primary font-medium mb-1">No installment donations found</p>
+            <p className="text-sm text-text-muted">Try adjusting your filters</p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Donation ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Donor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cause
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Installments
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
+                <tr className="border-b border-gray-100">
+                  {["Donation ID", "Donor", "Amount", "Cause", "Progress", "Status", "Date"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredDonations.map((donation) => (
-                  <tr key={donation.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {donation.donationId}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{donation.donor}</div>
-                        <div className="text-sm text-gray-500">{donation.email}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${donation.amount.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {donation.cause}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {donation.installmentDetails?.installmentsPaid || 0} / {donation.installmentDetails?.numberOfInstallments || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        donation.status === "completed" ? "bg-accent/10 text-primary" :
-                        donation.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                        donation.status === "cancelled" ? "bg-red-100 text-red-800" :
-                        "bg-gray-100 text-gray-800"
-                      }`}>
-                        {donation.status.charAt(0).toUpperCase() + donation.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(donation.date).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
+              <tbody>
+                {filteredDonations.map((d) => {
+                  const paid = d.installmentDetails?.installmentsPaid || 0;
+                  const total = d.installmentDetails?.numberOfInstallments || 0;
+                  const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+                  return (
+                    <tr key={d.id} className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors">
+                      <td className="px-4 py-3.5 text-sm font-medium text-primary">{d.donationId}</td>
+                      <td className="px-4 py-3.5">
+                        <p className="text-sm font-medium text-primary">{d.donor}</p>
+                        <p className="text-xs text-text-muted">{d.email}</p>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-primary">${d.amount.toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-sm text-text-muted">{d.cause}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[80px]">
+                            <div className="h-full bg-accent rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-[11px] text-text-muted font-medium">{paid}/{total}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusStyle(d.status)}`}>{d.status}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-text-muted">{new Date(d.date).toLocaleDateString()}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-            {filteredDonations.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No installment donations found</p>
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

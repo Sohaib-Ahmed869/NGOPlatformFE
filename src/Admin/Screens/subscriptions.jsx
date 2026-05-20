@@ -30,7 +30,10 @@ import {
 import axiosInstance from "../../services/axios";
 import SubscriptionService from "../../services/subscription.service";
 import toast from "react-hot-toast";
+import { motion } from "framer-motion";
 import Modal from "../../components/Modal";
+import KpiCard from "../../components/KpiCard";
+import Loader from "../../components/Loader";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -50,15 +53,7 @@ const LoaderSpinner = ({ size = "default", className = "" }) => {
   );
 };
 
-// Full Page Loader
-const PageLoader = () => (
-  <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-    <div className="flex flex-col items-center space-y-4">
-      <LoaderSpinner size="large" className="text-accent" />
-      <p className="text-accent font-medium">Loading subscriptions...</p>
-    </div>
-  </div>
-);
+// PageLoader imported from shared components
 
 // Stats Card Loader
 const StatsCardLoader = () => (
@@ -478,477 +473,205 @@ const SubscriptionsPage = () => {
 
   // Show page loader only on initial load
   if (isStatsLoading && isChartsLoading && isLoading) {
-    return <PageLoader />;
+    return <Loader />;
   }
 
   return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-primary">Subscriptions</h1>
+    <motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-primary">Subscriptions</h1>
+          <p className="text-sm text-text-muted mt-0.5">{pagination.total || 0} total subscriptions</p>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {isStatsLoading ? (
-          <>
-            <StatsCardLoader />
-            <StatsCardLoader />
-          </>
-        ) : (
-          <>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Total Subscriptions</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {subscriptionStats.totalSubscriptions}
-                  </p>
-                  <p className="text-xs text-accent">Number of All Recurring Subscriptions</p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <Users className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Active Subscriptions</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {dashboardStats.activeSubscriptions || 0}
-                  </p>
-                  <p className="text-xs text-accent">Number of Active Recurring Subscriptions</p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <RefreshCw className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+        <KpiCard title="Total Subscriptions" value={subscriptionStats.totalSubscriptions} icon={Users} color="#059669" animate={false} />
+        <KpiCard title="Active Subscriptions" value={dashboardStats.activeSubscriptions || 0} icon={RefreshCw} color="#8B5CF6" animate={false} />
       </div>
-
-      {/* Subscription Type Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {isStatsLoading ? (
-          <>
-            <StatsCardLoader />
-            <StatsCardLoader />
-            <StatsCardLoader />
-            <StatsCardLoader />
-          </>
-        ) : (
-          <>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Daily Subscriptions</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {subscriptionStats.dailySubscriptions}
-                  </p>
-                  <p className="text-xs text-accent">Number of Daily Recurring Subscriptions</p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <Clock className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Weekly Subscriptions</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {subscriptionStats.weeklySubscriptions}
-                  </p>
-                  <p className="text-xs text-accent">Number of Weekly Recurring Subscriptions</p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <Calendar className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Monthly Subscriptions</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {subscriptionStats.monthlySubscriptions}
-                  </p>
-                  <p className="text-xs text-accent">Number of Monthly Recurring Subscriptions</p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <Calendar className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-accent">Yearly Subscriptions</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {subscriptionStats.yearlySubscriptions}
-                  </p>
-                  <p className="text-xs text-accent">Number of Yearly Recurring Subscriptions</p>
-                </div>
-                <div className="p-3 bg-background rounded-full">
-                  <Calendar className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+        <KpiCard title="Daily" value={subscriptionStats.dailySubscriptions} icon={Clock} color="#059669" animate={false} />
+        <KpiCard title="Weekly" value={subscriptionStats.weeklySubscriptions} icon={Calendar} color="#8B5CF6" animate={false} />
+        <KpiCard title="Monthly" value={subscriptionStats.monthlySubscriptions} icon={Calendar} color="#EC4899" animate={false} />
+        <KpiCard title="Yearly" value={subscriptionStats.yearlySubscriptions} icon={Calendar} color="#F59E0B" animate={false} />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {isChartsLoading ? (
-          <>
-            <ChartLoader />
-            <ChartLoader />
-          </>
-        ) : (
-          <>
-            {/* Growth Chart */}
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-              <h2 className="text-lg font-semibold text-primary mb-4">Subscription Metrics</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart 
-                    data={dashboardStats?.trendData || []}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="month" 
-                      stroke="#374151"
-                      tickFormatter={(month) => `${month.substring(0, 3)}`}
-                    />
-                    <YAxis 
-                      yAxisId="left" 
-                      stroke="#059669"
-                      domain={[0, 'dataMax + 2']}
-                      label={{ value: 'Count', angle: -90, position: 'insideLeft' }}
-                    />
-                    <YAxis 
-                      yAxisId="right" 
-                      orientation="right" 
-                      stroke="#0284c7"
-                      domain={[0, 'dataMax + 10']}
-                      tickFormatter={(value) => `$${value.toFixed(2)}`}
-                      label={{ value: 'Amount', angle: 90, position: 'insideRight' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: "white",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "0.5rem",
-                        minWidth: '200px'
-                      }}
-                      formatter={(value, name) => {
-                        if (name === 'Active Subscriptions') return [value, 'Number of recurring donations'];
-                        if (name === 'Recurring Amount') return [`$${value.toFixed(2)}`, 'Total recurring amount'];
-                        return [value, name];
-                      }}
-                      labelFormatter={(month, payload) => 
-                        `${month} ${payload[0]?.payload?.year || new Date().getFullYear()}`
-                      }
-                    />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="subscribers"
-                      name="Active Subscriptions"
-                      stroke="#059669"
-                      strokeWidth={2}
-                      dot={{ r: 4, strokeWidth: 1 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="amount"
-                      name="Recurring Amount"
-                      stroke="#0284c7"
-                      strokeWidth={2}
-                      dot={{ r: 4, strokeWidth: 1 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Status Distribution Pie Chart */}
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-              <h2 className="text-lg font-semibold text-primary mb-4">Subscription Status Distribution</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={allStatusDistribution}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={renderCustomizedLabel}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {allStatusDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend 
-                      layout="vertical" 
-                      verticalAlign="middle" 
-                      align="right"
-                      formatter={(value, entry, index) => (
-                        <span style={{ color: COLORS[index % COLORS.length] }}>
-                          {value} ({entry.payload.value})
-                        </span>
-                      )}
-                    />
-                    <Tooltip 
-                      formatter={(value, name) => [`${value} subscriptions`, `${name} Status`]}
-                      contentStyle={{
-                        backgroundColor: "white",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "0.5rem"
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Subscriptions Table */}
-      {isLoading ? (
-        <TableLoader />
-      ) : (
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          {/* Search and Filters */}
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-            <div className="flex flex-col lg:flex-row gap-2 items-center space-x-4 w-full md:w-auto">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search subscriptions..."
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-              </div>
-
-              <select
-                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-                value={selectedFrequency}
-                onChange={(e) => setSelectedFrequency(e.target.value)}
-              >
-                <option value="All">All Frequencies</option>
-                <option value="Daily">Daily</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Monthly">Monthly</option>
-                <option value="Yearly">Yearly</option>
-              </select>
-
-              <select
-                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-              >
-                <option value="All">All Status</option>
-                <option value="active">Active</option>
-                <option value="paused">Paused</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="failed">Failed</option>
-                <option value="ended">Ended</option>
-              </select>
-            </div>
+      {/* Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Metrics Chart */}
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+          <h2 className="text-sm font-semibold text-primary mb-4">Subscription Metrics</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={dashboardStats?.trendData || []} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false}
+                  tickFormatter={(m) => m?.substring(0, 3)} />
+                <YAxis yAxisId="left" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false}
+                  tickFormatter={(v) => `$${v}`} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }} />
+                <Line yAxisId="left" type="monotone" dataKey="subscribers" name="Count" stroke="#059669" strokeWidth={2.5}
+                  dot={{ fill: "#059669", r: 3 }} />
+                <Line yAxisId="right" type="monotone" dataKey="amount" name="Amount" stroke="#8B5CF6" strokeWidth={2.5}
+                  dot={{ fill: "#8B5CF6", r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
+        </div>
 
-          {/* Table */}
+        {/* Status Donut */}
+        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center">
+          <h2 className="text-sm font-semibold text-primary mb-4 self-start">Status Distribution</h2>
+          {(() => {
+            const DONUT_COLORS = ["#34D399", "#FB923C", "#818CF8", "#F472B6"];
+            const segments = allStatusDistribution.map((s, i) => ({ ...s, color: DONUT_COLORS[i % DONUT_COLORS.length] }));
+            const total = segments.reduce((s, seg) => s + seg.value, 0);
+            const r = 58, c = 2 * Math.PI * r, gap = 8;
+            let offset = 0;
+            return (
+              <>
+                <svg width={160} height={160} viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                  {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
+                    const pct = seg.value / total;
+                    const dashLen = Math.max(0, pct * c - gap);
+                    const el = <circle key={i} cx="70" cy="70" r={r} fill="none" stroke={seg.color} strokeWidth="16"
+                      strokeLinecap="round" strokeDasharray={`${dashLen} ${c - dashLen}`}
+                      strokeDashoffset={-offset} transform="rotate(-90 70 70)" />;
+                    offset += pct * c;
+                    return el;
+                  })}
+                  <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{total}</text>
+                  <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">total</text>
+                </svg>
+                <div className="flex gap-4 mt-4 flex-wrap justify-center">
+                  {segments.filter(s => s.value > 0).map((s) => (
+                    <div key={s.name} className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
+                      <span className="text-[11px] text-text-muted capitalize">{s.name} ({s.value})</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search subscriptions..."
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-56" />
+            </div>
+            <select value={selectedFrequency} onChange={(e) => setSelectedFrequency(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
+              <option value="All">All Frequencies</option>
+              <option value="Daily">Daily</option><option value="Weekly">Weekly</option>
+              <option value="Monthly">Monthly</option><option value="Yearly">Yearly</option>
+            </select>
+            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
+              <option value="All">All Status</option>
+              <option value="active">Active</option><option value="paused">Paused</option>
+              <option value="cancelled">Cancelled</option><option value="failed">Failed</option><option value="ended">Ended</option>
+            </select>
+          </div>
+        </div>
+
+        {subscriptions.length === 0 ? (
+          <div className="p-12 text-center">
+            <RefreshCw className="w-10 h-10 mx-auto mb-3 text-text-muted" />
+            <p className="text-primary font-medium mb-1">No subscriptions found</p>
+            <p className="text-sm text-text-muted">Try adjusting your filters</p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            {subscriptions.length === 0 ? (
-              <div className="text-center py-4 text-accent">No subscriptions found</div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("donorName")}
-                    >
-                      Donor
-                      <ChevronDown className="w-4 h-4 inline-block ml-1" />
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {[
+                    { label: "Donor", key: "donorName" }, { label: "Cause", key: "cause" },
+                    { label: "Amount", key: "amount" }, { label: "Frequency", key: "frequency" },
+                    { label: "Next Billing", key: "nextBilling" }, { label: "Status", key: "status" },
+                  ].map((h) => (
+                    <th key={h.key} onClick={() => handleSort(h.key)}
+                      className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer hover:text-primary">
+                      {h.label} <ChevronDown className="w-3 h-3 inline ml-0.5" />
                     </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("cause")}
-                    >
-                      Cause
-                      <ChevronDown className="w-4 h-4 inline-block ml-1" />
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("amount")}
-                    >
-                      Amount
-                      <ChevronDown className="w-4 h-4 inline-block ml-1" />
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("frequency")}
-                    >
-                      Frequency
-                      <ChevronDown className="w-4 h-4 inline-block ml-1" />
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("nextBilling")}
-                    >
-                      Next Billing
-                      <ChevronDown className="w-4 h-4 inline-block ml-1" />
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort("status")}
-                    >
-                      Status
-                      <ChevronDown className="w-4 h-4 inline-block ml-1" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {subscriptions.map((subscription) => (
-                    <tr key={subscription.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-primary">
-                            {subscription.donorName || "Unknown"}
-                          </div>
-                          <div className="text-sm text-accent">
-                            {subscription.donorEmail || "No email"}
-                          </div>
-                        </div>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {subscriptions.map((sub) => {
+                  const statusMap = { active: "bg-green-50 text-green-700", paused: "bg-yellow-50 text-yellow-700", failed: "bg-red-50 text-red-700", ended: "bg-gray-100 text-gray-600", cancelled: "bg-gray-100 text-gray-600", pending_cancellation: "bg-orange-50 text-orange-700" };
+                  const freqMap = { Daily: "bg-emerald-50 text-emerald-700", Weekly: "bg-violet-50 text-violet-700", Monthly: "bg-pink-50 text-pink-700", Yearly: "bg-amber-50 text-amber-700" };
+                  return (
+                    <tr key={sub.id} className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <p className="text-sm font-medium text-primary">{sub.donorName || "Unknown"}</p>
+                        <p className="text-xs text-text-muted">{sub.donorEmail || ""}</p>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-primary">
-                          {subscription.cause || "General Donation"}
-                        </div>
+                      <td className="px-4 py-3.5 text-sm text-text-muted">{sub.cause || "General"}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-primary">
+                        ${(sub.amount || 0).toLocaleString()}/{(sub.frequency || "month").toLowerCase()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-primary">
-                          ${(subscription.amount || 0).toLocaleString()}/
-                          {(subscription.frequency || "month").toLowerCase()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-sm font-medium rounded-full bg-accent/10 text-primary">
-                          {subscription.frequency || "Monthly"}
+                      <td className="px-4 py-3.5">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${freqMap[sub.frequency] || "bg-gray-100 text-gray-600"}`}>
+                          {sub.frequency || "Monthly"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-accent">
-                        {subscription.nextBilling 
-                          ? new Date(subscription.nextBilling).toLocaleDateString() 
-                          : subscription.startDate 
-                            ? new Date(subscription.startDate).toLocaleDateString()
-                            : "N/A"}
+                      <td className="px-4 py-3.5 text-sm text-text-muted">
+                        {sub.nextBilling ? new Date(sub.nextBilling).toLocaleDateString() : sub.startDate ? new Date(sub.startDate).toLocaleDateString() : "N/A"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            ${
-                              subscription.status === "active"
-                                ? "bg-accent/10 text-primary"
-                                : subscription.status === "paused"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : subscription.status === "failed"
-                                ? "bg-red-100 text-red-800"
-                                : subscription.status === "ended"
-                                ? "bg-accent/10 text-primary"
-                                : subscription.status === "pending_cancellation"
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                        >
-                          {subscription.status
-                            ? subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)
-                            : "Unknown"}
+                      <td className="px-4 py-3.5">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusMap[sub.status] || "bg-gray-100 text-gray-600"}`}>
+                          {sub.status || "Unknown"}
                         </span>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+        )}
 
-          {/* Pagination */}
-          {subscriptions.length > 0 && (
-            <div className="flex justify-between items-center mt-6">
-              <div className="text-sm text-accent">
-                Showing {((pagination.currentPage || 1) - 1) * (pagination.perPage || ITEMS_PER_PAGE) + 1} to{" "}
-                {Math.min(
-                  (pagination.currentPage || 1) * (pagination.perPage || ITEMS_PER_PAGE),
-                  pagination.total || 0
-                )}{" "}
-                of {pagination.total || 0} entries
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                  className={`p-2 rounded-lg ${
-                    currentPage <= 1
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-accent hover:bg-background"
-                  }`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                {Array.from(
-                  { length: Math.min(5, pagination.pages || 1) },
-                  (_, i) => i + 1
-                ).map((pageNum) => (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`px-3 py-1 rounded-lg ${
-                      currentPage === pageNum
-                        ? "bg-accent text-white"
-                        : "text-accent hover:bg-background"
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
-
-                <button
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= (pagination.pages || 1)}
-                  className={`p-2 rounded-lg ${
-                    currentPage >= (pagination.pages || 1)
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-accent hover:bg-background"
-                  }`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
+        {/* Pagination */}
+        {(pagination.pages || 1) > 1 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-text-muted">
+              {((pagination.currentPage || 1) - 1) * (pagination.perPage || ITEMS_PER_PAGE) + 1}–{Math.min((pagination.currentPage || 1) * (pagination.perPage || ITEMS_PER_PAGE), pagination.total || 0)} of {pagination.total || 0}
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage <= 1}
+                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+              {Array.from({ length: Math.min(5, pagination.pages || 1) }, (_, i) => {
+                let pg;
+                const pages = pagination.pages || 1;
+                if (pages <= 5) pg = i + 1;
+                else if (currentPage <= 3) pg = i + 1;
+                else if (currentPage >= pages - 2) pg = pages - (4 - i);
+                else pg = currentPage - 2 + i;
+                return (
+                  <button key={i} onClick={() => setCurrentPage(pg)}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
+                );
+              })}
+              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage >= (pagination.pages || 1)}
+                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Cancellation Request Dialog */}
       {showCancelRequestDialog && (
@@ -1003,7 +726,7 @@ const SubscriptionsPage = () => {
           </div>
         </Modal>
       )}
-    </div>
+    </motion.div>
   );
 };
 

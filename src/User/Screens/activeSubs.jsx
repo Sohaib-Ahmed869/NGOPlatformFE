@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import PageLoader from "../../components/PageLoader";
+import AppLoader from "../../components/Loader";
 import {
   Calendar,
   CreditCard,
@@ -338,7 +338,7 @@ const ActiveSubscriptions = () => {
 
   if (loading) {
     return (
-      <PageLoader />
+      <AppLoader />
     );
   }
 

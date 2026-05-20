@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Heart,
+  Target,
   CreditCard,
   Clock,
   LogOut,
@@ -28,6 +29,7 @@ const UserSidebar = () => {
   const menuItems = [
     { title: "Dashboard", path: "/user/dashboard", icon: LayoutDashboard },
     { title: "My Donations", path: "/user/donations", icon: Heart },
+    { title: "My Programs", path: "/user/programs", icon: Target },
     {
       section: "Subscriptions",
       items: [

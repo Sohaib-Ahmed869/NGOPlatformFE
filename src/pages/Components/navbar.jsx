@@ -65,7 +65,7 @@ const Navbar = () => {
   };
 
   const isHomePage = location.pathname === "/";
-  const isLightHeroPage = isHomePage || location.pathname === "/donate" || location.pathname === "/checkout";
+  const isLightHeroPage = isHomePage || location.pathname === "/donate" || location.pathname === "/checkout" || location.pathname.startsWith("/programs");
 
   // Determine if the tenant's bg is light
   const heroBgIsLight = (() => {
@@ -206,6 +206,7 @@ const Navbar = () => {
                 </div>
               </div>
             ))}
+            <Link to="/programs" className={navLinkClass("/programs")}>Programs</Link>
             <Link to="/team-hope" className={navLinkClass("/team-hope")}>Team Hope</Link>
             <Link to="/events" className={navLinkClass("/events")}>Events</Link>
             <Link to="/contact-us" className={navLinkClass("/contact-us")}>Contact Us</Link>
@@ -239,6 +240,7 @@ const Navbar = () => {
           {Object.entries(navItems).map(([title, { path, items: navSubItems }]) => (
             <NavDropdown key={title} title={title} path={path} items={navSubItems} />
           ))}
+          <Link to="/programs" className={`block px-3 py-2 rounded-md ${isActive("/programs") ? "text-accent font-semibold bg-accent/5" : "text-gray-700 hover:text-primary hover:bg-gray-50"}`} onClick={() => setIsOpen(false)}>Programs</Link>
           <Link to="/team-hope" className={`block px-3 py-2 rounded-md ${isActive("/team-hope") ? "text-accent font-semibold bg-accent/5" : "text-gray-700 hover:text-primary hover:bg-gray-50"}`} onClick={() => setIsOpen(false)}>Team Hope</Link>
           <Link to="/events" className={`block px-3 py-2 rounded-md ${isActive("/events") ? "text-accent font-semibold bg-accent/5" : "text-gray-700 hover:text-primary hover:bg-gray-50"}`} onClick={() => setIsOpen(false)}>Events</Link>
           <Link to="/contact-us" className={`block px-3 py-2 rounded-md ${isActive("/contact-us") ? "text-accent font-semibold bg-accent/5" : "text-gray-700 hover:text-primary hover:bg-gray-50"}`} onClick={() => setIsOpen(false)}>Contact Us</Link>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import PageLoader from "../../components/PageLoader";
+import { motion } from "framer-motion";
+import Loader from "../../components/Loader";
 import {
   TrendingUp,
   Search,
@@ -10,7 +11,7 @@ import {
   Calendar,
   Download,
   Filter,
-  Loader,
+  Loader2,
   Eye,
   X,
   CheckCircle,
@@ -38,6 +39,7 @@ import { downloadReceipt, downloadPaidPaymentsReceipt } from "../../User/Screens
 import DonationDetailsModal from "./DonationsModal"; 
 import axiosInstance from "../../services/axios";
 import Modal from "../../components/Modal";
+import KpiCard from "../../components/KpiCard";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -100,11 +102,11 @@ const AdminDonationsList = () => {
 
   useEffect(() => {
     if (initialLoad) {
-      fetchDashboardData();
-      fetchAllDonations();
-      setInitialLoad(false);
+      Promise.all([fetchDashboardData(), fetchAllDonations()]).then(() => {
+        setInitialLoad(false);
+      });
     }
-  }, [initialLoad]);
+  }, []);
   
   useEffect(() => {
     if (!initialLoad) {
@@ -621,378 +623,261 @@ const AdminDonationsList = () => {
 
   if (loading && initialLoad) {
     return (
-      <PageLoader />
+      <Loader />
     );
   }
 
+  const fadeUp = { hidden: { opacity: 0, y: 16 }, visible: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.4 } }) };
+
+  const statusStyle = (s) => {
+    const m = { completed: "bg-green-50 text-green-700", ended: "bg-green-50 text-green-700", pending: "bg-yellow-50 text-yellow-700", processing: "bg-blue-50 text-blue-700", failed: "bg-red-50 text-red-700", active: "bg-green-50 text-green-700", cancelled: "bg-gray-100 text-gray-600" };
+    return m[s] || "bg-gray-100 text-gray-600";
+  };
+  const typeStyle = (t) => {
+    const m = { "one-time": "bg-emerald-50 text-emerald-700", single: "bg-emerald-50 text-emerald-700", recurring: "bg-violet-50 text-violet-700", installments: "bg-amber-50 text-amber-700" };
+    return m[t] || "bg-gray-100 text-gray-600";
+  };
+
   return (
-<div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
-      {/* Top Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4 text-primary">All Donations</h2>
-        
-      </div>
+<motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen" initial="hidden" animate="visible">
+      {/* Header */}
+      <motion.div variants={fadeUp} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-heading font-bold text-primary">All Donations</h1>
+          <p className="text-sm text-text-muted mt-0.5">{pagination.total || 0} total donations</p>
+        </div>
+      </motion.div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-accent">Total Donations Amount</p>
-              <p className="text-2xl font-bold text-primary">
-                {formatCurrency(stats.totalAmount)}
-              </p>
-                <p className="text-xs text-accent">
-              Amount of all donations made by all donors
-              </p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <TrendingUp className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-accent">Total number of Donations </p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.totalDonationsCount}
-              </p>
-              <p className="text-xs text-accent">
-                Number of all donations made by all donors
-              </p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <CheckCircle className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-accent">Average Donation Amount</p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.totalDonationsCount > 0 ? formatCurrency(stats.totalAmount / stats.totalDonationsCount) : formatCurrency(0)}
-              </p>
-              <p className="text-xs text-accent">
-                Total amount divided by number of donations
-              </p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <Info className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard title="Total Amount" value={formatCurrency(stats.totalAmount)} icon={TrendingUp} color="#059669" animate={false} />
+        <KpiCard title="Total Donations" value={stats.totalDonationsCount} icon={CheckCircle} color="#8B5CF6" animate={false} />
+        <KpiCard title="Average" value={stats.totalDonationsCount > 0 ? formatCurrency(stats.totalAmount / stats.totalDonationsCount) : formatCurrency(0)} icon={Info} color="#06B6D4" animate={false} />
       </div>
-      
-      {/* Donation Type Counts KPIs - Updated to include total count */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-accent">One-Time Donations</p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.singleCount}
-              </p>
-              <p className="text-xs text-accent">
-                All single donations
-              </p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <FileText className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-accent">Recurring Donations</p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.recurringCount}
-              </p>
-              <p className="text-xs text-accent">
-                All recurring donations
-              </p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <Calendar className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-accent">Installment Donations</p>
-              <p className="text-2xl font-bold text-primary">
-                {stats.installmentsCount}
-              </p>
-              <p className="text-xs text-accent">
-                All installment donations
-              </p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <TrendingUp className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KpiCard title="One-Time" value={stats.singleCount} icon={FileText} color="#059669" animate={false} />
+        <KpiCard title="Recurring" value={stats.recurringCount} icon={Calendar} color="#EC4899" animate={false} />
+        <KpiCard title="Installments" value={stats.installmentsCount} icon={TrendingUp} color="#F59E0B" animate={false} />
       </div>
 
-      {/* Donation Type Distribution Pie Chart */}
-      <div className="bg-white rounded-lg p-6 shadow-sm border border-green-100">
-        <h3 className="text-lg font-semibold mb-4">Donation Type Distribution</h3>
-        <div className="relative h-64">
-          <Pie
-            data={{
-              labels: ['One-Time', 'Recurring', 'Installments'],
-              datasets: [{
-                data: [stats.singleCount, stats.recurringCount, stats.installmentsCount],
-                backgroundColor: getChartColors(),
-                borderWidth: 1
-              }]
-            }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  position: 'bottom'
-                }
-              }
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-        {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search donations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              >
-                <option value="All">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="failed">Failed</option>
-                <option value="ended">Ended</option>
-              </select>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              >
-                <option value="All">All Types</option>
-                <option value="one-time">One Time</option>
-                <option value="recurring">Recurring</option>
-                <option value="installments">Installments</option>
-              </select>
-            </div>
-          </div>
-          <button
-            onClick={handleExportDonations}
-            disabled={exportLoading}
-            className="flex items-center space-x-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {exportLoading ? (
-              <Loader className="w-5 h-5 animate-spin" />
-            ) : (
-              <Download className="w-5 h-5" />
-            )}
-            <span>{exportLoading ? "Exporting..." : "Export "}</span>
-          </button>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Donation ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Donor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Project/Cause
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Donation Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  On Behalf Of
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Method
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {donations.map((donation) => (
-                <tr key={donation.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.donationId}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.donor}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${donation.amount.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.cause}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.items?.[0]?.donationType || "Sadaqah"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.items?.map(item => item.onBehalfOf).filter(Boolean).join(", ") || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${donation.type === 'one-time' ? 'bg-accent/10 text-primary' : donation.type === 'recurring' ? 'bg-accent/10 text-emerald-800' : donation.type === 'installments' ? 'bg-cyan-100 text-cyan-800' : 'bg-gray-100 text-gray-800'}`}>
-                      {donation.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.paymentMethod}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatDate(donation.date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      donation.status === 'completed' ? 'bg-accent/10 text-primary' : 
-                      donation.status === 'ended' ? 'bg-accent/10 text-primary' : 
-                      donation.status === 'failed' ? 'bg-red-100 text-red-800' : 
-                      donation.status === 'cancelled' ? 'bg-gray-200 text-gray-800' : 
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {donation.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {donation.paymentStatus === "pending_cancellation" ? (
-                      <button
-                        onClick={() => {
-                          setSelectedDonation(donation);
-                          setShowCancelRequestDialog(true);
-                        }}
-                        className="text-text-muted hover:text-orange-900"
-                      >
-                        Process Request
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => openFullDetailModal(donation.id)}
-                        className="text-accent hover:text-primary"
-                      >
-                        View Details
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-6">
-        <div className="text-sm text-gray-700">
-          Showing{" "}
-          {pagination.total ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} to{" "}
-          {Math.min(currentPage * ITEMS_PER_PAGE, pagination.total)} of{" "}
-          {pagination.total} entries
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`p-2 rounded-lg ${
-              currentPage === 1
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-accent hover:bg-background"
-            }`}
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-
-          {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-            let pageNumber;
-            if (pagination.pages <= 5) {
-              pageNumber = i + 1;
-            } else if (currentPage <= 3) {
-              pageNumber = i + 1;
-            } else if (currentPage >= pagination.pages - 2) {
-              pageNumber = pagination.pages - (4 - i);
-            } else {
-              pageNumber = currentPage - 2 + i;
-            }
-
+      {/* Donut Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* By Count */}
+        <motion.div variants={fadeUp} custom={1}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center">
+          <h2 className="text-sm font-semibold text-primary mb-4 self-start">By Type (Count)</h2>
+          {(() => {
+            const segments = [
+              { name: "One-Time", value: stats.singleCount || 0, color: "#34D399" },
+              { name: "Recurring", value: stats.recurringCount || 0, color: "#818CF8" },
+              { name: "Installments", value: stats.installmentsCount || 0, color: "#FB923C" },
+            ];
+            const total = segments.reduce((s, seg) => s + seg.value, 0);
+            const r = 58, c = 2 * Math.PI * r, gap = 8;
+            let offset = 0;
             return (
-              <button
-                key={i}
-                onClick={() => setCurrentPage(pageNumber)}
-                className={`px-3 py-1 rounded-lg ${
-                  currentPage === pageNumber
-                    ? "bg-accent text-white"
-                    : "text-gray-600 hover:bg-background"
-                }`}
-              >
-                {pageNumber}
-              </button>
+              <>
+                <svg width={160} height={160} viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                  {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
+                    const pct = seg.value / total;
+                    const dashLen = Math.max(0, pct * c - gap);
+                    const el = (
+                      <circle key={i} cx="70" cy="70" r={r} fill="none"
+                        stroke={seg.color} strokeWidth="16" strokeLinecap="round"
+                        strokeDasharray={`${dashLen} ${c - dashLen}`}
+                        strokeDashoffset={-offset} transform="rotate(-90 70 70)" />
+                    );
+                    offset += pct * c;
+                    return el;
+                  })}
+                  <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{total}</text>
+                  <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">donations</text>
+                </svg>
+                <div className="flex gap-4 mt-4">
+                  {segments.map((item) => (
+                    <div key={item.name} className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                      <span className="text-[11px] text-text-muted">{item.name} ({item.value})</span>
+                    </div>
+                  ))}
+                </div>
+              </>
             );
-          })}
+          })()}
+        </motion.div>
 
-          <button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === pagination.pages}
-            className={`p-2 rounded-lg ${
-              currentPage === pagination.pages
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-accent hover:bg-background"
-            }`}
-          >
-            <ChevronRight className="w-5 h-5" />
+        {/* By Amount */}
+        <motion.div variants={fadeUp} custom={1.5}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center">
+          <h2 className="text-sm font-semibold text-primary mb-4 self-start">By Type (Amount)</h2>
+          {(() => {
+            const singleAmt = donations.filter(d => d.type === "one-time" || d.type === "single").reduce((s, d) => s + (d.amount || 0), 0);
+            const recurAmt = donations.filter(d => d.type === "recurring").reduce((s, d) => s + (d.amount || 0), 0);
+            const instAmt = donations.filter(d => d.type === "installments").reduce((s, d) => s + (d.amount || 0), 0);
+            const segments = [
+              { name: "One-Time", value: singleAmt, color: "#34D399" },
+              { name: "Recurring", value: recurAmt, color: "#818CF8" },
+              { name: "Installments", value: instAmt, color: "#FB923C" },
+            ];
+            const total = segments.reduce((s, seg) => s + seg.value, 0);
+            const r = 58, c = 2 * Math.PI * r, gap = 8;
+            let offset = 0;
+            return (
+              <>
+                <svg width={160} height={160} viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                  {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
+                    const pct = seg.value / total;
+                    const dashLen = Math.max(0, pct * c - gap);
+                    const el = (
+                      <circle key={i} cx="70" cy="70" r={r} fill="none"
+                        stroke={seg.color} strokeWidth="16" strokeLinecap="round"
+                        strokeDasharray={`${dashLen} ${c - dashLen}`}
+                        strokeDashoffset={-offset} transform="rotate(-90 70 70)" />
+                    );
+                    offset += pct * c;
+                    return el;
+                  })}
+                  <text x="70" y="66" textAnchor="middle" fontSize="18" fontWeight="700" fill="currentColor" className="text-primary">${Math.round(total).toLocaleString()}</text>
+                  <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">total</text>
+                </svg>
+                <div className="flex gap-4 mt-4">
+                  {segments.map((item) => (
+                    <div key={item.name} className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                      <span className="text-[11px] text-text-muted">{item.name} (${Math.round(item.value).toLocaleString()})</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+        </motion.div>
+      </div>
+
+      {/* Search, Filters & Table */}
+      <motion.div variants={fadeUp} custom={2} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search donations..."
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-52" />
+            </div>
+            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
+              <option value="All">All Status</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="failed">Failed</option>
+              <option value="ended">Ended</option>
+            </select>
+            <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
+              <option value="All">All Types</option>
+              <option value="one-time">One Time</option>
+              <option value="recurring">Recurring</option>
+              <option value="installments">Installments</option>
+            </select>
+          </div>
+          <button onClick={handleExportDonations} disabled={exportLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 disabled:opacity-50">
+            {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Export
           </button>
         </div>
-      </div>
+
+        {/* Table with loading overlay */}
+        <div className="relative">
+          {loading && !initialLoad && (
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex items-center justify-center">
+              <div className="flex items-center gap-2 text-accent text-sm font-medium">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+              </div>
+            </div>
+          )}
+
+          {donations.length === 0 && !loading ? (
+            <div className="p-12 text-center">
+              <Calendar className="w-10 h-10 mx-auto mb-3 text-text-muted" />
+              <p className="text-primary font-medium mb-1">No donations found</p>
+              <p className="text-sm text-text-muted">
+                {searchTerm || selectedStatus !== "All" || selectedType !== "All" ? "Try adjusting your filters" : "No donations in the system yet"}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {["Donation ID", "Donor", "Amount", "Project", "Type", "Payment", "Method", "Date", "Status", ""].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {donations.map((donation) => (
+                    <tr key={donation.id} className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors">
+                      <td className="px-4 py-3.5 text-sm font-medium text-primary">{donation.donationId}</td>
+                      <td className="px-4 py-3.5 text-sm text-primary">{donation.donor}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-primary">${donation.amount.toFixed(2)}</td>
+                      <td className="px-4 py-3.5 text-sm text-text-muted">{donation.cause}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${typeStyle(donation.type)}`}>{donation.type}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-text-muted capitalize">{donation.paymentMethod}</td>
+                      <td className="px-4 py-3.5 text-sm text-text-muted">{donation.items?.[0]?.donationType || "Sadaqah"}</td>
+                      <td className="px-4 py-3.5 text-sm text-text-muted">{formatDate(donation.date)}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusStyle(donation.status)}`}>{donation.status}</span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {donation.paymentStatus === "pending_cancellation" ? (
+                          <button onClick={() => { setSelectedDonation(donation); setShowCancelRequestDialog(true); }}
+                            className="text-xs text-orange-600 hover:text-orange-800 font-medium">Process</button>
+                        ) : (
+                          <button onClick={() => openFullDetailModal(donation.id)}
+                            className="text-xs text-accent hover:text-primary font-medium">Details</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p className="text-xs text-text-muted">
+              {pagination.total ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0}–{Math.min(currentPage * ITEMS_PER_PAGE, pagination.total)} of {pagination.total}
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
+                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                let pg;
+                if (pagination.pages <= 5) pg = i + 1;
+                else if (currentPage <= 3) pg = i + 1;
+                else if (currentPage >= pagination.pages - 2) pg = pagination.pages - (4 - i);
+                else pg = currentPage - 2 + i;
+                return (
+                  <button key={i} onClick={() => setCurrentPage(pg)}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
+                );
+              })}
+              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === pagination.pages}
+                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+      </motion.div>
 
       {/* Donation Details Modal */}
       {fullDetailModalOpen && fullDonationDetails && (
@@ -1002,23 +887,6 @@ const AdminDonationsList = () => {
           onDownloadReceipt={() => handleDownloadReceipt(fullDonationDetails)}
           onUpdateStatus={updateDonationStatus}
         />
-      )}
-
-      {/* No donations message */}
-      {donations.length === 0 && !loading && (
-        <div className="bg-white rounded-xl p-8 text-center shadow-lg border border-gray-100">
-          <div className="mx-auto w-16 h-16 bg-background rounded-full flex items-center justify-center mb-4">
-            <Calendar className="w-8 h-8 text-accent" />
-          </div>
-          <h3 className="text-lg font-medium text-primary mb-1">
-            No donations found
-          </h3>
-          <p className="text-accent">
-            {searchTerm || selectedStatus !== "All" || selectedType !== "All"
-              ? "Try adjusting your search or filter settings"
-              : "There are no donations in the system yet"}
-          </p>
-        </div>
       )}
 
       {/* Cancellation Request Dialog */}
@@ -1072,7 +940,7 @@ const AdminDonationsList = () => {
           </div>
         </div>
       </Modal>
-    </div>
+    </motion.div>
   );
 };
 
