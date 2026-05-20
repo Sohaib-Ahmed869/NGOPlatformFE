@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { useNavigate } from "react-router-dom";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
+import HeroOverlay from "../../components/HeroOverlay";
 
 const ICON_EDUCATION = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=400&fit=crop&q=80"; // education,school
 const ICON_FOOD = "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=400&h=400&fit=crop&q=80"; // food,hunger
@@ -65,7 +66,7 @@ const InitiativesSection = () => {
         <div className="relative py-36 lg:py-44 overflow-hidden">
           <div className="absolute inset-0">
             <img src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1600&q=80" alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#4A3F30]/85 to-[#4A3F30]/65" />
+            <HeroOverlay />
           </div>
           <div className="relative z-10 text-center px-6">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Our Initiatives</h1>

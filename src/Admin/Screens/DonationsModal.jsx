@@ -74,11 +74,11 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
     switch (status) {
       case "succeeded":
       case "completed":
-        return "bg-[#C9A84C]/10 text-[#2C2418]";
+        return "bg-accent/10 text-primary";
       case "processing":
         return "bg-yellow-100 text-yellow-800";
       case "pending":
-        return "bg-[#C9A84C]/10 text-blue-800";
+        return "bg-accent/10 text-blue-800";
       case "failed":
         return "bg-red-100 text-red-800";
       case "ended":
@@ -139,7 +139,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                 <div className="flex space-x-2">
                   <button
                     onClick={onDownloadReceipt}
-                    className="flex items-center text-[#C9A84C] hover:text-blue-800 px-3 py-1 rounded-lg border border-blue-200 hover:bg-[#FAF7F2]"
+                    className="flex items-center text-accent hover:text-blue-800 px-3 py-1 rounded-lg border border-blue-200 hover:bg-background"
                     title="Download tax receipt as PDF"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -147,7 +147,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                   </button>
                   <button
                     onClick={onPrintReceipt}
-                    className="flex items-center text-[#C9A84C] hover:text-[#2C2418] px-3 py-1 rounded-lg border border-[#C9A84C]/20 hover:bg-[#FAF7F2]"
+                    className="flex items-center text-accent hover:text-primary px-3 py-1 rounded-lg border border-accent/20 hover:bg-background"
                     title="Print tax receipt"
                   >
                     <Printer className="w-4 h-4 mr-2" />
@@ -179,7 +179,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
               {donation.paymentType === "recurring" && (
                 <div className="text-lg text-gray-600">
                   <span className="text-sm">Total Paid: </span>
-                  <span className="font-semibold text-[#C9A84C]">
+                  <span className="font-semibold text-accent">
                     {formatCurrency(getTotalPaidAmount())}
                   </span>
                 </div>
@@ -407,20 +407,20 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                       </td>
                     </tr>
                   )}
-                  <tr className="bg-[#FAF7F2]">
+                  <tr className="bg-background">
                     <td className="px-6 py-3 text-right text-sm font-bold text-gray-800">
                       Total Per Payment
                     </td>
-                    <td className="px-6 py-3 text-right text-sm font-bold text-[#C9A84C]">
+                    <td className="px-6 py-3 text-right text-sm font-bold text-accent">
                       {formatCurrency(donation.totalAmount || 0)}
                     </td>
                   </tr>
                   {donation.paymentType === "recurring" && (
-                    <tr className="bg-[#FAF7F2]">
+                    <tr className="bg-background">
                       <td className="px-6 py-3 text-right text-sm font-bold text-gray-800">
                         Total Paid Amount
                       </td>
-                      <td className="px-6 py-3 text-right text-sm font-bold text-[#C9A84C]">
+                      <td className="px-6 py-3 text-right text-sm font-bold text-accent">
                         {formatCurrency(getTotalPaidAmount())}
                       </td>
                     </tr>
@@ -484,7 +484,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
 
           {/* Tax Receipt Information (if available) */}
           {isReceiptAvailable() && (
-            <div className="mt-6 bg-[#FAF7F2] p-4 rounded-lg">
+            <div className="mt-6 bg-background p-4 rounded-lg">
               <div className="flex items-center mb-2">
                 <FileText className="w-5 h-5 text-blue-700 mr-2" />
                 <h3 className="text-md font-semibold text-blue-800">
@@ -546,7 +546,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                     </div>
                     <button
                       onClick={() => window.open(donation.receiptUrl, '_blank')}
-                      className="text-[#C9A84C] hover:text-blue-800 text-sm flex items-center"
+                      className="text-accent hover:text-blue-800 text-sm flex items-center"
                     >
                       <Eye className="w-4 h-4 mr-1" />
                       View Proof
@@ -570,7 +570,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                 <div className="mt-4 flex space-x-4">
                   <button
                     onClick={handleApprove}
-                    className="px-4 py-2 bg-[#C9A84C] text-white rounded hover:bg-[#B8952F] flex items-center"
+                    className="px-4 py-2 bg-accent text-white rounded hover:bg-accent-light flex items-center"
                   >
                     <Check className="w-4 h-4 mr-2" />
                     Approve Donation

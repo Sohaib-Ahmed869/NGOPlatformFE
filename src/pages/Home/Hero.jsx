@@ -1,41 +1,73 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useTenant } from "../../context/TenantContext";
+
+/**
+ * Mix a hex color toward white by a ratio (0 = original, 1 = white).
+ */
+function lighten(hex, ratio) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.round(((n >> 16) & 0xff) + (255 - ((n >> 16) & 0xff)) * ratio));
+  const g = Math.min(255, Math.round(((n >> 8) & 0xff) + (255 - ((n >> 8) & 0xff)) * ratio));
+  const b = Math.min(255, Math.round((n & 0xff) + (255 - (n & 0xff)) * ratio));
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+function darken(hex, ratio) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const r = Math.max(0, Math.round(((n >> 16) & 0xff) * (1 - ratio)));
+  const g = Math.max(0, Math.round(((n >> 8) & 0xff) * (1 - ratio)));
+  const b = Math.max(0, Math.round((n & 0xff) * (1 - ratio)));
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
 
 const Hero = () => {
+  const { branding, organisation } = useTenant();
+
+  // Derive hero gradient colors from theme
+  const primary = branding?.primaryColor || "#2C2418";
+  const accent = branding?.accentColor || "#C9A84C";
+  const bg = branding?.backgroundColor || "#FAF7F2";
+
+  // Create a warm gradient base from the background color (lightened/shifted)
+  const gradBase = lighten(bg, -0.08);      // slightly darker than bg
+  const gradMid = lighten(bg, -0.03);       // between bg and base
+  const gradDark = lighten(bg, -0.15);      // darker edge
+  const accentDark = darken(accent, 0.35);  // dark accent for gradient text
+
+  const orgName = organisation?.name || "";
+
   return (
     <section className="relative flex flex-col overflow-hidden will-change-auto" style={{ minHeight: "100dvh" }}>
-      {/* === BACKGROUND (all GPU-composited, no repaints) === */}
+      {/* === BACKGROUND — derived from tenant theme === */}
 
-      {/* Warm beige base */}
+      {/* Base gradient from bg color */}
       <div
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(165deg, #C4B5A0 0%, #D1C4B0 35%, #C4B5A0 65%, #B8A993 100%)",
+          background: `linear-gradient(165deg, ${gradBase} 0%, ${gradMid} 35%, ${gradBase} 65%, ${gradDark} 100%)`,
           transform: "translateZ(0)",
         }}
       />
 
-      {/* Warm subtle aurora bands — static, no animation */}
+      {/* Aurora bands with accent tint */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: [
             "radial-gradient(ellipse 80% 50% at 20% 20%, rgba(255,255,255,0.15) 0%, transparent 60%)",
-            "radial-gradient(ellipse 60% 40% at 80% 70%, rgba(201,168,76,0.06) 0%, transparent 55%)",
+            `radial-gradient(ellipse 60% 40% at 80% 70%, ${accent}10 0%, transparent 55%)`,
             "radial-gradient(ellipse 50% 60% at 50% 50%, rgba(255,255,255,0.05) 0%, transparent 50%)",
           ].join(", "),
           transform: "translateZ(0)",
         }}
       />
 
-      {/* Animated orbs — GPU-only transforms, no blur repaints */}
+      {/* Animated orbs */}
       <motion.div
         className="absolute rounded-full pointer-events-none"
         style={{
-          top: "10%",
-          left: "-10%",
-          width: 700,
-          height: 700,
+          top: "10%", left: "-10%", width: 700, height: 700,
           background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 65%)",
           willChange: "transform",
         }}
@@ -45,11 +77,8 @@ const Hero = () => {
       <motion.div
         className="absolute rounded-full pointer-events-none"
         style={{
-          bottom: "5%",
-          right: "-5%",
-          width: 500,
-          height: 500,
-          background: "radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 60%)",
+          bottom: "5%", right: "-5%", width: 500, height: 500,
+          background: `radial-gradient(circle, ${accent}0F 0%, transparent 60%)`,
           willChange: "transform",
         }}
         animate={{ x: [0, -40, 0], y: [0, 30, 0] }}
@@ -66,11 +95,11 @@ const Hero = () => {
         }}
       />
 
-      {/* Diagonal accent */}
+      {/* Diagonal accent stripe */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: "linear-gradient(135deg, transparent 40%, rgba(201,168,76,0.06) 49%, rgba(201,168,76,0.1) 50%, rgba(201,168,76,0.06) 51%, transparent 60%)",
+          background: `linear-gradient(135deg, transparent 40%, ${accent}0F 49%, ${accent}1A 50%, ${accent}0F 51%, transparent 60%)`,
           transform: "translateZ(0)",
         }}
       />
@@ -86,13 +115,14 @@ const Hero = () => {
             className="mb-10"
           >
             <span
-              className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full text-[#5C4A32] text-sm font-body tracking-widest uppercase"
+              className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full text-sm font-body tracking-widest uppercase"
               style={{
-                border: "1px solid rgba(92,74,50,0.15)",
+                color: primary,
+                border: `1px solid ${primary}20`,
                 background: "linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.25) 100%)",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#A0884C] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accent }} />
               Empowering communities worldwide
             </span>
           </motion.div>
@@ -104,20 +134,21 @@ const Hero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.4 }}
           >
-            <span className="text-[#2C2418]">Changing Lives, </span>
+            <span style={{ color: primary }}>Changing Lives, </span>
             <span
               className="bg-clip-text text-transparent"
-              style={{ backgroundImage: "linear-gradient(90deg, #8B6914, #A0884C, #8B6914)" }}
+              style={{ backgroundImage: `linear-gradient(90deg, ${accentDark}, ${accent}, ${accentDark})` }}
             >
               One Act
             </span>
             <br />
-            <span className="text-[#2C2418]">of Kindness</span>
+            <span style={{ color: primary }}>of Kindness</span>
           </motion.h1>
 
           {/* Sub */}
           <motion.p
-            className="font-body text-lg md:text-xl text-[#5C4A32]/70 max-w-2xl mx-auto mb-12 leading-relaxed"
+            className="font-body text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed"
+            style={{ color: `${primary}B0` }}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.55 }}
@@ -135,10 +166,11 @@ const Hero = () => {
           >
             <Link
               to="/donate"
-              className="group relative inline-flex items-center gap-2 text-[#2C2418] font-semibold rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:scale-[1.02]"
+              className="group relative inline-flex items-center gap-2 font-semibold rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:scale-[1.02]"
               style={{
-                background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)",
-                boxShadow: "0 4px 24px rgba(201,168,76,0.3), inset 0 1px 0 rgba(255,255,255,0.25)",
+                color: primary,
+                background: `linear-gradient(180deg, ${lighten(accent, 0.15)} 0%, ${accent} 100%)`,
+                boxShadow: `0 4px 24px ${accent}4D, inset 0 1px 0 rgba(255,255,255,0.25)`,
               }}
             >
               <span className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 via-transparent to-transparent pointer-events-none" />
@@ -147,9 +179,10 @@ const Hero = () => {
             </Link>
             <Link
               to="/about"
-              className="relative inline-flex items-center gap-2 text-[#2C2418] rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:bg-white/40"
+              className="relative inline-flex items-center gap-2 rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:bg-white/40"
               style={{
-                border: "1px solid rgba(44,36,24,0.2)",
+                color: primary,
+                border: `1px solid ${primary}33`,
                 background: "linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 100%)",
               }}
             >
@@ -182,8 +215,8 @@ const Hero = () => {
               >
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
                 <div className="relative">
-                  <div className="font-heading text-3xl md:text-4xl font-bold text-[#8B6914] mb-1">{stat.value}</div>
-                  <div className="font-body text-[11px] md:text-xs text-[#5C4A32]/50 tracking-[0.15em] uppercase">{stat.label}</div>
+                  <div className="font-heading text-3xl md:text-4xl font-bold mb-1" style={{ color: accentDark }}>{stat.value}</div>
+                  <div className="font-body text-[11px] md:text-xs tracking-[0.15em] uppercase" style={{ color: `${primary}80` }}>{stat.label}</div>
                 </div>
               </div>
             ))}

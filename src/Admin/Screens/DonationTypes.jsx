@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiEdit2, FiTrash2 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import axiosInstance from '../../services/axios';
+import PageLoader from "../../components/PageLoader";
 
 const DonationTypes = () => {
   const [donationTypes, setDonationTypes] = useState([]);
@@ -106,7 +107,7 @@ const DonationTypes = () => {
         <h1 className="text-2xl font-semibold text-gray-800">Donation Types</h1>
         <button
           onClick={handleOpen}
-          className="px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors"
+          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors"
         >
           Add New Donation Type
         </button>
@@ -146,7 +147,7 @@ const DonationTypes = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => handleEdit(type)}
-                      className="text-[#C9A84C] hover:text-blue-900 mr-4"
+                      className="text-accent hover:text-blue-900 mr-4"
                     >
                       <FiEdit2 className="inline-block w-5 h-5" />
                     </button>
@@ -180,7 +181,7 @@ const DonationTypes = () => {
                   name="donationType"
                   value={currentType.donationType}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                   required
                   maxLength={100}
                 />
@@ -198,7 +199,7 @@ const DonationTypes = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors"
+                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors"
                 >
                   {editMode ? 'Update' : 'Add'}
                 </button>

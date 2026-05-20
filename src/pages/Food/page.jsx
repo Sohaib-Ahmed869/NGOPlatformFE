@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
+import HeroOverlay from "../../components/HeroOverlay";
 
 // Unsplash image constants
 const heroBg = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200&q=80";
@@ -139,7 +140,7 @@ const FoodInitiatives = () => {
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
           <img src="https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1600&q=80" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#4A3F30]/85 to-[#4A3F30]/65" />
+          <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Food Security</h1>

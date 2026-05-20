@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import PageLoader from "../../components/PageLoader";
 import {
   TrendingUp,
   Search,
@@ -40,15 +41,14 @@ import Modal from "../../components/Modal";
 
 const ITEMS_PER_PAGE = 10;
 
-// Professional green color palette
-const COLORS = {
-  primary: "#0F766E",
-  secondary: "#14B8A6",
-  accent: "#2DD4BF",
-  light: "#99F6E4",
+// Theme-aware chart colors
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  const a = s.getPropertyValue("--tenant-accent").trim() || "#C9A84C";
+  const p = s.getPropertyValue("--tenant-primary").trim() || "#2C2418";
+  const al = s.getPropertyValue("--tenant-accent-light").trim() || "#D4B85A";
+  return [a, p, al, "#8B7E6A"];
 }
-
-const CHART_COLORS = [COLORS.primary, COLORS.secondary, COLORS.accent, COLORS.light]
 
 const AdminDonationsList = () => {
   const navigate = useNavigate();
@@ -621,69 +621,67 @@ const AdminDonationsList = () => {
 
   if (loading && initialLoad) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="w-8 h-8 animate-spin text-[#C9A84C]" />
-      </div>
+      <PageLoader />
     );
   }
 
   return (
-<div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-[#FAF7F2]/30 min-h-screen">
+<div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
       {/* Top Section */}
       <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4 text-[#2C2418]">All Donations</h2>
+        <h2 className="text-xl font-bold mb-4 text-primary">All Donations</h2>
         
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#C9A84C]">Total Donations Amount</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-sm text-accent">Total Donations Amount</p>
+              <p className="text-2xl font-bold text-primary">
                 {formatCurrency(stats.totalAmount)}
               </p>
-                <p className="text-xs text-[#C9A84C]">
+                <p className="text-xs text-accent">
               Amount of all donations made by all donors
               </p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <TrendingUp className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <TrendingUp className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#C9A84C]">Total number of Donations </p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-sm text-accent">Total number of Donations </p>
+              <p className="text-2xl font-bold text-primary">
                 {stats.totalDonationsCount}
               </p>
-              <p className="text-xs text-[#C9A84C]">
+              <p className="text-xs text-accent">
                 Number of all donations made by all donors
               </p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <CheckCircle className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <CheckCircle className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#C9A84C]">Average Donation Amount</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-sm text-accent">Average Donation Amount</p>
+              <p className="text-2xl font-bold text-primary">
                 {stats.totalDonationsCount > 0 ? formatCurrency(stats.totalAmount / stats.totalDonationsCount) : formatCurrency(0)}
               </p>
-              <p className="text-xs text-[#C9A84C]">
+              <p className="text-xs text-accent">
                 Total amount divided by number of donations
               </p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <Info className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <Info className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
@@ -691,53 +689,53 @@ const AdminDonationsList = () => {
       
       {/* Donation Type Counts KPIs - Updated to include total count */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#C9A84C]">One-Time Donations</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-sm text-accent">One-Time Donations</p>
+              <p className="text-2xl font-bold text-primary">
                 {stats.singleCount}
               </p>
-              <p className="text-xs text-[#C9A84C]">
+              <p className="text-xs text-accent">
                 All single donations
               </p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <FileText className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <FileText className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#C9A84C]">Recurring Donations</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-sm text-accent">Recurring Donations</p>
+              <p className="text-2xl font-bold text-primary">
                 {stats.recurringCount}
               </p>
-              <p className="text-xs text-[#C9A84C]">
+              <p className="text-xs text-accent">
                 All recurring donations
               </p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <Calendar className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <Calendar className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#C9A84C]">Installment Donations</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-sm text-accent">Installment Donations</p>
+              <p className="text-2xl font-bold text-primary">
                 {stats.installmentsCount}
               </p>
-              <p className="text-xs text-[#C9A84C]">
+              <p className="text-xs text-accent">
                 All installment donations
               </p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <TrendingUp className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <TrendingUp className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
@@ -752,7 +750,7 @@ const AdminDonationsList = () => {
               labels: ['One-Time', 'Recurring', 'Installments'],
               datasets: [{
                 data: [stats.singleCount, stats.recurringCount, stats.installmentsCount],
-                backgroundColor: CHART_COLORS,
+                backgroundColor: getChartColors(),
                 borderWidth: 1
               }]
             }}
@@ -770,7 +768,7 @@ const AdminDonationsList = () => {
       </div>
 
       {/* Main Content */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
         {/* Search and Filters */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
           <div className="flex items-center space-x-4">
@@ -781,14 +779,14 @@ const AdminDonationsList = () => {
                 placeholder="Search donations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
               />
             </div>
             <div className="flex items-center space-x-2">
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
               >
                 <option value="All">All Status</option>
                 <option value="completed">Completed</option>
@@ -800,7 +798,7 @@ const AdminDonationsList = () => {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
               >
                 <option value="All">All Types</option>
                 <option value="one-time">One Time</option>
@@ -812,7 +810,7 @@ const AdminDonationsList = () => {
           <button
             onClick={handleExportDonations}
             disabled={exportLoading}
-            className="flex items-center space-x-2 px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center space-x-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportLoading ? (
               <Loader className="w-5 h-5 animate-spin" />
@@ -885,7 +883,7 @@ const AdminDonationsList = () => {
                     {donation.items?.map(item => item.onBehalfOf).filter(Boolean).join(", ") || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${donation.type === 'one-time' ? 'bg-[#C9A84C]/10 text-[#2C2418]' : donation.type === 'recurring' ? 'bg-emerald-100 text-emerald-800' : donation.type === 'installments' ? 'bg-cyan-100 text-cyan-800' : 'bg-gray-100 text-gray-800'}`}>
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${donation.type === 'one-time' ? 'bg-accent/10 text-primary' : donation.type === 'recurring' ? 'bg-accent/10 text-emerald-800' : donation.type === 'installments' ? 'bg-cyan-100 text-cyan-800' : 'bg-gray-100 text-gray-800'}`}>
                       {donation.type}
                     </span>
                   </td>
@@ -897,8 +895,8 @@ const AdminDonationsList = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      donation.status === 'completed' ? 'bg-[#C9A84C]/10 text-[#2C2418]' : 
-                      donation.status === 'ended' ? 'bg-[#C9A84C]/10 text-[#2C2418]' : 
+                      donation.status === 'completed' ? 'bg-accent/10 text-primary' : 
+                      donation.status === 'ended' ? 'bg-accent/10 text-primary' : 
                       donation.status === 'failed' ? 'bg-red-100 text-red-800' : 
                       donation.status === 'cancelled' ? 'bg-gray-200 text-gray-800' : 
                       'bg-yellow-100 text-yellow-800'
@@ -913,14 +911,14 @@ const AdminDonationsList = () => {
                           setSelectedDonation(donation);
                           setShowCancelRequestDialog(true);
                         }}
-                        className="text-orange-600 hover:text-orange-900"
+                        className="text-text-muted hover:text-orange-900"
                       >
                         Process Request
                       </button>
                     ) : (
                       <button
                         onClick={() => openFullDetailModal(donation.id)}
-                        className="text-[#C9A84C] hover:text-[#2C2418]"
+                        className="text-accent hover:text-primary"
                       >
                         View Details
                       </button>
@@ -949,7 +947,7 @@ const AdminDonationsList = () => {
             className={`p-2 rounded-lg ${
               currentPage === 1
                 ? "text-gray-400 cursor-not-allowed"
-                : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                : "text-accent hover:bg-background"
             }`}
           >
             <ChevronLeft className="w-5 h-5" />
@@ -973,8 +971,8 @@ const AdminDonationsList = () => {
                 onClick={() => setCurrentPage(pageNumber)}
                 className={`px-3 py-1 rounded-lg ${
                   currentPage === pageNumber
-                    ? "bg-[#C9A84C] text-white"
-                    : "text-gray-600 hover:bg-[#FAF7F2]"
+                    ? "bg-accent text-white"
+                    : "text-gray-600 hover:bg-background"
                 }`}
               >
                 {pageNumber}
@@ -988,7 +986,7 @@ const AdminDonationsList = () => {
             className={`p-2 rounded-lg ${
               currentPage === pagination.pages
                 ? "text-gray-400 cursor-not-allowed"
-                : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                : "text-accent hover:bg-background"
             }`}
           >
             <ChevronRight className="w-5 h-5" />
@@ -1008,14 +1006,14 @@ const AdminDonationsList = () => {
 
       {/* No donations message */}
       {donations.length === 0 && !loading && (
-        <div className="bg-white rounded-xl p-8 text-center shadow-lg border border-emerald-100">
-          <div className="mx-auto w-16 h-16 bg-[#FAF7F2] rounded-full flex items-center justify-center mb-4">
-            <Calendar className="w-8 h-8 text-[#C9A84C]" />
+        <div className="bg-white rounded-xl p-8 text-center shadow-lg border border-gray-100">
+          <div className="mx-auto w-16 h-16 bg-background rounded-full flex items-center justify-center mb-4">
+            <Calendar className="w-8 h-8 text-accent" />
           </div>
-          <h3 className="text-lg font-medium text-[#2C2418] mb-1">
+          <h3 className="text-lg font-medium text-primary mb-1">
             No donations found
           </h3>
-          <p className="text-[#C9A84C]">
+          <p className="text-accent">
             {searchTerm || selectedStatus !== "All" || selectedType !== "All"
               ? "Try adjusting your search or filter settings"
               : "There are no donations in the system yet"}
@@ -1055,7 +1053,7 @@ const AdminDonationsList = () => {
           <div className="flex justify-end space-x-3">
             <button
               onClick={() => setShowCancelRequestDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
             >
               Cancel
             </button>

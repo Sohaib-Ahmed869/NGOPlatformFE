@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   User,
   Mail,
@@ -297,16 +298,14 @@ const ProfileSettings = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C9A84C]" />
-      </div>
+      <PageLoader />
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
         <h1 className="text-2xl font-bold text-gray-800">Profile Settings</h1>
         <p className="text-gray-600 mt-1">
           Manage your account preferences and settings
@@ -316,7 +315,7 @@ const ProfileSettings = () => {
       {/* Main Content */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Tabs */}
-        <div className="lg:w-64 bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 overflow-hidden">
+        <div className="lg:w-64 bg-white rounded-xl shadow-sm border border-accent/10 overflow-hidden">
           <nav className="flex flex-col p-2">
             {[
               { id: "general", label: "General", icon: User },
@@ -328,7 +327,7 @@ const ProfileSettings = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-left ${
                   activeTab === tab.id
-                    ? "bg-[#FAF7F2] text-[#C9A84C]"
+                    ? "bg-background text-accent"
                     : "text-gray-600 hover:bg-gray-50"
                 }`}
               >
@@ -345,7 +344,7 @@ const ProfileSettings = () => {
           {activeTab === "general" && (
             <form
               onSubmit={handleGeneralSubmit}
-              className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 p-6"
+              className="bg-white rounded-xl shadow-sm border border-accent/10 p-6"
             >
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -358,7 +357,7 @@ const ProfileSettings = () => {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                       required
                     />
                   </div>
@@ -371,7 +370,7 @@ const ProfileSettings = () => {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                       required
                     />
                   </div>
@@ -384,7 +383,7 @@ const ProfileSettings = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                       required
                       readOnly
                     />
@@ -398,7 +397,7 @@ const ProfileSettings = () => {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                   </div>
                   <div>
@@ -407,7 +406,7 @@ const ProfileSettings = () => {
                     </label>
                     {loading ? (
                       <div className="flex items-center space-x-2 h-10 px-4 py-2 border border-gray-200 rounded-lg">
-                        <Loader2 className="w-4 h-4 animate-spin text-[#C9A84C]" />
+                        <Loader2 className="w-4 h-4 animate-spin text-accent" />
                         <span className="text-gray-500">Loading...</span>
                       </div>
                     ) : (
@@ -415,7 +414,7 @@ const ProfileSettings = () => {
                         name="country"
                         value={formData.country}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                       >
                         <option disabled value="">
                           Select Country
@@ -436,7 +435,7 @@ const ProfileSettings = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center px-6 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors disabled:bg-teal-300"
+                    className="flex items-center px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50"
                   >
                     {saving && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -452,7 +451,7 @@ const ProfileSettings = () => {
           {activeTab === "address" && (
             <form
               onSubmit={handleGeneralSubmit}
-              className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 p-6"
+              className="bg-white rounded-xl shadow-sm border border-accent/10 p-6"
             >
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Address Information
@@ -468,7 +467,7 @@ const ProfileSettings = () => {
                       name="street"
                       value={formData.address.street}
                       onChange={handleAddressChange}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                   </div>
 
@@ -482,7 +481,7 @@ const ProfileSettings = () => {
                         name="city"
                         value={formData.address.city}
                         onChange={handleAddressChange}
-                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                       />
                     </div>
                     <div>
@@ -494,7 +493,7 @@ const ProfileSettings = () => {
                         name="state"
                         value={formData.address.state}
                         onChange={handleAddressChange}
-                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                       />
                     </div>
                   </div>
@@ -508,7 +507,7 @@ const ProfileSettings = () => {
                       name="postalCode"
                       value={formData.address.postalCode}
                       onChange={handleAddressChange}
-                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                   </div>
                 </div>
@@ -517,7 +516,7 @@ const ProfileSettings = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center px-6 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors disabled:bg-teal-300"
+                    className="flex items-center px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50"
                   >
                     {saving && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -533,7 +532,7 @@ const ProfileSettings = () => {
           {activeTab === "notifications" && (
             <form
               onSubmit={handleNotificationSubmit}
-              className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 p-6"
+              className="bg-white rounded-xl shadow-sm border border-accent/10 p-6"
             >
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Notification Preferences
@@ -546,7 +545,7 @@ const ProfileSettings = () => {
           {activeTab === "password" && (
             <form
               onSubmit={handlePasswordSubmit}
-              className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 p-6"
+              className="bg-white rounded-xl shadow-sm border border-accent/10 p-6"
             >
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Change Password
@@ -563,7 +562,7 @@ const ProfileSettings = () => {
                     name="currentPassword"
                     value={passwordData.currentPassword}
                     onChange={handlePasswordChange}
-                    className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                    className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                     required
                   />
                   <button
@@ -591,7 +590,7 @@ const ProfileSettings = () => {
                     name="newPassword"
                     value={passwordData.newPassword}
                     onChange={handlePasswordChange}
-                    className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                    className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                     required
                     minLength={6}
                   />
@@ -620,7 +619,7 @@ const ProfileSettings = () => {
                     name="confirmPassword"
                     value={passwordData.confirmPassword}
                     onChange={handlePasswordChange}
-                    className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                    className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                     required
                   />
                   <button
@@ -650,7 +649,7 @@ const ProfileSettings = () => {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors disabled:bg-teal-300"
+                    className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50"
                   >
                     {saving && (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />

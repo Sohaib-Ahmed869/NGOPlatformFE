@@ -1,12 +1,14 @@
 // src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AuthService from "../services/auth.service";
+import axiosInstance, { getStoragePrefix } from "../services/axios";
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const prefix = getStoragePrefix();
 
   useEffect(() => {
     const user = AuthService.getCurrentUser();
@@ -21,12 +23,12 @@ export const AuthProvider = ({ children }) => {
     login: async (credentials) => {
       const data = await AuthService.login(credentials);
       setUser(data);
-      
+
       // If password change is required, redirect immediately
       if (data.passwordChangeRequired) {
-        window.location.href = '/change-password?mandatory=true';
+        window.location.href = "/change-password?mandatory=true";
       }
-      
+
       return data;
     },
     register: async (userData) => {
@@ -51,7 +53,7 @@ export const AuthProvider = ({ children }) => {
     // Function to refresh user data
     refreshUserData: async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem(prefix + "token");
         if (!token) return;
 
         const response = await axiosInstance.get("/users/me", {
@@ -68,7 +70,7 @@ export const AuthProvider = ({ children }) => {
           };
 
           setUser(userData);
-          localStorage.setItem("user", JSON.stringify(userData));
+          localStorage.setItem(prefix + "user", JSON.stringify(userData));
         }
       } catch (err) {
         console.error("Error refreshing user data:", err);

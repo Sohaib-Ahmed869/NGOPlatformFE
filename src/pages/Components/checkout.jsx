@@ -102,8 +102,7 @@ const StripeCardForm = ({ onPaymentMethodCreated, isSubmitting }) => {
           <button
             type="button"
             onClick={processCard}
-            className="mt-4 px-4 py-2 text-[#2C2418] rounded-xl hover:scale-[1.01] transition-transform flex items-center"
-            style={{ background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)" }}
+            className="mt-4 px-4 py-2 text-white bg-accent hover:bg-accent/90 rounded-xl hover:scale-[1.01] transition-transform flex items-center"
             disabled={isVerifying || isVerified}
           >
             {isVerifying ? (
@@ -797,8 +796,8 @@ const UnifiedCheckout = () => {
       onClick={onClick}
       className={`flex flex-col p-6 border rounded-2xl cursor-pointer transition-all ${
         selected
-          ? "border-[#C9A84C] bg-[#C9A84C]/5"
-          : "border-gray-200 hover:border-[#C9A84C]"
+          ? "border-accent bg-accent/5"
+          : "border-gray-200 hover:border-accent"
       }`}
     >
       <div className="flex items-center gap-2">
@@ -815,8 +814,8 @@ const UnifiedCheckout = () => {
         onClick={onClick}
         className={`
           p-6 border rounded-2xl cursor-pointer transition-all
-          ${selected ? "border-[#C9A84C] bg-[#C9A84C]/5" : "border-gray-200"}
-          hover:border-[#C9A84C]
+          ${selected ? "border-accent bg-accent/5" : "border-gray-200"}
+          hover:border-accent
         `}
       >
         {children}
@@ -836,9 +835,9 @@ const UnifiedCheckout = () => {
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 step.number < activeStep
-                  ? "bg-[#C9A84C] text-white"
+                  ? "bg-accent text-white"
                   : step.number === activeStep
-                  ? "bg-[#C9A84C] text-white"
+                  ? "bg-accent text-white"
                   : "bg-gray-200 text-gray-700"
               }`}
             >
@@ -850,7 +849,7 @@ const UnifiedCheckout = () => {
             </div>
             <span
               className={`ml-2 text-sm font-medium ${
-                step.number <= activeStep ? "text-[#C9A84C]" : "text-gray-600"
+                step.number <= activeStep ? "text-accent" : "text-gray-600"
               }`}
             >
               {step.label}
@@ -859,7 +858,7 @@ const UnifiedCheckout = () => {
           {index < 2 && (
             <div
               className={`ml-4 w-24 h-px ${
-                step.number < activeStep ? "bg-[#C9A84C]" : "bg-gray-200"
+                step.number < activeStep ? "bg-accent" : "bg-gray-200"
               }`}
             />
           )}
@@ -896,8 +895,7 @@ const UnifiedCheckout = () => {
           </p>
           <button
             onClick={() => navigate("/")}
-            className="px-4 py-2 text-[#2C2418] rounded-xl hover:scale-[1.01] transition-transform"
-            style={{ background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)" }}
+            className="px-4 py-2 text-white bg-accent hover:bg-accent/90 rounded-xl hover:scale-[1.01] transition-transform"
           >
             Browse Donations
           </button>
@@ -926,7 +924,7 @@ const UnifiedCheckout = () => {
                     Donation Type <span className="text-red-500">*</span>
                   </label>
                   <select
-                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                     value={
                       item.donationType ||
                       (donationTypes.length > 0
@@ -1066,7 +1064,7 @@ const UnifiedCheckout = () => {
               />
 
               {hasRamadanRecurringItems && (
-                <p className="text-sm text-[#C9A84C] mt-2 flex items-center">
+                <p className="text-sm text-accent mt-2 flex items-center">
                   <Info className="w-4 h-4 mr-2" />
                   Payment type set to recurring for Ramadan last 10 nights
                   donations
@@ -1076,12 +1074,12 @@ const UnifiedCheckout = () => {
           </div>
 
           {paymentType === "recurring" && (
-            <div className="mt-6 p-6 bg-background border border-[#C9A84C]/10 rounded-2xl shadow-sm space-y-6">
+            <div className="mt-6 p-6 bg-background border border-accent/10 rounded-2xl shadow-sm space-y-6">
               {/* Section Title */}
               <h4 className="text-lg font-semibold text-gray-800">
                 Recurring Payment Details
                 {hasRamadanRecurringItems && (
-                  <span className="ml-2 text-sm font-normal text-[#C9A84C] bg-[#C9A84C]/10 px-2 py-1 rounded">
+                  <span className="ml-2 text-sm font-normal text-accent bg-accent/10 px-2 py-1 rounded">
                     Last 10 Nights of Ramadan
                   </span>
                 )}
@@ -1096,7 +1094,7 @@ const UnifiedCheckout = () => {
                   <select
                     value={recurringFrequency}
                     onChange={(e) => setRecurringFrequency(e.target.value)}
-                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] bg-white"
+                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                     disabled={hasRamadanRecurringItems}
                   >
                     <option value="daily">Daily</option>
@@ -1105,7 +1103,7 @@ const UnifiedCheckout = () => {
                     <option value="yearly">Yearly</option>
                   </select>
                   {hasRamadanRecurringItems && (
-                    <p className="text-xs text-[#C9A84C] mt-1">
+                    <p className="text-xs text-accent mt-1">
                       Pre-configured for Ramadan last 10 nights
                     </p>
                   )}
@@ -1119,7 +1117,7 @@ const UnifiedCheckout = () => {
                     <select
                       value={billingDay}
                       onChange={(e) => setBillingDay(parseInt(e.target.value))}
-                      className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] bg-white"
+                      className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                       disabled={hasRamadanRecurringItems}
                     >
                       {Array.from({ length: 28 }, (_, i) => i + 1).map(
@@ -1147,7 +1145,7 @@ const UnifiedCheckout = () => {
                       setRecurringAmount(parseFloat(e.target.value))
                     }
                     disabled
-                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] bg-white"
+                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                   />
                 </div>
               </div>
@@ -1163,11 +1161,11 @@ const UnifiedCheckout = () => {
                     value={recurringEndDate}
                     onChange={(e) => setRecurringEndDate(e.target.value)}
                     min={new Date().toISOString().split("T")[0]} // disallows past dates
-                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] bg-white"
+                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                     disabled={hasRamadanRecurringItems}
                   />
                   {hasRamadanRecurringItems && (
-                    <p className="text-xs text-[#C9A84C] mt-1">
+                    <p className="text-xs text-accent mt-1">
                       Pre-configured for 10 days of donations
                     </p>
                   )}
@@ -1175,7 +1173,7 @@ const UnifiedCheckout = () => {
                 <div className="flex items-center">
                   <div className="flex-1 text-sm text-gray-700">
                     <p className="mb-1 font-medium">Total Payments</p>
-                    <div className="flex items-center justify-center p-3 border border-[#C9A84C]/30 bg-[#C9A84C]/10 text-[#C9A84C] rounded-md font-semibold">
+                    <div className="flex items-center justify-center p-3 border border-accent/30 bg-accent/10 text-accent rounded-md font-semibold">
                       {totalRecurringPayments > 0 ? totalRecurringPayments : 0}{" "}
                       Payments
                     </div>
@@ -1185,7 +1183,7 @@ const UnifiedCheckout = () => {
 
               {/* Info Text */}
               <div className="text-sm text-gray-600 flex items-center">
-                <Info className="w-4 h-4 mr-2 text-[#C9A84C]" />
+                <Info className="w-4 h-4 mr-2 text-accent" />
                 <span>
                   Your card will be charged ${recurringAmount}{" "}
                   {recurringFrequency} for {totalRecurringPayments} payments
@@ -1193,8 +1191,8 @@ const UnifiedCheckout = () => {
               </div>
 
               {hasRamadanRecurringItems && (
-                <div className="bg-[#C9A84C]/10 p-3 rounded-md mt-2">
-                  <p className="text-sm text-[#C9A84C] flex items-center">
+                <div className="bg-accent/10 p-3 rounded-md mt-2">
+                  <p className="text-sm text-accent flex items-center">
                     <Info className="w-4 h-4 mr-2" />
                     This is a special recurring donation for the last 10 nights
                     of Ramadan. Your donation will ensure you don't miss out on
@@ -1206,7 +1204,7 @@ const UnifiedCheckout = () => {
           )}
 
           {paymentType === "installments" && (
-            <div className="mt-6 p-6 border border-[#C9A84C]/10 rounded-2xl bg-background">
+            <div className="mt-6 p-6 border border-accent/10 rounded-2xl bg-background">
               <h4 className="font-semibold text-gray-800 mb-4">
                 Installment Payment Details
               </h4>
@@ -1224,7 +1222,7 @@ const UnifiedCheckout = () => {
                     onChange={(e) =>
                       setInstallmentMonths(parseInt(e.target.value))
                     }
-                    className="w-full h-2 bg-[#C9A84C]/20 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-accent/20 rounded-lg appearance-none cursor-pointer"
                   />
                   <span className="ml-4 w-8 text-center font-medium">
                     {installmentMonths}
@@ -1263,7 +1261,7 @@ const UnifiedCheckout = () => {
 
               <div className="mt-4 text-sm text-gray-600">
                 <p className="flex items-center">
-                  <Info className="w-4 h-4 mr-2 text-[#C9A84C]" />
+                  <Info className="w-4 h-4 mr-2 text-accent" />
                   First payment today, then every 30 days for{" "}
                   {installmentMonths - 1} more month
                   {installmentMonths > 2 ? "s" : ""}
@@ -1332,8 +1330,8 @@ const UnifiedCheckout = () => {
       <h1 className="text-2xl font-bold mb-8 font-heading">Enter your details</h1>
 
       {user && (
-        <div className="mb-6 bg-background p-4 border border-[#C9A84C]/30 rounded-2xl">
-          <p className="text-[#C9A84C] flex items-center">
+        <div className="mb-6 bg-background p-4 border border-accent/30 rounded-2xl">
+          <p className="text-accent flex items-center">
             <Check className="w-5 h-5 mr-2" />
             <span>
               You're logged in as {user.email}.{" "}
@@ -1354,7 +1352,7 @@ const UnifiedCheckout = () => {
                 Name <span className="text-red-500">*</span>
               </span>
               {savedDataIndicator.name && (
-                <span className="ml-2 text-xs bg-[#C9A84C]/10 text-[#C9A84C] px-2 py-1 rounded">
+                <span className="ml-2 text-xs bg-accent/10 text-accent px-2 py-1 rounded">
                   Saved
                 </span>
               )}
@@ -1365,10 +1363,10 @@ const UnifiedCheckout = () => {
               required
               value={formData.name}
               onChange={handleInputChange}
-              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-accent ${
                 errors.name ? "border-red-500" : ""
               } ${
-                savedDataIndicator.name ? "bg-background border-[#C9A84C]/30" : ""
+                savedDataIndicator.name ? "bg-background border-accent/30" : ""
               }`}
             />
             {errors.name && (
@@ -1382,7 +1380,7 @@ const UnifiedCheckout = () => {
                 Phone <span className="text-red-500">*</span>
               </span>
               {savedDataIndicator.phone && (
-                <span className="ml-2 text-xs bg-[#C9A84C]/10 text-[#C9A84C] px-2 py-1 rounded">
+                <span className="ml-2 text-xs bg-accent/10 text-accent px-2 py-1 rounded">
                   Saved
                 </span>
               )}
@@ -1393,10 +1391,10 @@ const UnifiedCheckout = () => {
               required
               value={formData.phone}
               onChange={handleInputChange}
-              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-accent ${
                 errors.phone ? "border-red-500" : ""
               } ${
-                savedDataIndicator.phone ? "bg-background border-[#C9A84C]/30" : ""
+                savedDataIndicator.phone ? "bg-background border-accent/30" : ""
               }`}
             />
             {errors.phone && (
@@ -1410,7 +1408,7 @@ const UnifiedCheckout = () => {
                 Email <span className="text-red-500">*</span>
               </span>
               {savedDataIndicator.email && (
-                <span className="ml-2 text-xs bg-[#C9A84C]/10 text-[#C9A84C] px-2 py-1 rounded">
+                <span className="ml-2 text-xs bg-accent/10 text-accent px-2 py-1 rounded">
                   Saved
                 </span>
               )}
@@ -1422,10 +1420,10 @@ const UnifiedCheckout = () => {
               value={formData.email}
               onChange={handleInputChange}
               readOnly={user && user.email}
-              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-accent ${
                 errors.email ? "border-red-500" : ""
               } ${user && user.email ? "bg-gray-100" : ""} ${
-                savedDataIndicator.email ? "bg-background border-[#C9A84C]/30" : ""
+                savedDataIndicator.email ? "bg-background border-accent/30" : ""
               }`}
             />
             {errors.email && (
@@ -1440,7 +1438,7 @@ const UnifiedCheckout = () => {
             <label className="block text-sm font-medium mb-1 flex items-center">
               <span>Address</span>
               {Object.values(savedDataIndicator.address).some(Boolean) && (
-                <span className="ml-2 text-xs bg-[#C9A84C]/10 text-[#C9A84C] px-2 py-1 rounded">
+                <span className="ml-2 text-xs bg-accent/10 text-accent px-2 py-1 rounded">
                   Saved
                 </span>
               )}
@@ -1456,9 +1454,9 @@ const UnifiedCheckout = () => {
               name="streetAddress"
               value={formData.streetAddress}
               onChange={handleInputChange}
-              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-accent ${
                 savedDataIndicator.address.street
-                  ? "bg-background border-[#C9A84C]/30"
+                  ? "bg-background border-accent/30"
                   : ""
               }`}
             />
@@ -1471,9 +1469,9 @@ const UnifiedCheckout = () => {
               name="townCity"
               value={formData.townCity}
               onChange={handleInputChange}
-              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-accent ${
                 savedDataIndicator.address.city
-                  ? "bg-background border-[#C9A84C]/30"
+                  ? "bg-background border-accent/30"
                   : ""
               }`}
             />
@@ -1486,9 +1484,9 @@ const UnifiedCheckout = () => {
                 name="state"
                 value={formData.state}
                 onChange={handleInputChange}
-                className={`w-full p-2 border rounded appearance-none focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+                className={`w-full p-2 border rounded appearance-none focus:outline-none focus:ring-2 focus:ring-accent ${
                   savedDataIndicator.address.state
-                    ? "bg-background border-[#C9A84C]/30"
+                    ? "bg-background border-accent/30"
                     : ""
                 }`}
               >
@@ -1513,9 +1511,9 @@ const UnifiedCheckout = () => {
               name="postcode"
               value={formData.postcode}
               onChange={handleInputChange}
-              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#C9A84C] ${
+              className={`w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-accent ${
                 savedDataIndicator.address.postalCode
-                  ? "bg-background border-[#C9A84C]/30"
+                  ? "bg-background border-accent/30"
                   : ""
               }`}
             />
@@ -1537,7 +1535,7 @@ const UnifiedCheckout = () => {
                   handleUpdateProfile();
                 }
               }}
-              className="w-4 h-4 text-[#C9A84C] border-gray-300 rounded focus:ring-[#C9A84C]"
+              className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
               disabled={isUpdatingProfile}
             />
             <span className="text-sm text-gray-700">
@@ -1553,7 +1551,7 @@ const UnifiedCheckout = () => {
               name="agreeToMessages"
               checked={formData.agreeToMessages}
               onChange={handleInputChange}
-              className="w-4 h-4 text-[#C9A84C] border-gray-300 rounded focus:ring-[#C9A84C]"
+              className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
             />
             <span className="text-sm text-gray-700">
               I agree to receive Email, WhatsApp/SMS text messages and SMS data
@@ -1626,7 +1624,7 @@ const UnifiedCheckout = () => {
           onClick={() => setSelectedPaymentMethod("bank")}
           selected={selectedPaymentMethod === "bank"}
         >
-          <div className="h-full flex items-center justify-center font-bold text-[#C9A84C] text-center">
+          <div className="h-full flex items-center justify-center font-bold text-accent text-center">
             Bank
             <br />
             Transfer
@@ -1686,7 +1684,7 @@ const UnifiedCheckout = () => {
             For tax receipt please email proof of payment to
             info@hopegive.org
           </p>
-          <div className="bg-[#4A3F30] text-[#F5EDE0] p-4 rounded-xl mt-6">
+          <div className="bg-primary text-background p-4 rounded-xl mt-6">
             Your donation will be processed once we receive clear funds in our
             bank account. A tax receipt will be sent to you via email once
             payment has been confirmed by our team{" "}
@@ -1719,8 +1717,8 @@ const UnifiedCheckout = () => {
         onClick={handleBackButton}
         className={`flex items-center px-6 py-2 rounded-xl ${
           activeStep === 1 && !isCartEmpty
-            ? "text-gray-300 border border-gray-300 cursor-not-allowed bg-[#FAF7F2]"
-            : "bg-[#FAF7F2] border border-gray-200 hover:bg-gray-50 text-gray-700"
+            ? "text-gray-300 border border-gray-300 cursor-not-allowed bg-background"
+            : "bg-background border border-gray-200 hover:bg-gray-50 text-gray-700"
         }`}
         disabled={loading || (activeStep === 1 && !isCartEmpty)}
       >
@@ -1739,9 +1737,8 @@ const UnifiedCheckout = () => {
           className={`flex items-center px-6 py-2 ${
             isCartEmpty
               ? "bg-gray-400 text-white cursor-not-allowed"
-              : "text-[#2C2418] hover:scale-[1.01] transition-transform"
+              : "text-white bg-accent hover:bg-accent/90 hover:scale-[1.01] transition-transform"
           } rounded-xl disabled:opacity-50`}
-          style={!isCartEmpty ? { background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)" } : {}}
           disabled={loading || isCartEmpty}
         >
           Next
@@ -1752,8 +1749,7 @@ const UnifiedCheckout = () => {
       {activeStep === 3 && (
         <button
           onClick={handleSubmitOrder}
-          className="flex items-center px-6 py-2 text-[#2C2418] rounded-xl hover:scale-[1.01] transition-transform disabled:opacity-50"
-          style={{ background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)" }}
+          className="flex items-center px-6 py-2 text-white bg-accent hover:bg-accent/90 rounded-xl hover:scale-[1.01] transition-transform disabled:opacity-50"
           disabled={
             loading ||
             isCartEmpty ||
@@ -1765,7 +1761,7 @@ const UnifiedCheckout = () => {
           {loading ? (
             <span className="flex items-center">
               <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-[#2C2418]"
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-primary"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -1799,7 +1795,7 @@ const UnifiedCheckout = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-3xl mx-auto px-4">
         {/* Progress Steps */}
         {renderStepIndicator()}

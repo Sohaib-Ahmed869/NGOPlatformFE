@@ -19,18 +19,17 @@ import {
 import { DollarSign, TrendingUp, Users, Calendar, ArrowUp, ArrowDown, Clock, RefreshCcw } from "lucide-react"
 import axiosInstance from "../../services/axios"
 
-// Professional green color palette
-const COLORS = {
-  primary: "#0F766E",
-  secondary: "#14B8A6",
-  accent: "#2DD4BF",
-  light: "#99F6E4",
+// Chart colors read from CSS variables at runtime
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  const a = s.getPropertyValue("--tenant-accent").trim() || "#C9A84C";
+  const p = s.getPropertyValue("--tenant-primary").trim() || "#2C2418";
+  const al = s.getPropertyValue("--tenant-accent-light").trim() || "#D4B85A";
+  return [a, p, al, "#8B7E6A"];
 }
 
-const CHART_COLORS = [COLORS.primary, COLORS.secondary, COLORS.accent, COLORS.light]
-
 const Card = ({ children, className = "" }) => (
-  <div className={`bg-white rounded-xl shadow-lg border border-emerald-100 ${className}`}>{children}</div>
+  <div className={`bg-white rounded-xl shadow-lg border border-gray-100 ${className}`}>{children}</div>
 )
 
 const StatCard = ({ title, value, change, icon: Icon, trend, tooltip }) => (
@@ -38,20 +37,20 @@ const StatCard = ({ title, value, change, icon: Icon, trend, tooltip }) => (
     <div className="flex items-center justify-between">
       <div className="flex-1">
         <p className="text-sm text-gray-600 font-medium">{title}</p>
-        <h3 className="text-2xl font-bold mt-1 text-[#2C2418]">{value}</h3>
+        <h3 className="text-2xl font-bold mt-1 text-primary">{value}</h3>
         {change && (
           <div className="flex items-center mt-2">
             {trend === "up" ? (
-              <ArrowUp className="w-4 h-4 text-emerald-600" />
+              <ArrowUp className="w-4 h-4 text-accent" />
             ) : (
               <ArrowDown className="w-4 h-4 text-red-600" />
             )}
-            <span className={`text-sm ml-1 ${trend === "up" ? "text-emerald-600" : "text-red-600"}`}>{change}</span>
+            <span className={`text-sm ml-1 ${trend === "up" ? "text-accent" : "text-red-600"}`}>{change}</span>
           </div>
         )}
       </div>
-      <div className="p-4 bg-[#FAF7F2] rounded-full">
-        <Icon className="w-6 h-6 text-[#C9A84C]" />
+      <div className="p-4 bg-background rounded-full">
+        <Icon className="w-6 h-6 text-accent" />
       </div>
     </div>
     {tooltip && <div className="mt-2 text-xs text-gray-500">{tooltip}</div>}
@@ -158,8 +157,8 @@ const AdminDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAF7F2]/30 p-6 flex items-center justify-center">
-        <p className="text-[#C9A84C]">Loading dashboard data...</p>
+      <div className="min-h-screen bg-background/30 p-6 flex items-center justify-center">
+        <p className="text-accent">Loading dashboard data...</p>
       </div>
     )
   }
@@ -182,12 +181,12 @@ const AdminDashboard = () => {
     { 
       name: "Amount Received", 
       value: orderStats.totalAmountReceived,
-      color: COLORS.primary 
+      color: getChartColors()[0] 
     },
     { 
       name: "Pending Amount", 
       value: orderStats.pendingAmount,
-      color: COLORS.accent 
+      color: getChartColors()[2] 
     },
   ]
 
@@ -294,16 +293,16 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2]/30 lg:p-6 space-y-6">
+    <div className="min-h-screen bg-background/30 lg:p-6 space-y-6">
       <div className="flex justify-between items-center flex-col lg:flex-row mt-20 lg:mt-0">
         <div>
-          <h1 className="text-3xl font-bold text-[#2C2418]">Dashboard Overview</h1>
-          <p className="text-[#C9A84C] mt-1">Monitor your donation metrics and impact</p>
+          <h1 className="text-3xl font-bold text-primary">Dashboard Overview</h1>
+          <p className="text-accent mt-1">Monitor your donation metrics and impact</p>
         </div>
         <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm">
-          <Calendar className="w-4 h-4 text-[#C9A84C]" />
+          <Calendar className="w-4 h-4 text-accent" />
           <span className="text-sm text-gray-600">Last updated: </span>
-          <span className="text-sm font-medium text-[#2C2418]">{new Date().toLocaleDateString()}</span>
+          <span className="text-sm font-medium text-primary">{new Date().toLocaleDateString()}</span>
         </div>
       </div>
 
@@ -387,7 +386,7 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Donations per Month Trend Chart */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-[#2C2418] mb-6">Donations per Month</h2>
+          <h2 className="text-xl font-semibold text-primary mb-6">Donations per Month</h2>
           <div className="h-80">
             {processedTrendData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -427,7 +426,7 @@ const AdminDashboard = () => {
                     type="monotone"
                     dataKey="amount"
                     name="Donations"
-                    stroke={COLORS.primary}
+                    stroke={getChartColors()[0]}
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     activeDot={{ r: 6 }}
@@ -441,19 +440,19 @@ const AdminDashboard = () => {
             )}
           </div>
           <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="bg-[#FAF7F2] rounded-lg p-3">
-              <p className="text-sm text-[#C9A84C]">Total Committed</p>
-              <p className="text-lg font-semibold text-[#2C2418]">${orderStats.totalAmount.toLocaleString()}</p>
+            <div className="bg-background rounded-lg p-3">
+              <p className="text-sm text-accent">Total Committed</p>
+              <p className="text-lg font-semibold text-primary">${orderStats.totalAmount.toLocaleString()}</p>
             </div>
-            <div className="bg-emerald-50 rounded-lg p-3">
-              <p className="text-sm text-emerald-600">Amount Received</p>
-              <p className="text-lg font-semibold text-emerald-700">
+            <div className="bg-accent/10 rounded-lg p-3">
+              <p className="text-sm text-accent">Amount Received</p>
+              <p className="text-lg font-semibold text-accent">
                 ${orderStats.totalAmountReceived.toLocaleString()}
               </p>
             </div>
-            <div className="bg-orange-50 rounded-lg p-3">
-              <p className="text-sm text-orange-600">Monthly Average</p>
-              <p className="text-lg font-semibold text-orange-700">
+            <div className="bg-accent/5 rounded-lg p-3">
+              <p className="text-sm text-text-muted">Monthly Average</p>
+              <p className="text-lg font-semibold text-primary">
                 $
                 {processedTrendData.length > 0
                   ? Math.round(
@@ -467,7 +466,7 @@ const AdminDashboard = () => {
 
         {/* Payment Status Breakdown Pie Chart */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-[#2C2418] mb-6">Payment Status Breakdown</h2>
+          <h2 className="text-xl font-semibold text-primary mb-6">Payment Status Breakdown</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -506,15 +505,15 @@ const AdminDashboard = () => {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4">
-            <div className="bg-[#FAF7F2] rounded-lg p-3">
-              <p className="text-sm text-[#C9A84C]">Amount Received</p>
-              <p className="text-lg font-semibold text-[#2C2418]">
+            <div className="bg-background rounded-lg p-3">
+              <p className="text-sm text-accent">Amount Received</p>
+              <p className="text-lg font-semibold text-primary">
                 ${orderStats.totalAmountReceived.toLocaleString()}
               </p>
             </div>
-            <div className="bg-orange-50 rounded-lg p-3">
-              <p className="text-sm text-orange-600">Pending Amount</p>
-              <p className="text-lg font-semibold text-orange-700">
+            <div className="bg-accent/5 rounded-lg p-3">
+              <p className="text-sm text-text-muted">Pending Amount</p>
+              <p className="text-lg font-semibold text-primary">
                 ${orderStats.pendingAmount.toLocaleString()}
               </p>
             </div>
@@ -523,7 +522,7 @@ const AdminDashboard = () => {
 
         {/* Donation Types Breakdown */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-[#2C2418] mb-6">Donation Types</h2>
+          <h2 className="text-xl font-semibold text-primary mb-6">Donation Types</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -539,7 +538,7 @@ const AdminDashboard = () => {
                   label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(1)}%)`}
                 >
                   {retentionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -562,17 +561,17 @@ const AdminDashboard = () => {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            <div className="bg-[#FAF7F2] rounded-lg p-3">
-              <p className="text-sm text-[#C9A84C]">One-Time</p>
-              <p className="text-lg font-semibold text-[#2C2418]">{orderStats.oneTimeDonations}</p>
+            <div className="bg-background rounded-lg p-3">
+              <p className="text-sm text-accent">One-Time</p>
+              <p className="text-lg font-semibold text-primary">{orderStats.oneTimeDonations}</p>
             </div>
-            <div className="bg-emerald-50 rounded-lg p-3">
-              <p className="text-sm text-emerald-600">Recurring</p>
-              <p className="text-lg font-semibold text-emerald-700">{orderStats.recurringDonations}</p>
+            <div className="bg-accent/10 rounded-lg p-3">
+              <p className="text-sm text-accent">Recurring</p>
+              <p className="text-lg font-semibold text-accent">{orderStats.recurringDonations}</p>
             </div>
-            <div className="bg-cyan-50 rounded-lg p-3">
-              <p className="text-sm text-cyan-600">Installments</p>
-              <p className="text-lg font-semibold text-cyan-700">{orderStats.installmentDonations}</p>
+            <div className="bg-accent/10 rounded-lg p-3">
+              <p className="text-sm text-accent">Installments</p>
+              <p className="text-lg font-semibold text-accent">{orderStats.installmentDonations}</p>
             </div>
           </div>
         </Card>
@@ -580,18 +579,18 @@ const AdminDashboard = () => {
         {/* Top Donors */}
         <Card className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-[#2C2418]">Top Donors</h2>
-            <Users className="w-5 h-5 text-[#C9A84C]" />
+            <h2 className="text-xl font-semibold text-primary">Top Donors</h2>
+            <Users className="w-5 h-5 text-accent" />
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto">
             {topDonors.map((donor, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-[#FAF7F2]/50 rounded-lg">
+              <div key={index} className="flex items-center justify-between p-4 bg-background/50 rounded-lg">
                 <div>
-                  <p className="font-medium text-[#2C2418]">{donor.name}</p>
-                  <p className="text-sm text-[#C9A84C]">{donor.email}</p>
+                  <p className="font-medium text-primary">{donor.name}</p>
+                  <p className="text-sm text-accent">{donor.email}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-emerald-600">${donor.total.toLocaleString()}</p>
+                  <p className="font-medium text-accent">${donor.total.toLocaleString()}</p>
                   <p className="text-sm text-gray-500">{donor.donations} donations</p>
                 </div>
               </div>

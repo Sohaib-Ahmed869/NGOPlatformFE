@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { CreditCard, Calendar, DollarSign, RepeatIcon, ChevronRight, Hash, Layers } from "lucide-react"
+import PageLoader from "../../components/PageLoader";
 import {
   LineChart,
   Line,
@@ -15,17 +16,17 @@ import {
 import axiosInstance from "../../services/axios"
 
 const StatCard = ({ title, value, icon: Icon, color, tooltip }) => (
-  <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
+  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm text-[#C9A84C]">{title}</p>
-        <p className="text-2xl font-bold text-[#2C2418] mt-1">{value}</p>
+        <p className="text-sm text-accent">{title}</p>
+        <p className="text-2xl font-bold text-primary mt-1">{value}</p>
       </div>
-      <div className="p-3 bg-[#FAF7F2] rounded-full">
-        <Icon className="w-6 h-6 text-[#C9A84C]" />
+      <div className="p-3 bg-background rounded-full">
+        <Icon className="w-6 h-6 text-accent" />
       </div>
     </div>
-    {tooltip && <div className="mt-2 text-xs text-[#C9A84C]">{tooltip}</div>}
+    {tooltip && <div className="mt-2 text-xs text-accent">{tooltip}</div>}
   </div>
 )
 
@@ -33,7 +34,7 @@ const DonationCard = ({ donation }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case "completed":
-        return "bg-[#C9A84C]/10 text-[#2C2418]"
+        return "bg-accent/10 text-primary"
       case "pending":
         return "bg-yellow-100 text-yellow-800"
       case "processing":
@@ -46,21 +47,21 @@ const DonationCard = ({ donation }) => {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-emerald-100 p-4">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
       <div className="flex justify-between items-start">
         <div>
-          <p className="font-medium text-[#2C2418]">Donation #{donation.donationId}</p>
-          <p className="text-sm text-[#C9A84C] mt-1">{new Date(donation.createdAt).toLocaleDateString()}</p>
+          <p className="font-medium text-primary">Donation #{donation.donationId}</p>
+          <p className="text-sm text-accent mt-1">{new Date(donation.createdAt).toLocaleDateString()}</p>
         </div>
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(donation.paymentStatus)}`}>
           {donation.paymentStatus.charAt(0).toUpperCase() + donation.paymentStatus.slice(1)}
         </span>
       </div>
       <div className="mt-4 space-y-2">
-        <div className="flex items-center text-sm text-[#C9A84C]">
+        <div className="flex items-center text-sm text-accent">
           <DollarSign className="w-4 h-4 mr-2 text-teal-400" />${donation.totalAmount.toFixed(2)}
         </div>
-        <div className="flex items-center text-sm text-[#C9A84C]">
+        <div className="flex items-center text-sm text-accent">
           <CreditCard className="w-4 h-4 mr-2 text-teal-400" />
           {donation.paymentMethod?.type ? 
             donation.paymentMethod.type.charAt(0).toUpperCase() + donation.paymentMethod.type.slice(1) :
@@ -70,7 +71,7 @@ const DonationCard = ({ donation }) => {
           }
         </div>
         {donation.paymentType === "recurring" && (
-          <div className="flex items-center text-sm text-[#C9A84C]">
+          <div className="flex items-center text-sm text-accent">
             <RepeatIcon className="w-4 h-4 mr-2 text-teal-400" />
             Recurring ({donation.recurringDetails?.frequency || 'N/A'})
           </div>
@@ -144,15 +145,13 @@ const UserDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
+      <PageLoader />
     )
   }
 
   return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-[#FAF7F2]/30 min-h-screen">
-      <h1 className="text-xl font-bold text-[#2C2418]">My Donations Dashboard</h1>
+    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
+      <h1 className="text-xl font-bold text-primary">My Donations Dashboard</h1>
 
       {/* First Row - 3 KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -160,7 +159,7 @@ const UserDashboard = () => {
           title="Total Donations Amount"
           value={formatCurrency(stats?.totalDonated || 0)}
           icon={Hash}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="Total amount of all donations from user (including future recurring payments)"
         />
 
@@ -168,7 +167,7 @@ const UserDashboard = () => {
           title="Paid Donations Amount"
           value={formatCurrency(stats?.paidDonated || 0)}
           icon={Calendar}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="Total amount of payments actually received"
         />
 
@@ -176,7 +175,7 @@ const UserDashboard = () => {
           title="Average Donation"
           value={formatCurrency(stats?.averageDonation || 0)}
           icon={DollarSign}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="Total donations amount / Total number of donations"
         />
       </div>
@@ -187,28 +186,28 @@ const UserDashboard = () => {
           title="Total Donations"
           value={stats?.totalDonationCount || 0}
           icon={Hash}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="Total count of all donations made"
         />
         <StatCard
           title="Single Donations"
           value={stats?.singleDonations || 0}
           icon={CreditCard}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="One-time payments"
         />
         <StatCard
           title="Recurring Donations"
           value={stats?.recurringDonations || 0}
           icon={RepeatIcon}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="Ongoing subscriptions"
         />
         <StatCard
           title="Installment Donations"
           value={stats?.installmentDonations || 0}
           icon={Layers}
-          color="bg-[#FAF7F2]"
+          color="bg-background"
           tooltip="Fixed-term payments"
         />
       </div>
@@ -216,8 +215,8 @@ const UserDashboard = () => {
       {/* Charts Section - Row Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Monthly Donation Trend */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
-          <h2 className="text-lg font-semibold text-[#2C2418] mb-4">Monthly Donation Trend</h2>
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+          <h2 className="text-lg font-semibold text-primary mb-4">Monthly Donation Trend</h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -299,8 +298,8 @@ const UserDashboard = () => {
         </div>
 
         {/* Donation Types Pie Chart */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
-          <h2 className="text-lg font-semibold text-[#2C2418] mb-4">Donation Types Distribution</h2>
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+          <h2 className="text-lg font-semibold text-primary mb-4">Donation Types Distribution</h2>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -328,8 +327,8 @@ const UserDashboard = () => {
       </div>
 
       {/* Paid vs Pending Donations Chart */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
-        <h2 className="text-lg font-semibold text-[#2C2418] mb-4">Donation Status Overview</h2>
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+        <h2 className="text-lg font-semibold text-primary mb-4">Donation Status Overview</h2>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -357,9 +356,9 @@ const UserDashboard = () => {
       </div>
 
       {/* Recent Donations */}
-      <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
+      <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold text-[#2C2418]">Recent Donations</h2>
+          <h2 className="text-lg font-semibold text-primary">Recent Donations</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {orders.slice(0, 6).map((order) => (

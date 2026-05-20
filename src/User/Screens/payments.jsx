@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   CreditCard,
   Trash2,
@@ -243,7 +244,7 @@ const PaymentMethods = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
         <div className="flex flex-col lg:flex-row justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
@@ -255,7 +256,7 @@ const PaymentMethods = () => {
           </div>
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors"
+            className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors"
             disabled={showAddForm}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -266,7 +267,7 @@ const PaymentMethods = () => {
 
       {/* Add New Card Form */}
       {showAddForm && (
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
             Add New Card
           </h2>
@@ -285,7 +286,7 @@ const PaymentMethods = () => {
                   maxLength="19"
                   className={`w-full px-4 py-2 border ${
                     formErrors.cardNumber ? "border-red-500" : "border-gray-200"
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]`}
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-accent`}
                 />
                 {formErrors.cardNumber && (
                   <p className="mt-1 text-red-500 text-sm">
@@ -308,7 +309,7 @@ const PaymentMethods = () => {
                     formErrors.cardholderName
                       ? "border-red-500"
                       : "border-gray-200"
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]`}
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-accent`}
                 />
                 {formErrors.cardholderName && (
                   <p className="mt-1 text-red-500 text-sm">
@@ -330,7 +331,7 @@ const PaymentMethods = () => {
                   maxLength="5"
                   className={`w-full px-4 py-2 border ${
                     formErrors.expiryDate ? "border-red-500" : "border-gray-200"
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]`}
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-accent`}
                 />
                 {formErrors.expiryDate && (
                   <p className="mt-1 text-red-500 text-sm">
@@ -352,7 +353,7 @@ const PaymentMethods = () => {
                   maxLength="4"
                   className={`w-full px-4 py-2 border ${
                     formErrors.cvv ? "border-red-500" : "border-gray-200"
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]`}
+                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-accent`}
                 />
                 {formErrors.cvv && (
                   <p className="mt-1 text-red-500 text-sm">{formErrors.cvv}</p>
@@ -371,7 +372,7 @@ const PaymentMethods = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
@@ -385,7 +386,7 @@ const PaymentMethods = () => {
                   value={formData.phone}
                   onChange={handleInputChange}
                   placeholder="Enter your phone number"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
@@ -399,7 +400,7 @@ const PaymentMethods = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="Enter your email"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
@@ -413,7 +414,7 @@ const PaymentMethods = () => {
                   value={formData.street}
                   onChange={handleInputChange}
                   placeholder="Enter your street address"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
@@ -427,7 +428,7 @@ const PaymentMethods = () => {
                   value={formData.suburb}
                   onChange={handleInputChange}
                   placeholder="Enter your suburb"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
 
@@ -439,7 +440,7 @@ const PaymentMethods = () => {
                   name="state"
                   value={formData.state}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   <option value="">Select state</option>
                   <option value="ACT">Australian Capital Territory (ACT)</option>
@@ -463,7 +464,7 @@ const PaymentMethods = () => {
                   value={formData.postcode}
                   onChange={handleInputChange}
                   placeholder="Enter your postcode"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 />
               </div>
             </div>
@@ -472,7 +473,7 @@ const PaymentMethods = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center px-6 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors disabled:bg-teal-300"
+                className="flex items-center px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50"
               >
                 {submitting && (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -495,12 +496,9 @@ const PaymentMethods = () => {
       {/* Saved Cards */}
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#C9A84C]" />
-            <p className="mt-2 text-gray-600">Loading payment methods...</p>
-          </div>
+          <PageLoader text="Loading payment methods..." />
         ) : paymentMethods.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl border border-[#C9A84C]/10">
+          <div className="text-center py-8 bg-white rounded-xl border border-accent/10">
             <CreditCard className="w-12 h-12 mx-auto text-gray-400" />
             <p className="mt-2 text-gray-600">No payment methods added yet</p>
           </div>
@@ -508,7 +506,7 @@ const PaymentMethods = () => {
           paymentMethods.map((method) => (
             <div
               key={method.id}
-              className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10 hover:shadow-md transition-shadow duration-200"
+              className="bg-white rounded-xl p-6 shadow-sm border border-accent/10 hover:shadow-md transition-shadow duration-200"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -522,7 +520,7 @@ const PaymentMethods = () => {
                         ending in {method.cardNumber}
                       </h3>
                       {method.isDefault && (
-                        <span className="px-2 py-1 bg-[#C9A84C]/10 text-[#B8952F] text-xs rounded-full">
+                        <span className="px-2 py-1 bg-accent/10 text-accent text-xs rounded-full">
                           Default
                         </span>
                       )}
@@ -550,9 +548,9 @@ const PaymentMethods = () => {
       </div>
 
       {/* Security Note */}
-      <div className="bg-[#FAF7F2] rounded-lg p-4 flex items-start space-x-3">
-        <AlertCircle className="w-5 h-5 text-[#C9A84C] mt-0.5 flex-shrink-0" />
-        <p className="text-sm text-[#C9A84C]">
+      <div className="bg-background rounded-lg p-4 flex items-start space-x-3">
+        <AlertCircle className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
+        <p className="text-sm text-accent">
           Your payment information is securely stored and encrypted. We never
           store your full card details on our servers.
         </p>

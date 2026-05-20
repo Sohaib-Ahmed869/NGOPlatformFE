@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
+import HeroOverlay from "../../components/HeroOverlay";
 
 // Placeholder partner images (nonprofit / charity themed)
 const logo1 = "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=300&q=80";
@@ -38,7 +39,7 @@ const PartnersSection = () => {
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
           <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=1600&q=80" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#4A3F30]/85 to-[#4A3F30]/65" />
+          <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Our Partners</h1>

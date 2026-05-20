@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   Calendar,
   Plus,
@@ -168,7 +169,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                     <div className="flex flex-col items-center">
                       <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
                       <div className="flex text-sm text-gray-600">
-                        <label className="relative cursor-pointer bg-white rounded-md font-medium text-[#C9A84C] hover:text-[#C9A84C]">
+                        <label className="relative cursor-pointer bg-white rounded-md font-medium text-accent hover:text-accent">
                           <span>Upload a file</span>
                           <input
                             type="file"
@@ -199,7 +200,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, title: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
               />
             </div>
 
@@ -218,7 +219,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                   }))
                 }
                 rows={4}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
               />
             </div>
 
@@ -234,7 +235,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, date: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
               />
             </div>
 
@@ -254,7 +255,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       startTime: e.target.value,
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
                 />
               </div>
               <div>
@@ -271,7 +272,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       endTime: e.target.value,
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
                 />
               </div>
             </div>
@@ -292,7 +293,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       location: { ...prev.location, city: e.target.value },
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
                 />
               </div>
               <div>
@@ -309,7 +310,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       location: { ...prev.location, venue: e.target.value },
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
                 />
               </div>
               <div>
@@ -326,7 +327,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                       location: { ...prev.location, address: e.target.value },
                     }))
                   }
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
                 />
               </div>
             </div>
@@ -345,7 +346,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                     registrationLink: e.target.value,
                   }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
               />
             </div>
 
@@ -359,7 +360,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, status: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-[#C9A84C]"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-accent"
               >
                 <option value="upcoming">Upcoming</option>
                 <option value="ongoing">Ongoing</option>
@@ -380,7 +381,7 @@ const EventForm = ({ event = {}, onSubmit, onClose }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-[#C9A84C] text-white rounded-md hover:bg-[#B8952F] disabled:opacity-70"
+              className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-light disabled:opacity-70"
             >
               {isSubmitting
                 ? event?._id
@@ -438,9 +439,9 @@ const EventCard = ({ event, onEdit, onDelete }) => {
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${
               event.status === "upcoming"
-                ? "bg-[#C9A84C]/10 text-[#2C2418]"
+                ? "bg-accent/10 text-primary"
                 : event.status === "ongoing"
-                ? "bg-[#C9A84C]/10 text-blue-800"
+                ? "bg-accent/10 text-blue-800"
                 : event.status === "cancelled"
                 ? "bg-red-100 text-red-800"
                 : "bg-gray-100 text-gray-800"
@@ -583,7 +584,7 @@ const EventsPage = () => {
             setSelectedEvent(null);
             setShowForm(true);
           }}
-          className="flex items-center px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F]"
+          className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light"
         >
           <Plus className="w-5 h-5 mr-2" />
           Create Event
@@ -597,7 +598,7 @@ const EventsPage = () => {
             <input
               type="text"
               placeholder="Search events..."
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] w-full md:w-64"
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -635,9 +636,7 @@ const EventsPage = () => {
 
       {/* Loading State */}
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C9A84C]"></div>
-        </div>
+        <PageLoader />
       ) : (
         <>
           {/* Events Grid */}

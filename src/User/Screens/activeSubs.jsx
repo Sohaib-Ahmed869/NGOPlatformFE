@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   Calendar,
   CreditCard,
@@ -35,7 +36,7 @@ const Modal = ({ isOpen, onClose, title, description, children }) => {
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C9A84C] rounded"
+              className="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-accent rounded"
             >
               <X className="w-5 h-5" />
             </button>
@@ -265,7 +266,7 @@ const ActiveSubscriptions = () => {
   const getStatusClass = (status) => {
     switch (status.toLowerCase()) {
       case "active":
-        return "bg-[#C9A84C]/10 text-green-800";
+        return "bg-accent/10 text-green-800";
       case "paused":
         return "bg-yellow-100 text-yellow-800";
       case "past_due":
@@ -337,16 +338,14 @@ const ActiveSubscriptions = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader className="w-8 h-8 animate-spin text-[#C9A84C]" />
-      </div>
+      <PageLoader />
     );
   }
 
   return (
     <div className="space-y-6 lg:p-6">
       {/* Header with Summary */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
@@ -359,7 +358,7 @@ const ActiveSubscriptions = () => {
           <div className="mt-4 md:mt-0 flex items-center gap-4">
             <button
               onClick={refreshSubscriptions}
-              className="flex items-center px-3 py-2 text-sm bg-[#FAF7F2] text-[#C9A84C] rounded-lg hover:bg-[#C9A84C]/10 transition-colors"
+              className="flex items-center px-3 py-2 text-sm bg-background text-accent rounded-lg hover:bg-accent/10 transition-colors"
               disabled={refreshing}
             >
               <RefreshCw
@@ -373,11 +372,11 @@ const ActiveSubscriptions = () => {
 
       {/* Active Subscriptions Section */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold text-[#2C2418] mb-4">Active recurring Subscriptions</h2>
+        <h2 className="text-xl font-semibold text-primary mb-4">Active recurring Subscriptions</h2>
         {subscriptions.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-[#C9A84C]/10">
+          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-accent/10">
             <div className="flex justify-center">
-              <AlertCircle className="w-12 h-12 text-[#C9A84C]" />
+              <AlertCircle className="w-12 h-12 text-accent" />
             </div>
             <h3 className="mt-4 text-lg font-medium text-gray-900">
               No Active recurring Subscriptions
@@ -391,7 +390,7 @@ const ActiveSubscriptions = () => {
             {subscriptions.map((subscription) => (
               <div
                 key={subscription.id}
-                className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 hover:shadow-md transition-shadow duration-200"
+                className="bg-white rounded-xl shadow-sm border border-accent/10 hover:shadow-md transition-shadow duration-200"
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start">
@@ -399,7 +398,7 @@ const ActiveSubscriptions = () => {
                       <h3 className="text-lg font-semibold text-gray-800">
                         {subscription.cause}
                       </h3>
-                      <p className="text-2xl font-bold text-[#C9A84C] mt-2">
+                      <p className="text-2xl font-bold text-accent mt-2">
                         ${subscription.amount.toFixed(2)}
                         <span className="text-sm text-gray-500 font-normal">
                           /{subscription.frequency.toLowerCase()}
@@ -425,7 +424,7 @@ const ActiveSubscriptions = () => {
                       <CreditCard className="w-4 h-4 mr-2" />
                       {subscription.paymentMethod}
                       {subscription.stripeSubscriptionId && (
-                        <span className="ml-2 text-xs text-[#C9A84C] bg-[#FAF7F2] px-2 py-0.5 rounded-full">
+                        <span className="ml-2 text-xs text-accent bg-background px-2 py-0.5 rounded-full">
                           Stripe
                         </span>
                       )}
@@ -460,7 +459,7 @@ const ActiveSubscriptions = () => {
                           )
                         );
                       }}
-                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-[#C9A84C] bg-white border border-[#C9A84C]/20 rounded-lg hover:bg-[#FAF7F2] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-accent bg-white border border-accent/20 rounded-lg hover:bg-background focus:outline-none focus:ring-2 focus:ring-accent"
                     >
                       <Edit2 className="w-4 h-4 mr-1" />
                       Edit
@@ -494,7 +493,7 @@ const ActiveSubscriptions = () => {
                       subscription.status.toLowerCase() === "paused" && (
                         <button
                           onClick={() => handleResume(subscription.id)}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-[#C9A84C] bg-white border border-green-200 rounded-lg hover:bg-[#FAF7F2] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-accent bg-white border border-green-200 rounded-lg hover:bg-background focus:outline-none focus:ring-2 focus:ring-accent"
                         >
                           <PlayCircle className="w-4 h-4 mr-1" />
                           Resume
@@ -524,11 +523,11 @@ const ActiveSubscriptions = () => {
 
       {/* Active Installments Section */}
       <div className="mt-12">
-        <h2 className="text-xl font-semibold text-[#2C2418] mb-4">Active Installments</h2>
+        <h2 className="text-xl font-semibold text-primary mb-4">Active Installments</h2>
         {installments.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-[#C9A84C]/10">
+          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-accent/10">
             <div className="flex justify-center">
-              <AlertCircle className="w-12 h-12 text-[#C9A84C]" />
+              <AlertCircle className="w-12 h-12 text-accent" />
             </div>
             <h3 className="mt-4 text-lg font-medium text-gray-900">
               No Active Installments
@@ -542,7 +541,7 @@ const ActiveSubscriptions = () => {
             {installments.map((installment) => (
               <div
                 key={installment.id}
-                className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 hover:shadow-md transition-shadow duration-200"
+                className="bg-white rounded-xl shadow-sm border border-accent/10 hover:shadow-md transition-shadow duration-200"
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start">
@@ -550,7 +549,7 @@ const ActiveSubscriptions = () => {
                       <h3 className="text-lg font-semibold text-gray-800">
                         {installment.cause}
                       </h3>
-                      <p className="text-2xl font-bold text-[#C9A84C] mt-2">
+                      <p className="text-2xl font-bold text-accent mt-2">
                         ${installment.amount ? installment.amount.toFixed(2) : '0.00'}
                         <span className="text-sm text-gray-500 font-normal">
                           /monthly
@@ -636,7 +635,7 @@ const ActiveSubscriptions = () => {
               onChange={(e) => setPauseDuration(parseInt(e.target.value))}
               min="1"
               max="365"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-1 focus:ring-[#C9A84C]"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
           <div>
@@ -648,19 +647,19 @@ const ActiveSubscriptions = () => {
               value={pauseReason}
               onChange={(e) => setPauseReason(e.target.value)}
               placeholder="Why are you pausing?"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-1 focus:ring-[#C9A84C]"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
           <div className="mt-6 flex justify-end space-x-3">
             <button
               onClick={() => setShowPauseDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Cancel
             </button>
             <button
               onClick={handlePause}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#C9A84C] rounded-md hover:bg-[#B8952F] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Confirm Pause
             </button>
@@ -684,7 +683,7 @@ const ActiveSubscriptions = () => {
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
             placeholder="Why are you cancelling?"
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-1 focus:ring-[#C9A84C]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
 
           <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 rounded-lg text-sm">
@@ -700,7 +699,7 @@ const ActiveSubscriptions = () => {
           <div className="mt-6 flex justify-end space-x-3">
             <button
               onClick={() => setShowCancelDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Keep Subscription
             </button>
@@ -745,11 +744,11 @@ const ActiveSubscriptions = () => {
               );
             }}
             min={formatDateForInput(new Date())}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#C9A84C] focus:outline-none focus:ring-1 focus:ring-[#C9A84C]"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
 
           {additionalPayments > 0 && (
-            <div className="mt-4 p-3 bg-[#FAF7F2] text-[#2C2418] rounded-lg text-sm">
+            <div className="mt-4 p-3 bg-background text-primary rounded-lg text-sm">
               <p className="flex items-start">
                 <Calendar className="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" />
                 <span>
@@ -770,13 +769,13 @@ const ActiveSubscriptions = () => {
           <div className="mt-6 flex justify-end space-x-3">
             <button
               onClick={() => setShowEditDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Cancel
             </button>
             <button
               onClick={handleUpdateEndDate}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#C9A84C] rounded-md hover:bg-[#B8952F] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Update End Date
             </button>
@@ -816,13 +815,13 @@ const ActiveSubscriptions = () => {
           <div className="mt-6 flex justify-end space-x-3">
             <button
               onClick={() => setShowPaymentDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Cancel
             </button>
             <button
               onClick={handleRetryPayment}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#C9A84C] rounded-md hover:bg-[#B8952F] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent"
             >
               Retry Payment
             </button>

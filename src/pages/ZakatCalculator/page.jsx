@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { sectionReveal } from "../../utils/animations";
+import HeroOverlay from "../../components/HeroOverlay";
 
 const zakatmain = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=600&q=80";
 import NewsletterSection from "../Home/Newsletter/newsletter";
@@ -108,7 +109,7 @@ const ZakatCalculator = () => {
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
           <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1600&q=80" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#4A3F30]/85 to-[#4A3F30]/65" />
+          <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Zakat Calculator</h1>

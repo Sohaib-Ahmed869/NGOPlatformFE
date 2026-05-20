@@ -8,13 +8,37 @@ const axiosInstance = axios.create({
   },
 });
 
+/**
+ * Get a storage key prefix based on the current subdomain.
+ * E.g., on "hopegivefoundation.localhost" → "hopegivefoundation_"
+ * On "admin.localhost" → "admin_"
+ * On bare "localhost" → ""
+ */
+export function getStoragePrefix() {
+  const hostname = window.location.hostname;
+  const parts = hostname.split(".");
+  if (parts.length > 1 && parts[0] !== "www") {
+    return parts[0] + "_";
+  }
+  return "";
+}
+
 // Add a request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const prefix = getStoragePrefix();
+    const token = localStorage.getItem(prefix + "token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Inject tenant slug header for subdomain-based tenant resolution
+    const hostname = window.location.hostname;
+    const parts = hostname.split(".");
+    if (parts.length > 1 && parts[0] !== "admin" && parts[0] !== "www") {
+      config.headers["X-Tenant-Slug"] = parts[0];
+    }
+
     return config;
   },
   (error) => {
@@ -27,8 +51,9 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      const prefix = getStoragePrefix();
+      localStorage.removeItem(prefix + "token");
+      localStorage.removeItem(prefix + "user");
     }
     return Promise.reject(error);
   }

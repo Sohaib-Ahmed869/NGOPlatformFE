@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   Search,
   RefreshCw,
@@ -142,7 +143,7 @@ const CancellationRequests = () => {
         </h1>
         <button
           onClick={handleRefresh}
-          className="inline-flex items-center px-3 py-2 text-sm font-medium text-[#B8952F] bg-[#FAF7F2] rounded-md hover:bg-[#C9A84C]/10"
+          className="inline-flex items-center px-3 py-2 text-sm font-medium text-accent bg-background rounded-md hover:bg-accent/10"
           disabled={refreshing}
         >
           <RefreshCw
@@ -158,7 +159,7 @@ const CancellationRequests = () => {
           <input
             type="text"
             placeholder="Search by donor name, email, ID, or reason..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -166,10 +167,7 @@ const CancellationRequests = () => {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">
-          <RefreshCw className="w-8 h-8 mx-auto animate-spin text-[#C9A84C]" />
-          <p className="mt-2 text-gray-600">Loading cancellation requests...</p>
-        </div>
+        <PageLoader text="Loading cancellation requests..." />
       ) : error ? (
         <div className="text-center py-8 text-red-500">
           <AlertCircle className="w-8 h-8 mx-auto" />
@@ -246,7 +244,7 @@ const CancellationRequests = () => {
                           setSelectedRequest(request);
                           setShowApproveDialog(true);
                         }}
-                        className="inline-flex items-center px-3 py-1 text-sm font-medium text-[#B8952F] bg-[#FAF7F2] rounded-md hover:bg-[#C9A84C]/10"
+                        className="inline-flex items-center px-3 py-1 text-sm font-medium text-accent bg-background rounded-md hover:bg-accent/10"
                       >
                         <CheckCircle className="w-4 h-4 mr-1" />
                         Approve
@@ -309,7 +307,7 @@ const CancellationRequests = () => {
             </button>
             <button
               onClick={handleApprove}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#C9A84C] rounded-md hover:bg-[#B8952F]"
+              className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-light"
             >
               Confirm Approval
             </button>

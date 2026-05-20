@@ -104,7 +104,7 @@ const DonationSection = () => {
             <p className="text-red-500 font-body mb-4">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="text-sm text-[#8B6914] hover:underline font-body"
+              className="text-sm text-accent hover:underline font-body"
             >
               Try again
             </button>
@@ -177,11 +177,7 @@ const DonationSection = () => {
                     {product.description}
                   </p>
                   <button
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold font-body text-sm text-[#2C2418] transition-all hover:scale-[1.02]"
-                    style={{
-                      background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)",
-                      boxShadow: "0 2px 10px rgba(201,168,76,0.25)",
-                    }}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold font-body text-sm text-white bg-accent hover:bg-accent/90 shadow-md transition-all hover:scale-[1.02]"
                     onClick={() =>
                       addItem({
                         id: product._id,

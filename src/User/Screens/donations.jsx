@@ -8,6 +8,7 @@ import { downloadReceipt, downloadPaidPaymentsReceipt } from "./recieptDownloade
 import { formatEndDate } from "./formatEndDate"
 import { generateAnnualStatement, getAvailableFinancialYears } from "./AnnualDonation"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
+import PageLoader from "../../components/PageLoader";
 
 const ITEMS_PER_PAGE = 10
 
@@ -259,7 +260,7 @@ const UserDonations = () => {
     const COLORS = ["#2e7d32", "#81c784"] // Dark green and light green
 
     return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10 mb-6">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Donation Summary</h3>
         <div className="flex flex-col md:flex-row items-center">
           <div className="w-full md:w-1/2 h-64">
@@ -302,7 +303,7 @@ const UserDonations = () => {
               </div>
               <div className="pt-4 border-t border-gray-100">
                 <p className="text-sm font-medium">Total Donations Amount</p>
-                <p className="text-xl font-bold text-[#C9A84C]">${totalDonationsAmount.toLocaleString()}</p>
+                <p className="text-xl font-bold text-accent">${totalDonationsAmount.toLocaleString()}</p>
                 <p className="text-xs text-gray-500">Total amount of all donations from user</p>
               </div>
             </div>
@@ -314,11 +315,11 @@ const UserDonations = () => {
 
   // Annual Statement Section Component
   const AnnualStatementSection = () => (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+    <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
       <div className="flex flex-col md:flex-row items-center justify-between">
         <div className="flex items-center mb-4 md:mb-0">
-          <div className="p-3 bg-[#FAF7F2] rounded-full mr-4">
-            <FileText className="w-6 h-6 text-[#C9A84C]" />
+          <div className="p-3 bg-background rounded-full mr-4">
+            <FileText className="w-6 h-6 text-accent" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Annual Donation Statement</h3>
@@ -330,7 +331,7 @@ const UserDonations = () => {
           {showYearSelector ? (
             <>
               <select
-                className="mr-4 border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                className="mr-4 border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={selectedYear || ""}
                 onChange={(e) => setSelectedYear(Number.parseInt(e.target.value))}
               >
@@ -346,7 +347,7 @@ const UserDonations = () => {
               <button
                 onClick={handleGenerateStatement}
                 disabled={generatingStatement || !selectedYear}
-                className="flex items-center space-x-2 px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {generatingStatement ? <Loader className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                 <span>Generate</span>
@@ -361,7 +362,7 @@ const UserDonations = () => {
           ) : (
             <button
               onClick={() => setShowYearSelector(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#FAF7F2] text-[#C9A84C] rounded-lg hover:bg-[#C9A84C]/10 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-background text-accent rounded-lg hover:bg-accent/10 transition-colors"
             >
               <span>Generate Statement</span>
             </button>
@@ -373,9 +374,7 @@ const UserDonations = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader className="w-8 h-8 animate-spin text-[#C9A84C]" />
-      </div>
+      <PageLoader />
     )
   }
 
@@ -383,11 +382,11 @@ const UserDonations = () => {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Donations Amount</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 ${(stats.totalDonated || 0).toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">Total amount of all donations from user</p>
@@ -398,26 +397,26 @@ const UserDonations = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Paid Donations amount</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 ${(stats.paidDonated || 0).toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">Total amount of payments done</p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <Calendar className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <Calendar className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Pending Donations amount</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 ${(stats.pendingAmount || 0).toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">Remaining payments</p>
@@ -428,14 +427,14 @@ const UserDonations = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Active payments</p>
-              <p className="text-2xl font-bold text-[#2C2418]">{stats.activeRecurring}</p>
+              <p className="text-2xl font-bold text-primary">{stats.activeRecurring}</p>
               <p className="text-xs text-gray-500">Includes number of active installments and recurring</p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
+            <div className="p-3 bg-background rounded-full">
               <RefreshCcw className="w-6 h-6 text-green-800" />
             </div>
           </div>
@@ -447,7 +446,7 @@ const UserDonations = () => {
       <AnnualStatementSection />
 
       {/* Donations Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl shadow-sm border border-accent/10">
         <div className="p-6">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
             <div className="flex items-center space-x-4 w-full md:w-auto">
@@ -455,7 +454,7 @@ const UserDonations = () => {
                 <input
                   type="text"
                   placeholder="Search by cause..."
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] w-full md:w-64"
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -463,7 +462,7 @@ const UserDonations = () => {
               </div>
 
               <select
-                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
               >
@@ -571,7 +570,7 @@ const UserDonations = () => {
                       <div className="text-sm font-medium text-gray-900">
                         {donation.items[0]?.title}
                         {donation.items.length > 1 && (
-                          <span className="ml-2 text-xs text-[#C9A84C] bg-[#FAF7F2] px-2 py-0.5 rounded-full">
+                          <span className="ml-2 text-xs text-accent bg-background px-2 py-0.5 rounded-full">
                             +{donation.items.length - 1} more
                           </span>
                         )}
@@ -583,7 +582,7 @@ const UserDonations = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[#FAF7F2] text-[#2C2418] border border-[#C9A84C]/10">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-background text-primary border border-accent/10">
                         {donation.paymentType?.charAt(0).toUpperCase() + donation.paymentType?.slice(1) || 'N/A'}
                       </span>
                     </td>
@@ -625,7 +624,7 @@ const UserDonations = () => {
                       <span
                         className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
                           ${donation.paymentStatus === "completed"
-                            ? "bg-[#FAF7F2] text-[#B8952F] border border-green-100"
+                            ? "bg-background text-accent border border-green-100"
                             : donation.paymentStatus === "processing"
                               ? "bg-yellow-50 text-yellow-700 border border-yellow-100"
                               : donation.paymentStatus === "pending"
@@ -704,7 +703,7 @@ const UserDonations = () => {
                                   charityLogoUrl: footer2,
                                 })
                               }
-                              className="flex items-center justify-center px-3 py-1.5 bg-[#FAF7F2] hover:bg-[#C9A84C]/10 text-[#B8952F] text-sm font-medium rounded-md border border-[#C9A84C]/10 transition-colors duration-150"
+                              className="flex items-center justify-center px-3 py-1.5 bg-background hover:bg-accent/10 text-accent text-sm font-medium rounded-md border border-accent/10 transition-colors duration-150"
                               title="Download Receipt"
                             >
                               <Download className="w-4 h-4 mr-1.5" />
@@ -718,7 +717,7 @@ const UserDonations = () => {
                               onClick={() =>
                                 downloadPaidPaymentsReceipt(donation)
                               }
-                              className="flex items-center justify-center px-3 py-1.5 bg-[#FAF7F2] hover:bg-[#C9A84C]/10 text-[#B8952F] text-sm font-medium rounded-md border border-[#C9A84C]/10 transition-colors duration-150"
+                              className="flex items-center justify-center px-3 py-1.5 bg-background hover:bg-accent/10 text-accent text-sm font-medium rounded-md border border-accent/10 transition-colors duration-150"
                               title="Download Paid Payments Receipt"
                             >
                               <Download className="w-4 h-4 mr-1.5" />
@@ -747,7 +746,7 @@ const UserDonations = () => {
               <button
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`p-2 rounded-lg ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                className={`p-2 rounded-lg ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-accent hover:bg-background"
                   }`}
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -769,7 +768,7 @@ const UserDonations = () => {
                   <button
                     key={i}
                     onClick={() => setCurrentPage(pageNumber)}
-                    className={`px-3 py-1 rounded-lg ${currentPage === pageNumber ? "bg-[#C9A84C] text-white" : "text-gray-600 hover:bg-[#FAF7F2]"
+                    className={`px-3 py-1 rounded-lg ${currentPage === pageNumber ? "bg-accent text-white" : "text-gray-600 hover:bg-background"
                       }`}
                   >
                     {pageNumber}
@@ -780,7 +779,7 @@ const UserDonations = () => {
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                className={`p-2 rounded-lg ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-accent hover:bg-background"
                   }`}
               >
                 <ChevronRight className="w-5 h-5" />
@@ -847,7 +846,7 @@ const UserDonations = () => {
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                       ${selectedDonation.paymentStatus === "completed"
-                          ? "bg-[#C9A84C]/10 text-green-800"
+                          ? "bg-accent/10 text-green-800"
                           : selectedDonation.paymentStatus === "processing"
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-red-100 text-red-800"
@@ -960,7 +959,7 @@ const UserDonations = () => {
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                             ${payment.status === "succeeded"
-                                          ? "bg-[#C9A84C]/10 text-green-800"
+                                          ? "bg-accent/10 text-green-800"
                                           : payment.status === "processing"
                                             ? "bg-yellow-100 text-yellow-800"
                                             : "bg-red-100 text-red-800"
@@ -1046,7 +1045,7 @@ const UserDonations = () => {
                                     <span
                                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                                    ${payment.status === "completed"
-                                          ? "bg-[#C9A84C]/10 text-green-800"
+                                          ? "bg-accent/10 text-green-800"
                                           : payment.status === "processing"
                                             ? "bg-yellow-100 text-yellow-800"
                                             : "bg-red-100 text-red-800"
@@ -1141,7 +1140,7 @@ const UserDonations = () => {
                 {/* For one-time donations - show Setup Receipt */}
                 {(selectedDonation.paymentType === "single" || selectedDonation.paymentType === "one_time" || !selectedDonation.paymentType) && (
                   <button
-                    className="bg-[#C9A84C] hover:bg-[#B8952F] text-white font-medium py-2 px-6 rounded-lg flex items-center"
+                    className="bg-accent hover:bg-accent-light text-white font-medium py-2 px-6 rounded-lg flex items-center"
                     onClick={() => {
                       toast.success("Receipt download initiated")
                       downloadReceipt(selectedDonation, {
@@ -1158,7 +1157,7 @@ const UserDonations = () => {
                 {/* For recurring/installments - show Paid Receipt only */}
                 {(selectedDonation.paymentType === "recurring" || selectedDonation.paymentType === "installments") && (
                   <button
-                    className="bg-[#C9A84C] hover:bg-[#B8952F] text-white font-medium py-2 px-6 rounded-lg flex items-center"
+                    className="bg-accent hover:bg-accent-light text-white font-medium py-2 px-6 rounded-lg flex items-center"
                     onClick={() => {
                       toast.success("Paid payments receipt download initiated")
                       downloadPaidPaymentsReceipt(selectedDonation)

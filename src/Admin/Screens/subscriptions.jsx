@@ -54,15 +54,15 @@ const LoaderSpinner = ({ size = "default", className = "" }) => {
 const PageLoader = () => (
   <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
     <div className="flex flex-col items-center space-y-4">
-      <LoaderSpinner size="large" className="text-[#C9A84C]" />
-      <p className="text-[#C9A84C] font-medium">Loading subscriptions...</p>
+      <LoaderSpinner size="large" className="text-accent" />
+      <p className="text-accent font-medium">Loading subscriptions...</p>
     </div>
   </div>
 );
 
 // Stats Card Loader
 const StatsCardLoader = () => (
-  <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100 animate-pulse">
+  <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100 animate-pulse">
     <div className="flex items-center justify-between">
       <div className="flex-1">
         <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
@@ -78,7 +78,7 @@ const StatsCardLoader = () => (
 
 // Chart Loader
 const ChartLoader = () => (
-  <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100 animate-pulse">
+  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 animate-pulse">
     <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
     <div className="h-64 bg-gray-100 rounded"></div>
   </div>
@@ -86,7 +86,7 @@ const ChartLoader = () => (
 
 // Table Loader
 const TableLoader = () => (
-  <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
+  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
     <div className="animate-pulse">
       {/* Search and Filters Skeleton */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
@@ -482,9 +482,9 @@ const SubscriptionsPage = () => {
   }
 
   return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-[#FAF7F2]/30 min-h-screen">
+    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-[#2C2418]">Subscriptions</h1>
+        <h1 className="text-xl font-bold text-primary">Subscriptions</h1>
       </div>
 
       {/* Stats Cards */}
@@ -496,32 +496,32 @@ const SubscriptionsPage = () => {
           </>
         ) : (
           <>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Total Subscriptions</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Total Subscriptions</p>
+                  <p className="text-2xl font-bold text-primary">
                     {subscriptionStats.totalSubscriptions}
                   </p>
-                  <p className="text-xs text-[#C9A84C]">Number of All Recurring Subscriptions</p>
+                  <p className="text-xs text-accent">Number of All Recurring Subscriptions</p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <Users className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <Users className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Active Subscriptions</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Active Subscriptions</p>
+                  <p className="text-2xl font-bold text-primary">
                     {dashboardStats.activeSubscriptions || 0}
                   </p>
-                  <p className="text-xs text-[#C9A84C]">Number of Active Recurring Subscriptions</p>
+                  <p className="text-xs text-accent">Number of Active Recurring Subscriptions</p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <RefreshCw className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <RefreshCw className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
@@ -540,62 +540,62 @@ const SubscriptionsPage = () => {
           </>
         ) : (
           <>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Daily Subscriptions</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Daily Subscriptions</p>
+                  <p className="text-2xl font-bold text-primary">
                     {subscriptionStats.dailySubscriptions}
                   </p>
-                  <p className="text-xs text-[#C9A84C]">Number of Daily Recurring Subscriptions</p>
+                  <p className="text-xs text-accent">Number of Daily Recurring Subscriptions</p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <Clock className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <Clock className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Weekly Subscriptions</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Weekly Subscriptions</p>
+                  <p className="text-2xl font-bold text-primary">
                     {subscriptionStats.weeklySubscriptions}
                   </p>
-                  <p className="text-xs text-[#C9A84C]">Number of Weekly Recurring Subscriptions</p>
+                  <p className="text-xs text-accent">Number of Weekly Recurring Subscriptions</p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <Calendar className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <Calendar className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Monthly Subscriptions</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Monthly Subscriptions</p>
+                  <p className="text-2xl font-bold text-primary">
                     {subscriptionStats.monthlySubscriptions}
                   </p>
-                  <p className="text-xs text-[#C9A84C]">Number of Monthly Recurring Subscriptions</p>
+                  <p className="text-xs text-accent">Number of Monthly Recurring Subscriptions</p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <Calendar className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <Calendar className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
             
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Yearly Subscriptions</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Yearly Subscriptions</p>
+                  <p className="text-2xl font-bold text-primary">
                     {subscriptionStats.yearlySubscriptions}
                   </p>
-                  <p className="text-xs text-[#C9A84C]">Number of Yearly Recurring Subscriptions</p>
+                  <p className="text-xs text-accent">Number of Yearly Recurring Subscriptions</p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <Calendar className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <Calendar className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
@@ -613,8 +613,8 @@ const SubscriptionsPage = () => {
         ) : (
           <>
             {/* Growth Chart */}
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
-              <h2 className="text-lg font-semibold text-[#2C2418] mb-4">Subscription Metrics</h2>
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+              <h2 className="text-lg font-semibold text-primary mb-4">Subscription Metrics</h2>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart 
@@ -683,8 +683,8 @@ const SubscriptionsPage = () => {
             </div>
 
             {/* Status Distribution Pie Chart */}
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
-              <h2 className="text-lg font-semibold text-[#2C2418] mb-4">Subscription Status Distribution</h2>
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+              <h2 className="text-lg font-semibold text-primary mb-4">Subscription Status Distribution</h2>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -732,7 +732,7 @@ const SubscriptionsPage = () => {
       {isLoading ? (
         <TableLoader />
       ) : (
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
+        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
           {/* Search and Filters */}
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
             <div className="flex flex-col lg:flex-row gap-2 items-center space-x-4 w-full md:w-auto">
@@ -740,7 +740,7 @@ const SubscriptionsPage = () => {
                 <input
                   type="text"
                   placeholder="Search subscriptions..."
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] w-full md:w-64"
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -748,7 +748,7 @@ const SubscriptionsPage = () => {
               </div>
 
               <select
-                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={selectedFrequency}
                 onChange={(e) => setSelectedFrequency(e.target.value)}
               >
@@ -760,7 +760,7 @@ const SubscriptionsPage = () => {
               </select>
 
               <select
-                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
@@ -777,7 +777,7 @@ const SubscriptionsPage = () => {
           {/* Table */}
           <div className="overflow-x-auto">
             {subscriptions.length === 0 ? (
-              <div className="text-center py-4 text-[#C9A84C]">No subscriptions found</div>
+              <div className="text-center py-4 text-accent">No subscriptions found</div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -831,31 +831,31 @@ const SubscriptionsPage = () => {
                     <tr key={subscription.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-[#2C2418]">
+                          <div className="text-sm font-medium text-primary">
                             {subscription.donorName || "Unknown"}
                           </div>
-                          <div className="text-sm text-[#C9A84C]">
+                          <div className="text-sm text-accent">
                             {subscription.donorEmail || "No email"}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-[#2C2418]">
+                        <div className="text-sm text-primary">
                           {subscription.cause || "General Donation"}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-[#2C2418]">
+                        <div className="text-sm font-medium text-primary">
                           ${(subscription.amount || 0).toLocaleString()}/
                           {(subscription.frequency || "month").toLowerCase()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-sm font-medium rounded-full bg-[#C9A84C]/10 text-[#2C2418]">
+                        <span className="px-2 py-1 text-sm font-medium rounded-full bg-accent/10 text-primary">
                           {subscription.frequency || "Monthly"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#C9A84C]">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-accent">
                         {subscription.nextBilling 
                           ? new Date(subscription.nextBilling).toLocaleDateString() 
                           : subscription.startDate 
@@ -867,13 +867,13 @@ const SubscriptionsPage = () => {
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                             ${
                               subscription.status === "active"
-                                ? "bg-[#C9A84C]/10 text-[#2C2418]"
+                                ? "bg-accent/10 text-primary"
                                 : subscription.status === "paused"
                                 ? "bg-yellow-100 text-yellow-800"
                                 : subscription.status === "failed"
                                 ? "bg-red-100 text-red-800"
                                 : subscription.status === "ended"
-                                ? "bg-[#C9A84C]/10 text-[#2C2418]"
+                                ? "bg-accent/10 text-primary"
                                 : subscription.status === "pending_cancellation"
                                 ? "bg-orange-100 text-orange-800"
                                 : "bg-gray-100 text-gray-800"
@@ -894,7 +894,7 @@ const SubscriptionsPage = () => {
           {/* Pagination */}
           {subscriptions.length > 0 && (
             <div className="flex justify-between items-center mt-6">
-              <div className="text-sm text-[#C9A84C]">
+              <div className="text-sm text-accent">
                 Showing {((pagination.currentPage || 1) - 1) * (pagination.perPage || ITEMS_PER_PAGE) + 1} to{" "}
                 {Math.min(
                   (pagination.currentPage || 1) * (pagination.perPage || ITEMS_PER_PAGE),
@@ -910,7 +910,7 @@ const SubscriptionsPage = () => {
                   className={`p-2 rounded-lg ${
                     currentPage <= 1
                       ? "text-gray-400 cursor-not-allowed"
-                      : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                      : "text-accent hover:bg-background"
                   }`}
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -925,8 +925,8 @@ const SubscriptionsPage = () => {
                     onClick={() => setCurrentPage(pageNum)}
                     className={`px-3 py-1 rounded-lg ${
                       currentPage === pageNum
-                        ? "bg-[#C9A84C] text-white"
-                        : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                        ? "bg-accent text-white"
+                        : "text-accent hover:bg-background"
                     }`}
                   >
                     {pageNum}
@@ -939,7 +939,7 @@ const SubscriptionsPage = () => {
                   className={`p-2 rounded-lg ${
                     currentPage >= (pagination.pages || 1)
                       ? "text-gray-400 cursor-not-allowed"
-                      : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                      : "text-accent hover:bg-background"
                   }`}
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -983,7 +983,7 @@ const SubscriptionsPage = () => {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowCancelRequestDialog(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C9A84C]"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
               >
                 Cancel
               </button>

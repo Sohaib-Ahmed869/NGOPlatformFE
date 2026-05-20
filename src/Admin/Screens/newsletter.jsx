@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axiosInstance from "../../services/axios";
+import PageLoader from "../../components/PageLoader";
 
 const NewsletterSubscribersScreen = () => {
   const [subscribers, setSubscribers] = useState([]);
@@ -116,33 +117,7 @@ const NewsletterSubscribersScreen = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <svg
-            className="animate-spin h-10 w-10 text-gray-500"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          <p className="mt-4 text-gray-700 font-medium">
-            Loading subscribers...
-          </p>
-        </div>
-      </div>
-    );
+    return <PageLoader text="Loading subscribers..." />;
   }
 
   if (error) {
@@ -171,7 +146,7 @@ const NewsletterSubscribersScreen = () => {
           <p className="text-center text-gray-600">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 w-full bg-[#C9A84C] text-white py-2 px-4 rounded-md hover:bg-[#B8952F] transition duration-300"
+            className="mt-4 w-full bg-accent text-white py-2 px-4 rounded-md hover:bg-accent-light transition duration-300"
           >
             Try Again
           </button>
@@ -195,7 +170,7 @@ const NewsletterSubscribersScreen = () => {
           <button
             onClick={exportToCSV}
             disabled={exportLoading}
-            className="mt-4 md:mt-0 px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-all duration-300 shadow-sm flex items-center gap-2"
+            className="mt-4 md:mt-0 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-all duration-300 shadow-sm flex items-center gap-2"
           >
             {exportLoading ? (
               <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
@@ -239,7 +214,7 @@ const NewsletterSubscribersScreen = () => {
               placeholder="Search subscribers by email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-[#C9A84C] bg-white"
+              className="w-full px-4 py-3 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent bg-white"
             />
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -366,7 +341,7 @@ const NewsletterSubscribersScreen = () => {
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             subscriber.isActive === false
                               ? "bg-red-100 text-red-800"
-                              : "bg-[#C9A84C]/10 text-[#2C2418]"
+                              : "bg-accent/10 text-primary"
                           }`}
                         >
                           {subscriber.isActive === false
@@ -399,7 +374,7 @@ const NewsletterSubscribersScreen = () => {
                 className={`p-2 rounded-lg ${
                   currentPage === 1
                     ? "text-gray-400 cursor-not-allowed"
-                    : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                    : "text-accent hover:bg-background"
                 }`}
               >
                 <svg
@@ -434,8 +409,8 @@ const NewsletterSubscribersScreen = () => {
                     onClick={() => handlePageChange(pageNumber)}
                     className={`px-3 py-1 rounded-lg ${
                       currentPage === pageNumber
-                        ? "bg-[#C9A84C] text-white"
-                        : "text-gray-600 hover:bg-[#FAF7F2]"
+                        ? "bg-accent text-white"
+                        : "text-gray-600 hover:bg-background"
                     }`}
                   >
                     {pageNumber}
@@ -449,7 +424,7 @@ const NewsletterSubscribersScreen = () => {
                 className={`p-2 rounded-lg ${
                   currentPage === totalPages
                     ? "text-gray-400 cursor-not-allowed"
-                    : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                    : "text-accent hover:bg-background"
                 }`}
               >
                 <svg

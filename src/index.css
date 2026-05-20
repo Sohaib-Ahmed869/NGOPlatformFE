@@ -3,6 +3,20 @@
 @tailwind utilities;
 
 @layer base {
+  /* Default tenant theme variables — overridden by TenantContext when branding loads */
+  :root {
+    --tenant-primary: #2C2418;
+    --tenant-primary-light: #4A3C2A;
+    --tenant-accent: #C9A84C;
+    --tenant-accent-light: #D4B85A;
+    --tenant-bg: #FAF7F2;
+    --tenant-primary-rgb: 44, 36, 24;
+    --tenant-accent-rgb: 201, 168, 76;
+    --tenant-bg-rgb: 250, 247, 242;
+    --tenant-sidebar-top: #4A3F30;
+    --tenant-sidebar-bottom: #3D3226;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }

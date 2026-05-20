@@ -161,7 +161,7 @@ const ContactRequestsAdmin = () => {
           </h1>
           <div className="flex space-x-3">
             <button
-              className="px-4 py-2 rounded-lg bg-[#C9A84C] text-white hover:bg-[#B8952F] transition-all duration-300 shadow-sm flex items-center gap-2"
+              className="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-light transition-all duration-300 shadow-sm flex items-center gap-2"
               onClick={exportToCSV}
             >
               <svg
@@ -235,7 +235,7 @@ const ContactRequestsAdmin = () => {
               <input
                 type="text"
                 placeholder="Search by name, email, or city"
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-[#C9A84C]"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
                 value={searchTerm}
                 onChange={handleSearch}
               />
@@ -322,7 +322,7 @@ const ContactRequestsAdmin = () => {
                     <td className="font-medium p-3 border-b border-gray-200">
                       {request.fullName}
                     </td>
-                    <td className="text-[#C9A84C] p-3 border-b border-gray-200">
+                    <td className="text-accent p-3 border-b border-gray-200">
                       {request.email}
                     </td>
                     <td className="p-3 border-b border-gray-200">
@@ -413,7 +413,7 @@ const ContactRequestsAdmin = () => {
               className={`p-2 rounded-lg ${
                 currentPage === 1
                   ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                  : "text-accent hover:bg-background"
               }`}
             >
               <svg
@@ -448,8 +448,8 @@ const ContactRequestsAdmin = () => {
                   onClick={() => setCurrentPage(pageNumber)}
                   className={`px-3 py-1 rounded-lg ${
                     currentPage === pageNumber
-                      ? "bg-[#C9A84C] text-white"
-                      : "text-gray-600 hover:bg-[#FAF7F2]"
+                      ? "bg-accent text-white"
+                      : "text-gray-600 hover:bg-background"
                   }`}
                 >
                   {pageNumber}
@@ -463,7 +463,7 @@ const ContactRequestsAdmin = () => {
               className={`p-2 rounded-lg ${
                 currentPage === totalPages || totalPages === 0
                   ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                  : "text-accent hover:bg-background"
               }`}
             >
               <svg
@@ -527,7 +527,7 @@ const ContactRequestsAdmin = () => {
                     <input
                       type="text"
                       value={viewRequest.fullName || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -539,7 +539,7 @@ const ContactRequestsAdmin = () => {
                     <input
                       type="text"
                       value={viewRequest.email || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -551,7 +551,7 @@ const ContactRequestsAdmin = () => {
                     <input
                       type="text"
                       value={viewRequest.phoneNumber || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -563,7 +563,7 @@ const ContactRequestsAdmin = () => {
                     <input
                       type="text"
                       value={viewRequest.hostCity || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -575,7 +575,7 @@ const ContactRequestsAdmin = () => {
                     <input
                       type="text"
                       value={viewRequest.purpose || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -587,7 +587,7 @@ const ContactRequestsAdmin = () => {
                     <input
                       type="text"
                       value={viewRequest.numberOfGuests || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -603,7 +603,7 @@ const ContactRequestsAdmin = () => {
                           ? `$${viewRequest.minimumDonation}`
                           : ""
                       }
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -621,7 +621,7 @@ const ContactRequestsAdmin = () => {
                             : "No"
                           : ""
                       }
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -631,7 +631,7 @@ const ContactRequestsAdmin = () => {
                       Description
                     </label>
                     <textarea
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent h-24 resize-none"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent h-24 resize-none"
                       value={viewRequest.description || ""}
                       readOnly
                     />

@@ -95,7 +95,8 @@ const AboutUsPage = () => {
         className="relative h-96 bg-cover bg-center"
         style={{ backgroundImage: `url(${image1})` }}
       >
-        <div className="absolute inset-0 bg-black bg-opacity-50">
+        <div className="absolute inset-0" style={{ background: `linear-gradient(to right, var(--tenant-sidebar-top, #4A3F30), var(--tenant-sidebar-bottom, #3D3226))`, opacity: 0.75 }} />
+        <div className="absolute inset-0">
           <motion.div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center text-white" {...fadeInUp}>
             <span className="text-sm font-body mb-2">About Us</span>
             <h1 className="text-4xl font-heading font-bold mb-4">Our Mission and Values</h1>

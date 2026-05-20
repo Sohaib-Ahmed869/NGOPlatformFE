@@ -4,7 +4,7 @@ import { Outlet, Navigate } from "react-router-dom";
 import UserSidebar from "./sidebar";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import axios from "../services/axios";
+import axios, { getStoragePrefix } from "../services/axios";
 import { toast } from "react-hot-toast";
 
 const UserLayout = () => {
@@ -19,7 +19,7 @@ const UserLayout = () => {
     const checkPasswordStatus = async () => {
       try {
         // Get the token from localStorage
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem(getStoragePrefix() + 'token');
         
         if (!token) {
           navigate('/login');
@@ -49,7 +49,7 @@ const UserLayout = () => {
   // If loading, show loading indicator
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#FAF7F2]">
+      <div className="flex h-screen items-center justify-center bg-[var(--tenant-bg,#FAF7F2)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#C9A84C] mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
@@ -69,7 +69,7 @@ const UserLayout = () => {
   }
 
   return (
-    <div className="flex h-screen bg-[#FAF7F2]">
+    <div className="flex h-screen bg-[var(--tenant-bg,#FAF7F2)]">
       <UserSidebar />
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
@@ -78,7 +78,8 @@ const UserLayout = () => {
           
           <div className="flex items-center space-x-4">
             <button
-              className="px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors"
+              className="px-4 py-2 text-white rounded-lg transition-colors"
+              style={{ backgroundColor: 'var(--tenant-accent, #C9A84C)' }}
               onClick={() => navigate("/")}
             >
               Make a Donation

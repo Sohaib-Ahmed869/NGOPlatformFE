@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import PageLoader from "../../components/PageLoader";
 import {
   TrendingUp,
   Search,
@@ -208,9 +209,7 @@ const AdminInstallments = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader className="w-8 h-8 animate-spin text-[#C9A84C]" />
-      </div>
+      <PageLoader />
     );
   }
 
@@ -218,11 +217,11 @@ const AdminInstallments = () => {
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Installment Amount</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 ${stats.totalAmount.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">Total amount of all installment donations</p>
@@ -233,54 +232,54 @@ const AdminInstallments = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Active Installments</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 {stats.activeInstallments}
               </p>
               <p className="text-xs text-gray-500">Number of active installment plans</p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <Layers className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <Layers className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Installments</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 {stats.totalInstallments}
               </p>
               <p className="text-xs text-gray-500">Total number of installment plans</p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <CheckCircle className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <CheckCircle className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Average Installment</p>
-              <p className="text-2xl font-bold text-[#2C2418]">
+              <p className="text-2xl font-bold text-primary">
                 ${stats.averageInstallment.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">Average amount per installment plan</p>
             </div>
-            <div className="p-3 bg-[#FAF7F2] rounded-full">
-              <Info className="w-6 h-6 text-[#C9A84C]" />
+            <div className="p-3 bg-background rounded-full">
+              <Info className="w-6 h-6 text-accent" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Status Distribution Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-accent/10 p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Installment Status Distribution</h2>
         <div className="w-full max-w-md mx-auto">
           <Pie data={getStatusDistribution()} options={chartOptions} />
@@ -288,7 +287,7 @@ const AdminInstallments = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl shadow-sm border border-accent/10">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Installment Donations</h2>
@@ -299,7 +298,7 @@ const AdminInstallments = () => {
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                 />
                 <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               </div>
@@ -322,7 +321,7 @@ const AdminInstallments = () => {
                           setShowFilterMenu(false);
                         }}
                         className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "all" ? "bg-[#FAF7F2] text-[#B8952F]" : "text-gray-700 hover:bg-gray-50"
+                          statusFilter === "all" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         All
@@ -333,7 +332,7 @@ const AdminInstallments = () => {
                           setShowFilterMenu(false);
                         }}
                         className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "completed" ? "bg-[#FAF7F2] text-[#B8952F]" : "text-gray-700 hover:bg-gray-50"
+                          statusFilter === "completed" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         Completed
@@ -344,7 +343,7 @@ const AdminInstallments = () => {
                           setShowFilterMenu(false);
                         }}
                         className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "pending" ? "bg-[#FAF7F2] text-[#B8952F]" : "text-gray-700 hover:bg-gray-50"
+                          statusFilter === "pending" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         Pending
@@ -355,7 +354,7 @@ const AdminInstallments = () => {
                           setShowFilterMenu(false);
                         }}
                         className={`w-full text-left px-2 py-1 text-sm rounded ${
-                          statusFilter === "cancelled" ? "bg-[#FAF7F2] text-[#B8952F]" : "text-gray-700 hover:bg-gray-50"
+                          statusFilter === "cancelled" ? "bg-background text-accent" : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         Cancelled
@@ -417,7 +416,7 @@ const AdminInstallments = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        donation.status === "completed" ? "bg-[#C9A84C]/10 text-[#2C2418]" :
+                        donation.status === "completed" ? "bg-accent/10 text-primary" :
                         donation.status === "pending" ? "bg-yellow-100 text-yellow-800" :
                         donation.status === "cancelled" ? "bg-red-100 text-red-800" :
                         "bg-gray-100 text-gray-800"

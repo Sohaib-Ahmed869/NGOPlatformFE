@@ -46,9 +46,9 @@ const UserSidebar = () => {
   const sidebarContent = (
     <div className="flex flex-col h-full font-body">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-[#C9A84C]/10">
-        <h2 className="text-lg font-heading font-bold text-[#F5EDE0] tracking-wide">My Account</h2>
-        <p className="text-xs text-[#F5EDE0]/40 mt-0.5">{user?.name || user?.email}</p>
+      <div className="px-6 py-5 border-b border-white/10">
+        <h2 className="text-lg font-heading font-bold text-white tracking-wide">My Account</h2>
+        <p className="text-xs text-white/40 mt-0.5">{user?.name || user?.email}</p>
       </div>
 
       {/* Nav */}
@@ -58,7 +58,7 @@ const UserSidebar = () => {
             if (item.section) {
               return (
                 <li key={index}>
-                  <div className="text-[10px] font-semibold text-[#C9A84C]/50 uppercase tracking-[0.15em] mb-2 px-3">
+                  <div className="text-[10px] font-semibold text-white/30 uppercase tracking-[0.15em] mb-2 px-3">
                     {item.section}
                   </div>
                   <ul className="space-y-1">
@@ -71,8 +71,8 @@ const UserSidebar = () => {
                             to={subItem.path}
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                               isActive
-                                ? "bg-[#C9A84C]/15 text-[#C9A84C] font-medium"
-                                : "text-[#F5EDE0]/60 hover:bg-white/5 hover:text-[#F5EDE0]"
+                                ? "bg-accent/15 text-accent font-medium"
+                                : "text-white/60 hover:bg-white/5 hover:text-white"
                             }`}
                             onClick={() => setIsMobileMenuOpen(false)}
                           >
@@ -95,8 +95,8 @@ const UserSidebar = () => {
                   to={item.path}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                     isActive
-                      ? "bg-[#C9A84C]/15 text-[#C9A84C] font-medium"
-                      : "text-[#F5EDE0]/60 hover:bg-white/5 hover:text-[#F5EDE0]"
+                      ? "bg-accent/15 text-accent font-medium"
+                      : "text-white/60 hover:bg-white/5 hover:text-white"
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -110,10 +110,10 @@ const UserSidebar = () => {
       </nav>
 
       {/* Logout */}
-      <div className="px-3 py-4 border-t border-[#C9A84C]/10">
+      <div className="px-3 py-4 border-t border-white/10">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#F5EDE0]/60 hover:bg-white/5 hover:text-[#F5EDE0] w-full text-left transition-all"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/60 hover:bg-white/5 hover:text-white w-full text-left transition-all"
         >
           <LogOut className="w-[18px] h-[18px]" />
           <span>Sign Out</span>
@@ -128,7 +128,7 @@ const UserSidebar = () => {
       <div className="block lg:hidden fixed top-4 left-4 z-30">
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 rounded-xl bg-white shadow-md text-[#2C2418] hover:bg-[#FAF7F2] transition-colors"
+          className="p-2 rounded-xl bg-white shadow-md text-primary hover:bg-background transition-colors"
           aria-label="Toggle menu"
         >
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -146,7 +146,7 @@ const UserSidebar = () => {
           className={`absolute top-0 left-0 h-full w-64 transform transition-transform duration-300 ${
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
-          style={{ background: "linear-gradient(180deg, #4A3F30 0%, #3D3226 100%)" }}
+          style={{ background: `linear-gradient(180deg, var(--tenant-sidebar-top, #4A3F30) 0%, var(--tenant-sidebar-bottom, #3D3226) 100%)` }}
         >
           {sidebarContent}
         </div>
@@ -155,7 +155,7 @@ const UserSidebar = () => {
       {/* Desktop sidebar */}
       <div
         className="hidden lg:block h-full w-64 shadow-lg"
-        style={{ background: "linear-gradient(180deg, #4A3F30 0%, #3D3226 100%)" }}
+        style={{ background: `linear-gradient(180deg, var(--tenant-sidebar-top, #4A3F30) 0%, var(--tenant-sidebar-bottom, #3D3226) 100%)` }}
       >
         {sidebarContent}
       </div>

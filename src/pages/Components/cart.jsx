@@ -18,9 +18,6 @@ export const CartProvider = ({ children }) => {
     }
   }, [isOpen]);
 
-  React.useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
 
   const addItem = (item) => {
     setItems((prev) => {
@@ -132,7 +129,7 @@ const Cart = () => {
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="h-full flex flex-col bg-[#FAF7F2] shadow-2xl">
+        <div className="h-full flex flex-col bg-background shadow-2xl">
           {/* Header */}
           <div className="px-6 py-5 flex justify-between items-center border-b border-gray-200/60">
             <div>
@@ -153,18 +150,14 @@ const Cart = () => {
           {items.length === 0 && (
             <div className="flex-1 flex items-center justify-center px-6">
               <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#C9A84C]/10 flex items-center justify-center mx-auto mb-4">
-                  <Heart className="w-7 h-7 text-[#C9A84C]" />
+                <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+                  <Heart className="w-7 h-7 text-accent" />
                 </div>
                 <p className="font-heading text-lg font-bold text-text-dark mb-1">No donations yet</p>
                 <p className="text-sm text-text-muted font-body">Browse our causes and start giving</p>
                 <button
                   onClick={() => { setIsOpen(false); navigate("/donate"); }}
-                  className="mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold font-body text-[#2C2418]"
-                  style={{
-                    background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)",
-                    boxShadow: "0 2px 8px rgba(201,168,76,0.25)",
-                  }}
+                  className="mt-5 px-6 py-2.5 rounded-xl text-sm font-semibold font-body text-white bg-accent hover:bg-accent/90 shadow-md"
                 >
                   Explore Causes
                 </button>
@@ -191,15 +184,15 @@ const Cart = () => {
                       alt={item.title}
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-xl bg-[#C9A84C]/10 flex items-center justify-center flex-shrink-0">
-                      <Heart className="w-6 h-6 text-[#C9A84C]" />
+                    <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <Heart className="w-6 h-6 text-accent" />
                     </div>
                   )}
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-body font-semibold text-sm text-text-dark truncate">{item.title}</h3>
-                    <p className="text-[#C9A84C] font-heading font-bold text-base mt-0.5">
+                    <p className="text-accent font-heading font-bold text-base mt-0.5">
                       ${(item.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
@@ -212,7 +205,7 @@ const Cart = () => {
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
-                    <div className="flex items-center gap-1 bg-[#FAF7F2] rounded-lg p-0.5">
+                    <div className="flex items-center gap-1 bg-background rounded-lg p-0.5">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
                         className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-white text-text-muted hover:text-text-dark transition-all"
@@ -248,17 +241,13 @@ const Cart = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="flex-1 py-3 rounded-xl text-sm font-semibold font-body text-text-dark bg-[#FAF7F2] border border-gray-200 hover:bg-gray-100 transition-all"
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold font-body text-text-dark bg-background border border-gray-200 hover:bg-gray-100 transition-all"
                 >
                   Continue
                 </button>
                 <button
                   onClick={() => { setIsOpen(false); navigate("/checkout"); }}
-                  className="flex-[2] py-3 rounded-xl text-sm font-semibold font-body text-[#2C2418] flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
-                  style={{
-                    background: "linear-gradient(180deg, #D4B85A 0%, #C9A84C 100%)",
-                    boxShadow: "0 2px 12px rgba(201,168,76,0.3)",
-                  }}
+                  className="flex-[2] py-3 rounded-xl text-sm font-semibold font-body text-white bg-accent hover:bg-accent/90 shadow-md flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
                 >
                   Checkout
                   <ArrowRight className="w-4 h-4" />

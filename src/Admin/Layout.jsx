@@ -15,7 +15,7 @@ const AdminLayout = () => {
 
 
   return (
-    <div className="flex h-screen bg-[#FAF7F2]">
+    <div className="flex h-screen" style={{ backgroundColor: 'var(--tenant-bg, #FAF7F2)' }}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto p-8">
         <Outlet />

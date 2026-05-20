@@ -185,7 +185,7 @@ const JoinTeamAdmin = () => {
           </h1>
           <div className="flex space-x-3">
             <button
-              className="px-4 py-2 rounded-lg bg-[#C9A84C] text-white hover:bg-[#B8952F] transition-all duration-300 shadow-sm flex items-center gap-2"
+              className="px-4 py-2 rounded-lg bg-accent text-white hover:bg-accent-light transition-all duration-300 shadow-sm flex items-center gap-2"
               onClick={exportToCSV}
             >
               <svg
@@ -254,7 +254,7 @@ const JoinTeamAdmin = () => {
           </div>
 
           <div className="bg-white shadow-sm rounded-lg p-5 border border-gray-200">
-            <div className="text-[#C9A84C]">
+            <div className="text-accent">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-8 w-8"
@@ -357,7 +357,7 @@ const JoinTeamAdmin = () => {
               <input
                 type="text"
                 placeholder="Search by name, email, or skills"
-                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-[#C9A84C]"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
                 value={searchTerm}
                 onChange={handleSearch}
               />
@@ -380,7 +380,7 @@ const JoinTeamAdmin = () => {
             </div>
           </div>
           <select
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C] w-full md:w-1/4"
+            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-1/4"
             value={filter}
             onChange={handleFilterChange}
           >
@@ -455,7 +455,7 @@ const JoinTeamAdmin = () => {
                     className="hover:bg-gray-50 transition-colors duration-150"
                   >
                     <td className="font-medium p-3 border-b border-gray-200">{`${application.firstName} ${application.lastName}`}</td>
-                    <td className="text-[#C9A84C] p-3 border-b border-gray-200">
+                    <td className="text-accent p-3 border-b border-gray-200">
                       {application.email}
                     </td>
                     <td className="p-3 border-b border-gray-200">
@@ -468,7 +468,7 @@ const JoinTeamAdmin = () => {
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
                           application.gender?.toLowerCase() === "male"
-                            ? "bg-[#C9A84C]/10 text-blue-800"
+                            ? "bg-accent/10 text-blue-800"
                             : "bg-pink-100 text-pink-800"
                         }`}
                       >
@@ -563,7 +563,7 @@ const JoinTeamAdmin = () => {
               className={`p-2 rounded-lg ${
                 currentPage === 1
                   ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                  : "text-accent hover:bg-background"
               }`}
             >
               <svg
@@ -598,8 +598,8 @@ const JoinTeamAdmin = () => {
                   onClick={() => setCurrentPage(pageNumber)}
                   className={`px-3 py-1 rounded-lg ${
                     currentPage === pageNumber
-                      ? "bg-[#C9A84C] text-white"
-                      : "text-gray-600 hover:bg-[#FAF7F2]"
+                      ? "bg-accent text-white"
+                      : "text-gray-600 hover:bg-background"
                   }`}
                 >
                   {pageNumber}
@@ -613,7 +613,7 @@ const JoinTeamAdmin = () => {
               className={`p-2 rounded-lg ${
                 currentPage === totalPages || totalPages === 0
                   ? "text-gray-400 cursor-not-allowed"
-                  : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                  : "text-accent hover:bg-background"
               }`}
             >
               <svg
@@ -677,7 +677,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.firstName || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -689,7 +689,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.lastName || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -701,7 +701,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.email || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -713,7 +713,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.phoneNumber || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -725,7 +725,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.age || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -737,7 +737,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.gender || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -749,7 +749,7 @@ const JoinTeamAdmin = () => {
                     <input
                       type="text"
                       value={viewApplication.address || ""}
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                       readOnly
                     />
                   </div>
@@ -759,7 +759,7 @@ const JoinTeamAdmin = () => {
                       Skills
                     </label>
                     <textarea
-                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-transparent h-24 resize-none"
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent h-24 resize-none"
                       value={viewApplication.skills || ""}
                       readOnly
                     />
@@ -775,7 +775,7 @@ const JoinTeamAdmin = () => {
                         viewApplication.availableDays.map((day, index) => (
                           <span
                             key={index}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#C9A84C]/10 text-blue-800"
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-accent/10 text-blue-800"
                           >
                             {day}
                           </span>
@@ -797,7 +797,7 @@ const JoinTeamAdmin = () => {
                       onChange={(e) =>
                         handleStatusChange(viewApplication._id, e.target.value)
                       }
-                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:border-[#C9A84C]"
+                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
                     >
                       <option value="pending">Pending</option>
                       <option value="reviewed">Reviewed</option>
@@ -817,7 +817,7 @@ const JoinTeamAdmin = () => {
                     Close
                   </button>
                   <button
-                    className="px-4 py-2 bg-[#C9A84C] text-white font-medium rounded-md hover:bg-[#B8952F] focus:outline-none focus:ring-2 focus:ring-[#C9A84C] focus:ring-offset-2 transition-colors duration-200"
+                    className="px-4 py-2 bg-accent text-white font-medium rounded-md hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
                     onClick={() => {
                       // Here you would make an API call to save the application status
                       closeViewModal();

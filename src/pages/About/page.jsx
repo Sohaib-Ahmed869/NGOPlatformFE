@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { useNavigate } from "react-router-dom";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
+import HeroOverlay from "../../components/HeroOverlay";
 
 const IMAGE_VISION = "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=400&h=400&fit=crop&q=80"; // volunteer,team
 const IMAGE_LEADERSHIP = "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?w=400&h=400&fit=crop&q=80"; // nonprofit,people
@@ -53,7 +54,7 @@ const AboutSection = () => {
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
           <img src="https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1600&q=80" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#4A3F30]/85 to-[#4A3F30]/65" />
+          <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">About Us</h1>

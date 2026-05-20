@@ -76,7 +76,7 @@ const ProfileSettings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
         <h1 className="text-2xl font-bold text-gray-800">Profile Settings</h1>
         <p className="text-gray-600 mt-1">
           Manage your account preferences and settings
@@ -86,7 +86,7 @@ const ProfileSettings = () => {
       {/* Main Content */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar Tabs */}
-        <div className="lg:w-64 bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 overflow-hidden">
+        <div className="lg:w-64 bg-white rounded-xl shadow-sm border border-accent/10 overflow-hidden">
           <nav className="flex flex-col p-2">
             {[
               { id: "password", label: "Change Password", icon: Lock },
@@ -96,7 +96,7 @@ const ProfileSettings = () => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-left ${
                   activeTab === tab.id
-                    ? "bg-[#FAF7F2] text-[#C9A84C]"
+                    ? "bg-background text-accent"
                     : "text-gray-600 hover:bg-gray-50"
                 }`}
               >
@@ -109,7 +109,7 @@ const ProfileSettings = () => {
 
         {/* Password Change Form */}
         {activeTab === "password" && (
-          <div className="max-w-lg mx-auto bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 p-6 mt-8 flex-1">
+          <div className="max-w-lg mx-auto bg-white rounded-xl shadow-sm border border-accent/10 p-6 mt-8 flex-1">
             <h2 className="text-xl font-semibold text-gray-800 mb-6">
               Change Password
             </h2>
@@ -125,7 +125,7 @@ const ProfileSettings = () => {
                   name="currentPassword"
                   value={passwordData.currentPassword}
                   onChange={handlePasswordChange}
-                  className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                   required
                 />
                 <button
@@ -151,7 +151,7 @@ const ProfileSettings = () => {
                   name="newPassword"
                   value={passwordData.newPassword}
                   onChange={handlePasswordChange}
-                  className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                   required
                   minLength={6}
                 />
@@ -178,7 +178,7 @@ const ProfileSettings = () => {
                   name="confirmPassword"
                   value={passwordData.confirmPassword}
                   onChange={handlePasswordChange}
-                  className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="w-full px-4 py-2 pr-10 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                   required
                 />
                 <button
@@ -198,7 +198,7 @@ const ProfileSettings = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center px-4 py-2 bg-[#C9A84C] text-white rounded-lg hover:bg-[#B8952F] transition-colors disabled:bg-teal-300"
+                  className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50"
                 >
                   {saving && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

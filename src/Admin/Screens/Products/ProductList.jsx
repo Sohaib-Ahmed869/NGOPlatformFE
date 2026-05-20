@@ -3,6 +3,7 @@ import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getProducts, deleteProduct, getCategories } from '../../../services/productService';
+import PageLoader from '../../../components/PageLoader';
 
 const ProductList = () => {
   const [products, setProducts] = useState([]);
@@ -62,9 +63,7 @@ const ProductList = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#C9A84C]"></div>
-      </div>
+      <PageLoader />
     );
   }
 
@@ -74,7 +73,7 @@ const ProductList = () => {
         <h1 className="text-2xl font-bold text-gray-800">Products Management</h1>
         <Link
           to="/admin/products/new"
-          className="bg-[#C9A84C] hover:bg-[#B8952F] text-white px-4 py-2 rounded-md flex items-center whitespace-nowrap"
+          className="bg-accent hover:bg-accent-light text-white px-4 py-2 rounded-md flex items-center whitespace-nowrap"
         >
           <FaPlus className="mr-2" /> Add New Product
         </Link>
@@ -90,7 +89,7 @@ const ProductList = () => {
               type="text"
               id="search"
               placeholder="Search by title or description..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -101,7 +100,7 @@ const ProductList = () => {
             </label>
             <select
               id="category"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
@@ -132,7 +131,7 @@ const ProductList = () => {
                 </div>
                 <div className="p-4 flex flex-col flex-grow">
                   <div className="mb-2">
-                    <span className="text-xs font-medium text-[#C9A84C] uppercase tracking-wider">
+                    <span className="text-xs font-medium text-accent uppercase tracking-wider">
                       {product.category || 'Uncategorized'}
                     </span>
                     <h3 className="text-base font-semibold text-gray-900 line-clamp-1 mb-1">
@@ -153,7 +152,7 @@ const ProductList = () => {
                       <div className="flex space-x-2">
                         <Link
                           to={`/admin/products/edit/${product._id}`}
-                          className="p-2 text-gray-500 hover:text-[#C9A84C] transition-colors"
+                          className="p-2 text-gray-500 hover:text-accent transition-colors"
                           title="Edit"
                         >
                           <FaEdit className="w-4 h-4" />

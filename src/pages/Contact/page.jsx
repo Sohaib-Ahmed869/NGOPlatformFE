@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { sectionReveal, slideInRight } from "../../utils/animations";
+import HeroOverlay from "../../components/HeroOverlay";
 
 const touch = "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&q=80";
 import axios from "../../services/axios";
@@ -75,7 +76,7 @@ const Contact = () => {
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
           <img src="https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1600&q=80" alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#4A3F30]/85 to-[#4A3F30]/65" />
+          <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Get In Touch</h1>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import axios from '../services/axios';
+import axios, { getStoragePrefix } from '../services/axios';
 
 const ProtectedRoute = ({ children }) => {
   const { user, setUser } = useAuth();
@@ -19,7 +19,7 @@ const ProtectedRoute = ({ children }) => {
         }
 
         // Get the token from localStorage
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem(getStoragePrefix() + 'token');
         
         if (!token) {
           setIsLoading(false);

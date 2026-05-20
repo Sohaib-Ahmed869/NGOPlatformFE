@@ -1,5 +1,6 @@
 //donors.jsx
 import React, { useState, useEffect } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   Search,
   ChevronDown,
@@ -262,7 +263,7 @@ const DonorDetailView = ({ donor, onClose }) => {
               minute: '2-digit'
             }) : ''}
           </p>
-          <p className="text-[#C9A84C] font-bold mt-1">Amount: ${payload[0].value.toLocaleString()}</p>
+          <p className="text-accent font-bold mt-1">Amount: ${payload[0].value.toLocaleString()}</p>
         </div>
       );
     }
@@ -286,8 +287,8 @@ const DonorDetailView = ({ donor, onClose }) => {
           <div className="p-6 space-y-8 pb-16">
             <div className="grid grid-cols-2 gap-6">
               <div className="col-span-2 flex items-center space-x-4">
-                <div className="bg-[#C9A84C]/10 p-4 rounded-full flex-shrink-0">
-                  <User className="w-8 h-8 text-[#C9A84C]" />
+                <div className="bg-accent/10 p-4 rounded-full flex-shrink-0">
+                  <User className="w-8 h-8 text-accent" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-gray-800">{donor.name}</h3>
@@ -323,20 +324,20 @@ const DonorDetailView = ({ donor, onClose }) => {
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-[#FAF7F2] p-4 rounded-lg">
-                <DollarSign className="w-6 h-6 text-[#C9A84C] mb-2" />
+              <div className="bg-background p-4 rounded-lg">
+                <DollarSign className="w-6 h-6 text-accent mb-2" />
                 <p className="text-sm text-gray-600">Total Donated</p>
                 <p className="text-xl font-bold text-gray-800">
                   ${donor.totalDonated.toLocaleString()} 
                 </p>
               </div>
-              <div className="bg-[#FAF7F2] p-4 rounded-lg">
-                <Heart className="w-6 h-6 text-[#C9A84C] mb-2" />
+              <div className="bg-background p-4 rounded-lg">
+                <Heart className="w-6 h-6 text-accent mb-2" />
                 <p className="text-sm text-gray-600">Total Donations</p>
                 <p className="text-xl font-bold text-gray-800">{donor.donationCount}</p>
               </div>
-              <div className="bg-[#FAF7F2] p-4 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-[#C9A84C] mb-2" />
+              <div className="bg-background p-4 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-accent mb-2" />
                 <p className="text-sm text-gray-600">Average Donation</p>
                 <p className="text-xl font-bold text-gray-800">
                   $
@@ -403,7 +404,7 @@ const DonorDetailView = ({ donor, onClose }) => {
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           donation.status === "completed"
-                            ? "bg-[#C9A84C]/10 text-[#2C2418]"
+                            ? "bg-accent/10 text-primary"
                             : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
@@ -537,99 +538,97 @@ const DonorsPage = () => {
   }
 
   return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-[#FAF7F2]/30 min-h-screen">
+    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-[#2C2418]">Donors</h1>
+        <h1 className="text-xl font-bold text-primary">Donors</h1>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center h-96">
-          <Loader className="w-8 h-8 text-[#C9A84C] animate-spin" />
-        </div>
+        <PageLoader />
       ) : (
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Total Donors</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">{stats.totalDonors || 0}</p>
-                  <p className="text-xs text-[#C9A84C]">
+                  <p className="text-sm text-accent">Total Donors</p>
+                  <p className="text-2xl font-bold text-primary">{stats.totalDonors || 0}</p>
+                  <p className="text-xs text-accent">
                   Total Number of donors
                   </p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <User className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <User className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Total Donations</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Total Donations</p>
+                  <p className="text-2xl font-bold text-primary">
                 ${(stats.totalAmount || 0).toLocaleString()}         
               </p>
-                  <p className="text-xs text-[#C9A84C]">
+                  <p className="text-xs text-accent">
                   Total amount of donations by all donors (including paid and unpaid installments and recurring donations)
                   </p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <DollarSign className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <DollarSign className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Average Donation</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Average Donation</p>
+                  <p className="text-2xl font-bold text-primary">
                 ${(stats.averageDonation || 0).toLocaleString()}
               </p>
-                  <p className="text-xs text-[#C9A84C]">
+                  <p className="text-xs text-accent">
                   Average of donations by all donors
                   </p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <TrendingUp className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <TrendingUp className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-emerald-100">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-[#C9A84C]">Recurring Donors</p>
-                  <p className="text-2xl font-bold text-[#2C2418]">
+                  <p className="text-sm text-accent">Recurring Donors</p>
+                  <p className="text-2xl font-bold text-primary">
                 {stats.recurringDonations || 0}
               </p>
-                  <p className="text-xs text-[#C9A84C]">
+                  <p className="text-xs text-accent">
                     Number of donors with recurring donations
                   </p>
                 </div>
-                <div className="p-3 bg-[#FAF7F2] rounded-full">
-                  <Heart className="w-6 h-6 text-[#C9A84C]" />
+                <div className="p-3 bg-background rounded-full">
+                  <Heart className="w-6 h-6 text-accent" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Donors Table */}
-          <div className="bg-white rounded-xl p-6 shadow-lg border border-emerald-100">
+          <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
               <div className="flex flex-col lg:flex-row gap-2 items-center space-x-4 w-full md:w-auto">
                 <div className="relative">
                   <input
                     type="text"
                     placeholder="Search donors..."
-                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C9A84C] w-full md:w-64"
+                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
                 <select
-                  className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                  className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
                 >
@@ -642,7 +641,7 @@ const DonorsPage = () => {
               <button
                 onClick={handleExportDonors}
                 disabled={isExporting}
-                className="flex items-center space-x-2 px-4 py-2 bg-[#FAF7F2] text-[#C9A84C] rounded-lg hover:bg-[#C9A84C]/10 transition-colors disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 bg-background text-accent rounded-lg hover:bg-accent/10 transition-colors disabled:opacity-50"
               >
                 {isExporting ? (
                   <Loader className="w-5 h-5 animate-spin" />
@@ -689,30 +688,30 @@ const DonorsPage = () => {
                     {donors.map((donor) => (
                       <tr key={donor.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <p className="text-sm font-medium text-[#2C2418]">
+                          <p className="text-sm font-medium text-primary">
                             {donor.id.slice(-4)}
                           </p>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-[#2C2418]">
+                            <div className="text-sm font-medium text-primary">
                               {donor.name}
                             </div>
-                            <div className="text-sm text-[#C9A84C]">{donor.email}</div>
+                            <div className="text-sm text-accent">{donor.email}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-[#2C2418]">
+                          <div className="text-sm font-medium text-primary">
                             ${donor.totalDonated.toLocaleString()}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#C9A84C]">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-accent">
                           {new Date(donor.lastDonationDate).toLocaleDateString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#C9A84C]">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-accent">
                           <button
                             onClick={() => setSelectedDonor(donor)}
-                            className="text-[#C9A84C] hover:text-[#2C2418]"
+                            className="text-accent hover:text-primary"
                           >
                             View Details
                           </button>
@@ -726,7 +725,7 @@ const DonorsPage = () => {
 
             {/* Pagination */}
             <div className="flex justify-between items-center mt-6">
-              <div className="text-sm text-[#C9A84C]">
+              <div className="text-sm text-accent">
                 Showing {(pagination.currentPage - 1) * pagination.perPage + 1} to{" "}
                 {Math.min(pagination.currentPage * pagination.perPage, pagination.total)} of{" "}
                 {pagination.total} entries
@@ -738,7 +737,7 @@ const DonorsPage = () => {
                   className={`p-2 rounded-lg ${
                     currentPage === 1
                       ? "text-gray-400 cursor-not-allowed"
-                      : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                      : "text-accent hover:bg-background"
                   }`}
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -750,8 +749,8 @@ const DonorsPage = () => {
                       onClick={() => setCurrentPage(pageNum)}
                       className={`px-3 py-1 rounded-lg ${
                         currentPage === pageNum
-                          ? "bg-[#C9A84C] text-white"
-                          : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                          ? "bg-accent text-white"
+                          : "text-accent hover:bg-background"
                       }`}
                     >
                       {pageNum}
@@ -764,7 +763,7 @@ const DonorsPage = () => {
                   className={`p-2 rounded-lg ${
                     currentPage === pagination.pages
                       ? "text-gray-400 cursor-not-allowed"
-                      : "text-[#C9A84C] hover:bg-[#FAF7F2]"
+                      : "text-accent hover:bg-background"
                   }`}
                 >
                   <ChevronRight className="w-5 h-5" />

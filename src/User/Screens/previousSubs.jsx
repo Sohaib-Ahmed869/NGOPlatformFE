@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PageLoader from "../../components/PageLoader";
 import {
   Calendar,
   CreditCard,
@@ -128,9 +129,7 @@ const PreviousSubscriptions = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader className="w-8 h-8 animate-spin text-[#C9A84C]" />
-      </div>
+      <PageLoader />
     );
   }
 
@@ -182,7 +181,7 @@ const PreviousSubscriptions = () => {
   return (
     <div className="space-y-6 lg:p-6">
       {/* Header */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-[#C9A84C]/10">
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
@@ -195,7 +194,7 @@ const PreviousSubscriptions = () => {
           <div className="mt-4 md:mt-0 flex items-center gap-4">
             <button
               onClick={refreshSubscriptions}
-              className="flex items-center px-3 py-2 text-sm bg-[#FAF7F2] text-[#C9A84C] rounded-lg hover:bg-[#C9A84C]/10 transition-colors"
+              className="flex items-center px-3 py-2 text-sm bg-background text-accent rounded-lg hover:bg-accent/10 transition-colors"
               disabled={refreshing}
             >
               <RefreshCw
@@ -209,11 +208,11 @@ const PreviousSubscriptions = () => {
 
       {/* Previous Subscriptions Section */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold text-[#2C2418] mb-4">Previous Recurring Subscriptions</h2>
+        <h2 className="text-xl font-semibold text-primary mb-4">Previous Recurring Subscriptions</h2>
         {subscriptions.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-[#C9A84C]/10">
+          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-accent/10">
             <div className="flex justify-center">
-              <History className="w-12 h-12 text-[#C9A84C]" />
+              <History className="w-12 h-12 text-accent" />
             </div>
             <h3 className="mt-4 text-lg font-medium text-gray-900">
               No Previous Recurring Subscriptions
@@ -227,7 +226,7 @@ const PreviousSubscriptions = () => {
             {subscriptions.map((subscription) => (
             <div
               key={subscription.id}
-              className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 hover:shadow-md transition-shadow duration-200"
+              className="bg-white rounded-xl shadow-sm border border-accent/10 hover:shadow-md transition-shadow duration-200"
             >
               <div className="p-6">
                 <div className="flex justify-between items-start">
@@ -235,7 +234,7 @@ const PreviousSubscriptions = () => {
                     <h3 className="text-lg font-semibold text-gray-800">
                       {subscription.cause}
                     </h3>
-                    <p className="text-2xl font-bold text-[#C9A84C] mt-2">
+                    <p className="text-2xl font-bold text-accent mt-2">
                       {formatCurrency(subscription.amount)}
                       <span className="text-sm text-gray-500 font-normal ml-1">
                         /{subscription.frequency.toLowerCase()}
@@ -286,7 +285,7 @@ const PreviousSubscriptions = () => {
                   <div className="mt-6 flex space-x-3">
                     <button
                       onClick={() => handleResume(subscription.id)}
-                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-[#C9A84C] bg-white border border-green-200 rounded-lg hover:bg-[#FAF7F2] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]"
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-accent bg-white border border-green-200 rounded-lg hover:bg-background focus:outline-none focus:ring-2 focus:ring-accent"
                     >
                       <PlayCircle className="w-4 h-4 mr-1.5" />
                       Resume
@@ -310,11 +309,11 @@ const PreviousSubscriptions = () => {
       
       {/* Previous Installments Section */}
       <div className="mt-12">
-        <h2 className="text-xl font-semibold text-[#2C2418] mb-4">Previous Installments</h2>
+        <h2 className="text-xl font-semibold text-primary mb-4">Previous Installments</h2>
         {installments.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-[#C9A84C]/10">
+          <div className="text-center py-8 bg-white rounded-xl shadow-sm border border-accent/10">
             <div className="flex justify-center">
-              <History className="w-12 h-12 text-[#C9A84C]" />
+              <History className="w-12 h-12 text-accent" />
             </div>
             <h3 className="mt-4 text-lg font-medium text-gray-900">
               No Previous Installments
@@ -328,7 +327,7 @@ const PreviousSubscriptions = () => {
             {installments.map((installment) => (
               <div
                 key={installment.id}
-                className="bg-white rounded-xl shadow-sm border border-[#C9A84C]/10 hover:shadow-md transition-shadow duration-200"
+                className="bg-white rounded-xl shadow-sm border border-accent/10 hover:shadow-md transition-shadow duration-200"
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start">
@@ -336,7 +335,7 @@ const PreviousSubscriptions = () => {
                       <h3 className="text-lg font-semibold text-gray-800">
                         {installment.cause}
                       </h3>
-                      <p className="text-2xl font-bold text-[#C9A84C] mt-2">
+                      <p className="text-2xl font-bold text-accent mt-2">
                         {formatCurrency(installment.amount)}
                         <span className="text-sm text-gray-500 font-normal ml-1">
                           /installment
