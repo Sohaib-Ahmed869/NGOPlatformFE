@@ -6,6 +6,7 @@ import {
   Heart, Copy, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useTenant } from "../../context/TenantContext";
 import { OrderService } from "../../services/order.service";
 import { toast } from "react-hot-toast";
 
@@ -71,6 +72,7 @@ const OrderConfirmation = () => {
   const navigate = useNavigate();
   const { orderDetails, paymentMethod } = location.state || {};
   const { user } = useAuth();
+  const { organisation } = useTenant();
 
   const [receiptFile, setReceiptFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -235,9 +237,9 @@ const OrderConfirmation = () => {
                   <h3 className="font-semibold text-primary text-sm mb-3">Bank Transfer Details</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { label: "Bank", value: "Westpac" },
-                      { label: "BSB", value: "032075" },
-                      { label: "Account", value: "841783" },
+                      { label: "Bank", value: organisation?.bankDetails?.bankName || "Contact us" },
+                      { label: "BSB", value: organisation?.bankDetails?.bsb || "N/A" },
+                      { label: "Account", value: organisation?.bankDetails?.accountNumber || "N/A" },
                       { label: "Reference", value: orderDetails.donationId },
                     ].map(({ label, value }) => (
                       <div key={label}>

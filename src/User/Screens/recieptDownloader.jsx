@@ -14,7 +14,7 @@ import footer3 from "../../assets/footer3.png";
  * @param {Number} options.installmentNumber - Specific installment number to generate receipt for (optional)
  * @returns {Promise<boolean>} - True if download was successful
  */
-const downloadReceipt = async (donation, options = {}) => {
+const downloadReceipt = async (donation, options = {}, orgInfo = {}) => {
   try {
     // Show loading toast
     const loadingToast = toast.loading("Generating receipt... Please wait.");
@@ -41,7 +41,7 @@ const downloadReceipt = async (donation, options = {}) => {
     fileName += ".pdf";
 
     // Company name (in place of the logo) - top left
-    const companyName = "HopeGive Foundation";
+    const companyName = orgInfo.name || "Charity Organisation";
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
     doc.text(companyName, marginLeft, marginTop + 8);
@@ -289,8 +289,7 @@ const downloadReceipt = async (donation, options = {}) => {
     doc.text("This receipt is for tax purposes only. Please retain for your records.", doc.internal.pageSize.width / 2, lastY + 12, { align: "center" });
 
     // Add footer
-    const footerText =
-      "www.hopegive.org | info@hopegive.org | 1-800-HOPEGIVE";
+    const footerText = [orgInfo.website, orgInfo.email, orgInfo.phone].filter(Boolean).join(" | ") || "";
     doc.setFontSize(8);
     doc.text(footerText, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 15, {
       align: "center",
@@ -702,17 +701,18 @@ const formatPaymentStatus = (status) => {
  * @param {Object} donation - The donation object
  * @returns {Promise<boolean>} - True if download was successful
  */
-const downloadPaidPaymentsReceipt = async (donation) => {
-  return await downloadReceipt(donation, { paidOnly: true });
+const downloadPaidPaymentsReceipt = async (donation, orgInfo = {}) => {
+  return await downloadReceipt(donation, { paidOnly: true }, orgInfo);
 };
 
 /**
  * Helper function to download a standard donation receipt (original setup)
  * @param {Object} donation - The donation object
+ * @param {Object} orgInfo - Organisation info { name, email, phone, website }
  * @returns {Promise<boolean>} - True if download was successful
  */
-const downloadStandardReceipt = async (donation) => {
-  return await downloadReceipt(donation, { paidOnly: false });
+const downloadStandardReceipt = async (donation, orgInfo = {}) => {
+  return await downloadReceipt(donation, { paidOnly: false }, orgInfo);
 };
 
 export { downloadReceipt, downloadPaidPaymentsReceipt, downloadStandardReceipt };

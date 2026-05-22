@@ -22,12 +22,35 @@ export default function SaaSNavbar() {
 
   useEffect(() => setMobileOpen(false), [location]);
 
+  // Scroll to hash section when navigating from another page
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace("#", "");
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [location]);
+
   const navLinks = [
-    { label: "Features", path: "/#features" },
-    { label: "How it works", path: "/#how" },
+    { label: "Features", path: "/#features", hash: "features" },
+    { label: "How it works", path: "/#how", hash: "how" },
     { label: "Pricing", path: "/plans" },
     { label: "Contact", path: "/contact" },
   ];
+
+  const handleNavClick = (e, link) => {
+    if (link.hash) {
+      // If already on homepage, scroll to section
+      if (location.pathname === "/") {
+        e.preventDefault();
+        const el = document.getElementById(link.hash);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }
+      // If on another page, React Router will navigate to /, then we scroll
+    }
+  };
 
   return (
     <>
@@ -71,6 +94,7 @@ export default function SaaSNavbar() {
               <Link
                 key={link.path}
                 to={link.path}
+                onClick={(e) => handleNavClick(e, link)}
                 className="px-3 py-2 text-[13px] rounded-md transition-colors hover:bg-black/5"
                 style={{
                   color: location.pathname === link.path ? V.primary : V.inkSoft,
@@ -125,6 +149,7 @@ export default function SaaSNavbar() {
                 <Link
                   key={link.path}
                   to={link.path}
+                  onClick={(e) => handleNavClick(e, link)}
                   className="block px-3 py-2.5 text-sm font-medium rounded-lg hover:bg-black/5"
                   style={{ color: V.inkSoft }}
                 >

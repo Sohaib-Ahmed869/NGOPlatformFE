@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, Building2, User, FileCheck, Palette,
   ArrowRight, ArrowLeft, Loader2, SkipForward, ArrowUpRight,
-  Sparkles, Shield, Zap, Globe, Users,
+  Sparkles, Shield, Zap, Globe, Users, Upload, X as XIcon, Image,
 } from "lucide-react";
 import tenantService from "../../services/tenant.service";
 import themeCategories, { getThemeById } from "../../config/themePresets";
@@ -38,9 +38,47 @@ export default function RegistrationFlow() {
     adminName: "", adminEmail: "", adminPassword: "", confirmPassword: "",
     theme: "default",
   });
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const theme = getThemeById(form.theme);
   const up = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  // ── Logo ──
+  const handleLogoSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, logo: "Logo must be under 2MB" }));
+      return;
+    }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+    setErrors((prev) => { const { logo, ...rest } = prev; return rest; });
+
+    // Upload immediately
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await tenantService.uploadRegistrationLogo(fd);
+      setLogoUrl(res.data.logoUrl);
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, logo: "Upload failed, try again" }));
+      setLogoFile(null);
+      setLogoPreview(null);
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const removeLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoUrl("");
+  };
 
   // ── Slug ──
   const onOrgName = (v) => {
@@ -87,6 +125,7 @@ export default function RegistrationFlow() {
         adminEmail: form.adminEmail, adminPassword: form.adminPassword,
         plan: form.plan, billingCycle: form.billingCycle,
         revenueRange: form.revenueRange, theme: form.theme,
+        logoUrl: logoUrl || undefined,
       });
       window.location.href = r.data.checkoutUrl;
     } catch (err) {
@@ -372,6 +411,43 @@ export default function RegistrationFlow() {
                           </select>
                         </div>
 
+                        {/* Logo Upload */}
+                        <div>
+                          <label className="block text-sm font-semibold text-[#102A23] mb-2">
+                            Organisation Logo <span className="text-[#8AA89C] font-normal text-xs">(optional)</span>
+                          </label>
+                          {!logoPreview ? (
+                            <label className="flex flex-col items-center justify-center gap-2 w-full py-6 bg-white border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-[#047857]/40 hover:bg-[#047857]/[0.02] transition-all">
+                              <div className="w-10 h-10 rounded-xl bg-[#047857]/10 flex items-center justify-center">
+                                <Upload className="w-5 h-5 text-[#047857]" />
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm text-[#102A23] font-medium">Click to upload logo</p>
+                                <p className="text-xs text-[#8AA89C] mt-0.5">PNG, JPG, SVG or WebP (max 2MB)</p>
+                              </div>
+                              <input type="file" accept="image/jpeg,image/png,image/svg+xml,image/webp" onChange={handleLogoSelect} className="hidden" />
+                            </label>
+                          ) : (
+                            <div className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-2xl">
+                              <img src={logoPreview} alt="Logo preview" className="w-14 h-14 rounded-xl object-contain border border-gray-100 bg-gray-50" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-[#102A23] truncate">{logoFile?.name}</p>
+                                <p className="text-xs text-[#8AA89C]">
+                                  {logoUploading ? (
+                                    <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Uploading...</span>
+                                  ) : logoUrl ? (
+                                    <span className="flex items-center gap-1 text-green-600"><Check className="w-3 h-3" />Uploaded</span>
+                                  ) : null}
+                                </p>
+                              </div>
+                              <button type="button" onClick={removeLogo} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                                <XIcon className="w-4 h-4 text-[#8AA89C]" />
+                              </button>
+                            </div>
+                          )}
+                          {errors.logo && <p className="text-red-500 text-xs mt-1.5">{errors.logo}</p>}
+                        </div>
+
                         <button onClick={next} className="group w-full flex items-center justify-center gap-2.5 py-4 bg-gradient-to-r from-[#065F46] to-[#047857] text-white rounded-2xl font-semibold text-sm hover:shadow-xl hover:shadow-[#047857]/20 transition-all hover:scale-[1.01] mt-2">
                           Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
@@ -640,9 +716,15 @@ export default function RegistrationFlow() {
                       {/* Org */}
                       <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
                         <h3 className="text-[10px] font-bold text-[#047857] uppercase tracking-[0.15em] mb-3">Organisation</h3>
-                        <div className="grid grid-cols-2 gap-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-y-3 text-sm items-center">
                           <span className="text-[#8AA89C]">Name</span><span className="text-[#102A23] font-medium text-right">{form.orgName}</span>
                           <span className="text-[#8AA89C]">Portal</span><span className="text-[#102A23] font-medium text-right font-mono text-xs">{form.slug}.charities.ltd</span>
+                          {logoPreview && (
+                            <>
+                              <span className="text-[#8AA89C]">Logo</span>
+                              <span className="flex justify-end"><img src={logoPreview} alt="Logo" className="w-10 h-10 rounded-lg object-contain border border-gray-100" /></span>
+                            </>
+                          )}
                         </div>
                       </div>
                       {/* Admin */}

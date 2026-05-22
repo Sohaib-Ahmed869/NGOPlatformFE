@@ -3,7 +3,7 @@ import { useCart } from "./cart";
 import { useAuth } from "../../context/AuthContext";
 import { useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
-import axiosInstance from "../../services/axios";
+import axiosInstance, { getStoragePrefix } from "../../services/axios";
 import donationTypeService from "../../services/donationtypeservice";
 import {
   Elements,
@@ -22,6 +22,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTenant } from "../../context/TenantContext";
 import give from "../../assets/give.png";
 import { OrderService } from "../../services/order.service";
 import { toast } from "react-hot-toast";
@@ -147,6 +148,7 @@ const UnifiedCheckout = () => {
     updateQuantity,
     UpdateItemType,
   } = useCart();
+  const { organisation } = useTenant();
   const [activeStep, setActiveStep] = useState(1);
   const [paymentType, setPaymentType] = useState("single");
   const [adminCostPercentage, setAdminCostPercentage] = useState(2);
@@ -209,7 +211,7 @@ const UnifiedCheckout = () => {
 
     try {
       // Get the token from auth context or localStorage
-      const token = localStorage.getItem("token"); // adjust based on how you store the token
+      const token = localStorage.getItem(getStoragePrefix() + "token");
 
       // Make API call to get user profile
       const response = await axiosInstance.get("/users/me", {
@@ -355,7 +357,7 @@ const UnifiedCheckout = () => {
           updatePayload,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              Authorization: `Bearer ${localStorage.getItem(getStoragePrefix() + "token")}`,
               "Content-Type": "application/json",
             },
             timeout: 10000, // 10 second timeout
@@ -1677,13 +1679,12 @@ const UnifiedCheckout = () => {
       {selectedPaymentMethod === "bank" && (
         <div className="border-t pt-6 space-y-2">
           <p className="font-bold">Bank Transfer:</p>
-          <p>Bank Name: Westpac</p>
-          <p>BSB: 032075</p>
-          <p>Account Number: 841783</p>
-          {/* <p>Reference: Use the Donation ID below</p> */}
+          <p>Bank Name: {organisation?.bankDetails?.bankName || "Contact us for details"}</p>
+          <p>BSB: {organisation?.bankDetails?.bsb || "N/A"}</p>
+          <p>Account Number: {organisation?.bankDetails?.accountNumber || "N/A"}</p>
           <p className="text-sm">
-            For tax receipt please email proof of payment to
-            info@hopegive.org
+            For tax receipt please email proof of payment to{" "}
+            {organisation?.contactEmail || "the organisation"}
           </p>
           <div className="bg-primary text-background p-4 rounded-xl mt-6">
             Your donation will be processed once we receive clear funds in our

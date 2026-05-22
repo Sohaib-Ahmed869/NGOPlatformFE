@@ -222,7 +222,7 @@ const formatPaymentType = (paymentType) => {
   return paymentType.charAt(0).toUpperCase() + paymentType.slice(1);
 };
 
-export const generateAnnualStatement = (donations, year, user, { logoUrl, charityLogoUrl }) => {
+export const generateAnnualStatement = (donations, year, user, { logoUrl, charityLogoUrl, orgName, orgWebsite, orgEmail, orgPhone }) => {
   try {
     // Filter donations for the specified financial year (July 1 to June 30)
     const startDate = new Date(`${year-1}-07-01`);
@@ -373,7 +373,7 @@ export const generateAnnualStatement = (donations, year, user, { logoUrl, charit
     doc.setProperties({
       title: `Annual Donation Statement FY ${year-1}-${year}`,
       subject: "Donation Statement",
-      author: "HopeGive Foundation",
+      author: orgName || "Charity Organisation",
       keywords: "donation, tax, statement, receipt",
       creator: "Charity Donation Platform"
     });
@@ -404,7 +404,7 @@ export const generateAnnualStatement = (donations, year, user, { logoUrl, charit
     // Add header - organization name
     doc.setFontSize(16);
     doc.setFont("helvetica");
-    doc.text("HopeGive Foundation", marginLeft, yPos);
+    doc.text(orgName || "Charity Organisation", marginLeft, yPos);
     
     // Reduce spacing between lines
     yPos += 7;
@@ -476,8 +476,7 @@ export const generateAnnualStatement = (donations, year, user, { logoUrl, charit
     doc.text("This statement is for tax purposes only. Please retain for your records.", pageWidth / 2, lastY + 12, { align: "center" });
     
     // Add footer text with website, email, and phone info
-    const footerText = 
-      "www.hopegive.org | info@hopegive.org | 1-800-HOPEGIVE";
+    const footerText = [orgWebsite, orgEmail, orgPhone].filter(Boolean).join(" | ") || "";
     doc.setFontSize(8);
     doc.text(footerText, pageWidth / 2, pageHeight - 15, { align: "center" });
     

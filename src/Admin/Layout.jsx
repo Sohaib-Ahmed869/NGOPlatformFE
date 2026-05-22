@@ -1,18 +1,14 @@
 import React from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import Sidebar from "./Sidebar/sidebar";
-
-// This is a basic auth check - replace with your actual auth logic
-const useAuth = () => {
-  // Replace this with your actual auth check
-  const isAdmin = true; // Temporarily set to true for development
-  return isAdmin;
-};
+import { useAuth } from "../context/AuthContext";
 
 const AdminLayout = () => {
-  const isAuthenticated = useAuth();
+  const { user } = useAuth();
 
-
+  if (!user || !user.role?.includes("admin")) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="flex h-screen" style={{ backgroundColor: 'var(--tenant-bg, #FAF7F2)' }}>

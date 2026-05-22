@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Loader from "../../components/Loader";
+import { useTenant } from "../../context/TenantContext";
 import {
   TrendingUp,
   Search,
@@ -54,6 +55,8 @@ function getChartColors() {
 
 const AdminDonationsList = () => {
   const navigate = useNavigate();
+  const { organisation } = useTenant();
+  const orgInfo = { name: organisation?.name, email: organisation?.contactEmail, phone: organisation?.contactPhone, website: organisation?.website };
   const [loading, setLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -565,23 +568,20 @@ const AdminDonationsList = () => {
       
       if (successfulPayments.length > 0) {
         // Download receipt for paid payments only
-        downloadPaidPaymentsReceipt(donation, {
-          logoUrl: logo,
-          charityLogoUrl: footer2,
-        });
+        downloadPaidPaymentsReceipt(donation, orgInfo);
       } else {
         // Download standard receipt (original setup)
         downloadReceipt(donation, {
           logoUrl: logo,
           charityLogoUrl: footer2,
-        });
+        }, orgInfo);
       }
     } else {
       // For single and installment donations, download standard receipt
       downloadReceipt(donation, {
         logoUrl: logo,
         charityLogoUrl: footer2,
-      });
+      }, orgInfo);
     }
   };
 

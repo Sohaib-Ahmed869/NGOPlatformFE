@@ -1,37 +1,11 @@
-import axios from 'axios';
+import axiosInstance from './axios';
 
-// Use environment variable for API base URL or fallback to relative path
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-const API_URL = `${API_BASE_URL}/api/products`;
-
-// Create axios instance with auth header
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
-  withCredentials: true, // Important for sending cookies with CORS
-});
-
-// Add request interceptor to include auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+const API_URL = '/products';
 
 // Get all products
 export const getProducts = async (params = {}) => {
   try {
-    const response = await api.get(API_URL, { params });
+    const response = await axiosInstance.get(API_URL, { params });
     return response.data;
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -42,7 +16,7 @@ export const getProducts = async (params = {}) => {
 // Get single product by ID
 export const getProductById = async (id) => {
   try {
-    const response = await api.get(`${API_URL}/${id}`);
+    const response = await axiosInstance.get(`${API_URL}/${id}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching product:', error);
@@ -54,8 +28,7 @@ export const getProductById = async (id) => {
 export const createProduct = async (productData) => {
   try {
     const formData = new FormData();
-    
-    // Append all product data to formData
+
     Object.keys(productData).forEach(key => {
       if (key === 'image' && productData[key]) {
         formData.append('image', productData[key]);
@@ -64,12 +37,12 @@ export const createProduct = async (productData) => {
       }
     });
 
-    const response = await api.post(API_URL, formData, {
+    const response = await axiosInstance.post(API_URL, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    
+
     return response.data;
   } catch (error) {
     console.error('Error creating product:', error);
@@ -81,8 +54,7 @@ export const createProduct = async (productData) => {
 export const updateProduct = async (id, productData) => {
   try {
     const formData = new FormData();
-    
-    // Append all product data to formData
+
     Object.keys(productData).forEach(key => {
       if (key === 'image' && productData[key] instanceof File) {
         formData.append('image', productData[key]);
@@ -91,12 +63,12 @@ export const updateProduct = async (id, productData) => {
       }
     });
 
-    const response = await api.put(`${API_URL}/${id}`, formData, {
+    const response = await axiosInstance.put(`${API_URL}/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    
+
     return response.data;
   } catch (error) {
     console.error('Error updating product:', error);
@@ -107,7 +79,7 @@ export const updateProduct = async (id, productData) => {
 // Delete product
 export const deleteProduct = async (id) => {
   try {
-    const response = await api.delete(`${API_URL}/${id}`);
+    const response = await axiosInstance.delete(`${API_URL}/${id}`);
     return response.data;
   } catch (error) {
     console.error('Error deleting product:', error);
@@ -118,7 +90,7 @@ export const deleteProduct = async (id) => {
 // Get all categories
 export const getCategories = async () => {
   try {
-    const response = await api.get(`${API_URL}/categories`);
+    const response = await axiosInstance.get(`${API_URL}/categories`);
     return response.data;
   } catch (error) {
     console.error('Error fetching categories:', error);

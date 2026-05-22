@@ -102,24 +102,30 @@ const Footer = () => {
           <div>
             <h4 className="text-xs font-body font-semibold text-accent tracking-[0.2em] uppercase mb-5">Contact</h4>
             <ul className="space-y-4">
-              <li>
-                <a href="mailto:info@hopegive.org" className="flex items-start gap-3 text-[#EDE4D3]/40 hover:text-accent transition-colors text-sm font-body">
-                  <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  info@hopegive.org
-                </a>
-              </li>
-              <li>
-                <a href="tel:+18004673448" className="flex items-start gap-3 text-[#EDE4D3]/40 hover:text-accent transition-colors text-sm font-body">
-                  <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  1-800-HOPEGIVE
-                </a>
-              </li>
-              <li>
-                <div className="flex items-start gap-3 text-[#EDE4D3]/40 text-sm font-body">
-                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>123 Charity Lane<br />Sydney, NSW 2000<br />Australia</span>
-                </div>
-              </li>
+              {organisation?.contactEmail && (
+                <li>
+                  <a href={`mailto:${organisation.contactEmail}`} className="flex items-start gap-3 text-[#EDE4D3]/40 hover:text-accent transition-colors text-sm font-body">
+                    <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    {organisation.contactEmail}
+                  </a>
+                </li>
+              )}
+              {organisation?.contactPhone && (
+                <li>
+                  <a href={`tel:${organisation.contactPhone}`} className="flex items-start gap-3 text-[#EDE4D3]/40 hover:text-accent transition-colors text-sm font-body">
+                    <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    {organisation.contactPhone}
+                  </a>
+                </li>
+              )}
+              {organisation?.address && (
+                <li>
+                  <div className="flex items-start gap-3 text-[#EDE4D3]/40 text-sm font-body">
+                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{organisation.address}</span>
+                  </div>
+                </li>
+              )}
             </ul>
           </div>
         </div>

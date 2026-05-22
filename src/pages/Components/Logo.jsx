@@ -1,6 +1,9 @@
 import React from "react";
+import { useTenant } from "../../context/TenantContext";
 
-const Logo = ({ className = "", size = "default" }) => {
+const Logo = ({ className = "", size = "default", textColor = "text-primary" }) => {
+  const { organisation, branding } = useTenant();
+
   const sizes = {
     small: { icon: 28, text: "text-lg" },
     default: { icon: 36, text: "text-xl" },
@@ -10,36 +13,45 @@ const Logo = ({ className = "", size = "default" }) => {
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <svg
-        width={s.icon}
-        height={s.icon}
-        viewBox="0 0 64 64"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* Hands */}
-        <path
-          d="M8 38c0 0 4-2 8-2s6 2 10 6c4 4 6 8 6 8"
-          stroke="#1B4332"
-          strokeWidth="2.5"
-          strokeLinecap="round"
+      {branding?.logo ? (
+        <img
+          src={branding.logo}
+          alt={organisation?.name || "Logo"}
+          style={{ height: s.icon, width: s.icon }}
+          className="object-contain rounded"
+        />
+      ) : (
+        <svg
+          width={s.icon}
+          height={s.icon}
+          viewBox="0 0 64 64"
           fill="none"
-        />
-        <path
-          d="M56 38c0 0-4-2-8-2s-6 2-10 6c-4 4-6 8-6 8"
-          stroke="#1B4332"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-        />
-        {/* Heart */}
-        <path
-          d="M32 46l-1.5-1.4C22 37.4 16 32 16 25.5 16 20.3 20.3 16 25.5 16c2.9 0 5.7 1.4 6.5 3.5C32.8 17.4 35.6 16 38.5 16 43.7 16 48 20.3 48 25.5c0 6.5-6 11.9-14.5 19.1L32 46z"
-          fill="#D4A853"
-        />
-      </svg>
-      <span className={`font-heading font-bold ${s.text} text-primary`}>
-        Hope<span className="text-accent">Give</span>
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M8 38c0 0 4-2 8-2s6 2 10 6c4 4 6 8 6 8"
+            stroke="currentColor"
+            className="text-primary"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M56 38c0 0-4-2-8-2s-6 2-10 6c-4 4-6 8-6 8"
+            stroke="currentColor"
+            className="text-primary"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M32 46l-1.5-1.4C22 37.4 16 32 16 25.5 16 20.3 20.3 16 25.5 16c2.9 0 5.7 1.4 6.5 3.5C32.8 17.4 35.6 16 38.5 16 43.7 16 48 20.3 48 25.5c0 6.5-6 11.9-14.5 19.1L32 46z"
+            className="fill-accent"
+          />
+        </svg>
+      )}
+      <span className={`font-heading font-bold ${s.text} ${textColor}`}>
+        {organisation?.name || "NGO Platform"}
       </span>
     </div>
   );

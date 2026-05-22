@@ -62,6 +62,7 @@ import ProfileSetting from "./Admin/Screens/AdminProfile";
 import AdminInstallments from "./Admin/Screens/installments";
 import DonationTypes from "./Admin/Screens/DonationTypes";
 import BrandingScreen from "./Admin/Screens/Branding";
+import OrganisationSettings from "./Admin/Screens/OrganisationSettings";
 
 // User
 import UserLayout from "./User/UserLayout";
@@ -159,6 +160,7 @@ const TenantRoutes = () => (
       <Route path="products/*" element={<ProductsManagement />} />
       <Route path="programs" element={<AdminPrograms />} />
       <Route path="branding" element={<BrandingScreen />} />
+      <Route path="settings" element={<OrganisationSettings />} />
     </Route>
 
     {/* User Routes */}

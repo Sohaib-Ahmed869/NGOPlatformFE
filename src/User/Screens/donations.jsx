@@ -9,10 +9,13 @@ import { formatEndDate } from "./formatEndDate"
 import { generateAnnualStatement, getAvailableFinancialYears } from "./AnnualDonation"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import AppLoader from "../../components/Loader";
+import { useTenant } from "../../context/TenantContext";
 
 const ITEMS_PER_PAGE = 10
 
 const UserDonations = () => {
+  const { organisation } = useTenant();
+  const orgInfo = { name: organisation?.name, email: organisation?.contactEmail, phone: organisation?.contactPhone, website: organisation?.website };
   const [donations, setDonations] = useState([])
   const [stats, setStats] = useState({
     totalDonated: 0,
@@ -223,7 +226,7 @@ const UserDonations = () => {
           name: donations[0]?.donorDetails?.name,
           email: donations[0]?.donorDetails?.email,
         },
-        { logoUrl: logo, charityLogoUrl: footer2 },
+        { logoUrl: logo, charityLogoUrl: footer2, orgName: orgInfo.name, orgEmail: orgInfo.email, orgPhone: orgInfo.phone, orgWebsite: orgInfo.website },
       )
 
       // Dismiss the loading toast
@@ -710,7 +713,7 @@ const UserDonations = () => {
                                 downloadReceipt(donation, {
                                   logoUrl: logo,
                                   charityLogoUrl: footer2,
-                                })
+                                }, orgInfo)
                               }
                               className="flex items-center justify-center px-3 py-1.5 bg-background hover:bg-accent/10 text-accent text-sm font-medium rounded-md border border-accent/10 transition-colors duration-150"
                               title="Download Receipt"
@@ -724,7 +727,7 @@ const UserDonations = () => {
                           {(donation.paymentType === "recurring" || donation.paymentType === "installments") && (
                             <button
                               onClick={() =>
-                                downloadPaidPaymentsReceipt(donation)
+                                downloadPaidPaymentsReceipt(donation, orgInfo)
                               }
                               className="flex items-center justify-center px-3 py-1.5 bg-background hover:bg-accent/10 text-accent text-sm font-medium rounded-md border border-accent/10 transition-colors duration-150"
                               title="Download Paid Payments Receipt"
@@ -1221,7 +1224,7 @@ const UserDonations = () => {
                       downloadReceipt(selectedDonation, {
                         logoUrl: logo,
                         charityLogoUrl: footer2,
-                      })
+                      }, orgInfo)
                     }}
                   >
                     <Download className="h-5 w-5 mr-2" />
@@ -1235,7 +1238,7 @@ const UserDonations = () => {
                     className="bg-accent hover:bg-accent-light text-white font-medium py-2 px-6 rounded-lg flex items-center"
                     onClick={() => {
                       toast.success("Paid payments receipt download initiated")
-                      downloadPaidPaymentsReceipt(selectedDonation)
+                      downloadPaidPaymentsReceipt(selectedDonation, orgInfo)
                     }}
                   >
                     <Download className="h-5 w-5 mr-2" />

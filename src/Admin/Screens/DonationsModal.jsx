@@ -794,7 +794,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                     <p>No proof of payment has been uploaded yet.</p>
                   </div>
                   <p className="mt-2 text-sm text-yellow-700">
-                    The donor has been notified to upload proof or email it to info@hopegive.org
+                    The donor has been notified to upload proof of payment.
                   </p>
                 </div>
               )}

@@ -20,7 +20,8 @@ import {
   Star,
   Stars,
   Target,
-  Paintbrush
+  Paintbrush,
+  Settings
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
@@ -100,6 +101,7 @@ const Sidebar = () => {
     { title: "Donation Types", path: "/admin/donation-types", icon: Stars },
     { title: "Programs", path: "/admin/programs", icon: Target },
     { title: "Portal Branding", path: "/admin/branding", icon: Paintbrush },
+    { title: "Organisation Settings", path: "/admin/settings", icon: Settings },
     { title: "Profile Settings", path: "/admin/profile", icon: User },
   ];
 

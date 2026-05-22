@@ -7,8 +7,10 @@ import HeroOverlay from "../../components/HeroOverlay";
 const touch = "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&q=80";
 import axios from "../../services/axios";
 import toast from "react-hot-toast";
+import { useTenant } from "../../context/TenantContext";
 
 const Contact = () => {
+  const { organisation } = useTenant();
   const [formData, setFormData] = useState({
     fullName: "",
     phoneNumber: "",
@@ -183,9 +185,9 @@ const Contact = () => {
                       }
                     >
                       <option value="">Select Option</option>
-                      <option value="Shahid Afridi">Partner with Us</option>
-                      <option value="Jahangir Khan">Community Event</option>
-                      <option value="Both">Full Collaboration</option>
+                      <option value="Partner">Partner with Us</option>
+                      <option value="Community Event">Community Event</option>
+                      <option value="Full Collaboration">Full Collaboration</option>
                     </select>
                   </div>
                 </div>
@@ -295,7 +297,7 @@ const Contact = () => {
                       002.25 4.5v2.25z"
                   />
                 </svg>
-                <span>1-800-HOPEGIVE</span>
+                <span>{organisation?.contactPhone || "Contact us"}</span>
               </div>
               <div className="flex items-center gap-2">
                 {/* Email icon */}
@@ -320,7 +322,7 @@ const Contact = () => {
                       2.25 0 01-1.07-1.916V6.75"
                   />
                 </svg>
-                <span>info@hopegive.org</span>
+                <span>{organisation?.contactEmail || "Contact us"}</span>
               </div>
             </div>
           </div>

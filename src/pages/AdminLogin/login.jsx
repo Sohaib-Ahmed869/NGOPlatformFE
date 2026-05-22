@@ -116,7 +116,7 @@ const AdminLogin = () => {
                 onBlur={(e) => { e.target.style.borderColor = "#e5e7eb"; e.target.style.boxShadow = "none"; }}
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="admin@hopegive.org"
+                placeholder="admin@example.org"
                 disabled={loading}
               />
             </div>
