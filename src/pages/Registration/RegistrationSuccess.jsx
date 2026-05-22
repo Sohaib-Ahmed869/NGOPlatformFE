@@ -33,7 +33,7 @@ export default function RegistrationSuccess() {
           setStatus("active");
           clearInterval(interval);
           setTimeout(() => {
-            window.location.href = `http://${slug}.localhost:5173/admin/login`;
+            window.location.href = `http://${slug}.charities.ltd/admin/login`;
           }, 5000);
         }
       } catch {
@@ -160,7 +160,7 @@ export default function RegistrationSuccess() {
   }
 
   // status === "active"
-  const portalUrl = `http://${slug}.localhost:5173`;
+  const portalUrl = `http://${slug}.charities.ltd`;
 
   return (
     <div className="bg-slate-50 min-h-screen flex items-center justify-center px-4">

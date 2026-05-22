@@ -454,7 +454,7 @@ export default function Branding() {
                 </div>
                 <div className="flex-1 bg-white rounded-full h-5 ml-2 flex items-center px-3">
                   <span className="text-[9px] text-gray-400">
-                    {orgSlug}.localhost:5173
+                    {orgSlug}.charities.ltd
                   </span>
                 </div>
               </div>
