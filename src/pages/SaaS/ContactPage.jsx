@@ -53,7 +53,7 @@ export default function ContactPage() {
     }
     setLoading(true);
     try {
-      await axiosInstance.post("/contact", form);
+      await axiosInstance.post("/saas/contact", form);
       setSent(true);
       toast.success("Message sent successfully!");
       setForm({ name: "", email: "", subject: "", message: "" });
