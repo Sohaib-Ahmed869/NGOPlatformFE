@@ -145,6 +145,26 @@ async getAllDonations(params = {}) {
     }
   }
 
+  // Add a follow-up / close-off update for the donor (with optional images)
+  async addDonorUpdate(id, { type, comment, images = [] }) {
+    try {
+      const formData = new FormData();
+      formData.append("type", type);
+      if (comment) formData.append("comment", comment);
+      images.forEach((file) => formData.append("images", file));
+
+      const response = await axios.post(
+        `${API_URL}/donations/${id}/updates`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error adding donor update for donation ${id}:`, error);
+      throw error;
+    }
+  }
+
   // Get donations for a specific user
   async getUserDonations(userId) {
     try {

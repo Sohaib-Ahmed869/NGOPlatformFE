@@ -6,10 +6,10 @@ import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
 const V = {
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  surface: "#FFFFFF", surface2: "#F2EDF8", bg: "#F7F4FB",
-  line: "rgba(28,15,55,.08)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  surface: "#FFFFFF", surface2: "#E7F2EC", bg: "#F3F8F5",
+  line: "rgba(6,40,30,.08)",
 };
 const mono = "'JetBrains Mono', monospace";
 
@@ -77,11 +77,11 @@ export default function BrandingRequests() {
             className="px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all"
             style={filter === f ? {
               background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff",
-              boxShadow: `0 0 16px rgba(124,58,237,.25), inset 0 1px 0 rgba(255,255,255,.15)`,
+              boxShadow: `0 0 16px rgba(4,120,87,.25), inset 0 1px 0 rgba(255,255,255,.15)`,
             } : {
               background: V.surface, color: V.inkSoft, border: `1px solid ${V.line}`,
             }}
-            onMouseEnter={(e) => { if (filter !== f) e.currentTarget.style.borderColor = "rgba(124,58,237,.2)"; }}
+            onMouseEnter={(e) => { if (filter !== f) e.currentTarget.style.borderColor = "rgba(4,120,87,.2)"; }}
             onMouseLeave={(e) => { if (filter !== f) e.currentTarget.style.borderColor = V.line; }}
           >{f}</button>
         ))}
@@ -172,7 +172,7 @@ export default function BrandingRequests() {
                 placeholder="Add a note (optional)..." rows={3}
                 className="w-full px-3 py-2.5 rounded-lg text-sm mb-4 outline-none resize-none"
                 style={{ background: V.bg, border: `1px solid ${V.line}`, color: V.ink }}
-                onFocus={(e) => { e.target.style.borderColor = "rgba(124,58,237,.4)"; e.target.style.boxShadow = "0 0 0 3px rgba(124,58,237,.1)"; }}
+                onFocus={(e) => { e.target.style.borderColor = "rgba(4,120,87,.4)"; e.target.style.boxShadow = "0 0 0 3px rgba(4,120,87,.1)"; }}
                 onBlur={(e) => { e.target.style.borderColor = V.line; e.target.style.boxShadow = "none"; }} />
               <div className="flex gap-3">
                 <button onClick={() => setReviewModal(null)}

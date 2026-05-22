@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Building2, CreditCard, Paintbrush, MessageSquare, LogOut, Menu, X } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, Paintbrush, MessageSquare, LogOut, Menu, X, HeartHandshake } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 const V = {
-  ink: "#1A0D2E", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  line: "rgba(28,15,55,.08)",
+  ink: "#102A23", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  line: "rgba(6,40,30,.08)",
 };
 const mono = "'JetBrains Mono', monospace";
 
@@ -36,10 +36,10 @@ export default function SuperAdminSidebar() {
       {/* Header */}
       <div className="p-6" style={{ borderBottom: `1px solid rgba(255,255,255,.08)` }}>
         <div className="flex items-center gap-2.5 mb-3">
-          {/* <div className="w-7 h-7 rounded-md grid place-items-center text-white text-[10px] font-bold"
-            style={{ background: `linear-gradient(135deg, ${V.primary}, ${V.accent})`, boxShadow: `0 0 16px rgba(124,58,237,.4)` }}>
-            N
-          </div> */}
+          <div className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
+            style={{ background: `linear-gradient(135deg, ${V.primary}, ${V.accent})`, boxShadow: `0 0 16px rgba(4,120,87,.4)` }}>
+            <HeartHandshake className="w-5 h-5 text-white" />
+          </div>
           <span className="text-white font-medium text-[15px]">NGO Platform</span>
         </div>
         <div className="text-[10px] tracking-[.08em] uppercase" style={{ fontFamily: mono, color: "rgba(255,255,255,.4)" }}>
@@ -63,7 +63,7 @@ export default function SuperAdminSidebar() {
               style={isActive ? {
                 background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})`,
                 color: "#fff", fontWeight: 600,
-                boxShadow: `0 0 20px rgba(124,58,237,.3), inset 0 1px 0 rgba(255,255,255,.15)`,
+                boxShadow: `0 0 20px rgba(4,120,87,.3), inset 0 1px 0 rgba(255,255,255,.15)`,
               } : {
                 color: "rgba(255,255,255,.6)",
               }}

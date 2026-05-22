@@ -341,7 +341,7 @@ const AdminDashboard = () => {
           icon={DollarSign} color="#059669"
           sparkData={orderStats.monthlyTrend?.map(m => m.amount)} defaultSpark={DEFAULT_SPARKS.rising} />
         <KpiCard title="Amount Received" value={`$${orderStats.totalAmountReceived.toLocaleString()}`}
-          icon={DollarSign} color="#8B5CF6"
+          icon={DollarSign} color="#10B981"
           sparkData={orderStats.monthlyTrend?.map(m => m.count)} defaultSpark={DEFAULT_SPARKS.steady} />
         <KpiCard title="Pending" value={`$${orderStats.pendingAmount.toLocaleString()}`}
           icon={Clock} color="#F59E0B" defaultSpark={DEFAULT_SPARKS.dip} />
@@ -357,7 +357,7 @@ const AdminDashboard = () => {
         <KpiCard title="Total Count" value={orderStats.totalDonations}
           icon={Users} color="#059669" defaultSpark={DEFAULT_SPARKS.rising} />
         <KpiCard title="One-Time" value={orderStats.oneTimeDonations}
-          icon={DollarSign} color="#8B5CF6" defaultSpark={DEFAULT_SPARKS.steady} />
+          icon={DollarSign} color="#10B981" defaultSpark={DEFAULT_SPARKS.steady} />
         <KpiCard title="Recurring" value={orderStats.recurringDonations}
           icon={RefreshCcw} color="#EC4899" defaultSpark={DEFAULT_SPARKS.dip} />
         <KpiCard title="Installments" value={orderStats.installmentDonations}

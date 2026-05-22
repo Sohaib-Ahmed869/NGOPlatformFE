@@ -489,11 +489,11 @@ const SubscriptionsPage = () => {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <KpiCard title="Total Subscriptions" value={subscriptionStats.totalSubscriptions} icon={Users} color="#059669" animate={false} />
-        <KpiCard title="Active Subscriptions" value={dashboardStats.activeSubscriptions || 0} icon={RefreshCw} color="#8B5CF6" animate={false} />
+        <KpiCard title="Active Subscriptions" value={dashboardStats.activeSubscriptions || 0} icon={RefreshCw} color="#10B981" animate={false} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KpiCard title="Daily" value={subscriptionStats.dailySubscriptions} icon={Clock} color="#059669" animate={false} />
-        <KpiCard title="Weekly" value={subscriptionStats.weeklySubscriptions} icon={Calendar} color="#8B5CF6" animate={false} />
+        <KpiCard title="Weekly" value={subscriptionStats.weeklySubscriptions} icon={Calendar} color="#10B981" animate={false} />
         <KpiCard title="Monthly" value={subscriptionStats.monthlySubscriptions} icon={Calendar} color="#EC4899" animate={false} />
         <KpiCard title="Yearly" value={subscriptionStats.yearlySubscriptions} icon={Calendar} color="#F59E0B" animate={false} />
       </div>
@@ -515,8 +515,8 @@ const SubscriptionsPage = () => {
                 <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }} />
                 <Line yAxisId="left" type="monotone" dataKey="subscribers" name="Count" stroke="#059669" strokeWidth={2.5}
                   dot={{ fill: "#059669", r: 3 }} />
-                <Line yAxisId="right" type="monotone" dataKey="amount" name="Amount" stroke="#8B5CF6" strokeWidth={2.5}
-                  dot={{ fill: "#8B5CF6", r: 3 }} />
+                <Line yAxisId="right" type="monotone" dataKey="amount" name="Amount" stroke="#10B981" strokeWidth={2.5}
+                  dot={{ fill: "#10B981", r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>

@@ -1,4 +1,4 @@
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin, HeartHandshake } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTenant } from "../../context/TenantContext";
 
@@ -42,8 +42,8 @@ const Footer = () => {
                 {branding?.logo ? (
                   <img src={branding.logo} alt={organisation.name} className="h-8 w-8 object-contain rounded" />
                 ) : (
-                  <div className="w-8 h-8 rounded flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: branding?.accentColor || "#C9A84C" }}>
-                    {organisation.name?.charAt(0) || ""}
+                  <div className="w-8 h-8 rounded flex items-center justify-center text-white" style={{ backgroundColor: branding?.accentColor || "#C9A84C" }}>
+                    <HeartHandshake className="w-[18px] h-[18px]" />
                   </div>
                 )}
                 <span className="text-[#F5EDE0] font-heading font-bold text-lg">{organisation.name}</span>

@@ -239,7 +239,7 @@ const AdminInstallments = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KpiCard title="Total Amount" value={`$${stats.totalAmount.toLocaleString()}`} icon={DollarSign} color="#F59E0B" animate={false} />
         <KpiCard title="Active" value={stats.activeInstallments} icon={Layers} color="#059669" animate={false} />
-        <KpiCard title="Total Plans" value={stats.totalInstallments} icon={CheckCircle} color="#8B5CF6" animate={false} />
+        <KpiCard title="Total Plans" value={stats.totalInstallments} icon={CheckCircle} color="#10B981" animate={false} />
         <KpiCard title="Average" value={`$${stats.averageInstallment.toLocaleString()}`} icon={Info} color="#06B6D4" animate={false} />
       </div>
 

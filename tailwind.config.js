@@ -6,9 +6,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        heading: ["Cormorant Garamond", "serif"],
-        body: ["Inter", "sans-serif"],
-        nav: ["Plus Jakarta Sans", "Inter", "sans-serif"],
+        heading: ["Outfit", "system-ui", "sans-serif"],
+        body: ["Outfit", "system-ui", "sans-serif"],
+        nav: ["Outfit", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
         primary: 'var(--tenant-primary, #2C2418)',

@@ -4,7 +4,7 @@
  *
  * Usage:
  *   <KpiCard title="Total" value="$500" icon={DollarSign} color="#059669" />
- *   <KpiCard title="Revenue" value="$1,200" icon={TrendingUp} color="#8B5CF6" sparkData={[2,4,3,6]} />
+ *   <KpiCard title="Revenue" value="$1,200" icon={TrendingUp} color="#10B981" sparkData={[2,4,3,6]} />
  */
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";

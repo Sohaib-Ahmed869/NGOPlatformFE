@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, ArrowRight } from "lucide-react";
 
 const V = {
-  bg: "#F7F4FB", surface: "#FFFFFF", surface2: "#F2EDF8",
-  line: "rgba(28,15,55,.08)", ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777", accentGlow: "rgba(219,39,119,.20)",
+  bg: "#F3F8F5", surface: "#FFFFFF", surface2: "#E7F2EC",
+  line: "rgba(6,40,30,.08)", ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B", accentGlow: "rgba(245,158,11,.20)",
   success: "#059669",
 };
 const mono = "'JetBrains Mono', monospace";
@@ -20,7 +20,7 @@ export default function PlanCard({ plan, billingCycle }) {
       className={`saas-price-card ${plan.popular ? "saas-price-featured" : "saas-price-regular"} rounded-[14px] p-8 flex flex-col h-full relative overflow-hidden`}
       style={{
         background: plan.popular
-          ? `radial-gradient(circle at 100% 0%, rgba(124,58,237,.3), transparent 50%), linear-gradient(180deg, ${V.surface2}, ${V.surface})`
+          ? `radial-gradient(circle at 100% 0%, rgba(4,120,87,.3), transparent 50%), linear-gradient(180deg, ${V.surface2}, ${V.surface})`
           : V.surface,
       }}
     >
@@ -93,7 +93,7 @@ export default function PlanCard({ plan, billingCycle }) {
         className={`saas-btn-primary group flex items-center justify-center gap-2 w-full py-3 rounded-lg text-[13.5px] font-semibold transition-colors`}
         style={plan.popular ? {
           background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: V.bg, border: "1px solid transparent",
-          boxShadow: `inset 0 1px 0 rgba(255,255,255,.3), 0 0 24px rgba(124,58,237,.4)`,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,.3), 0 0 24px rgba(4,120,87,.4)`,
         } : {
           background: V.surface2, color: V.ink, border: `1px solid ${V.line}`,
           boxShadow: `inset 0 1px 0 rgba(255,255,255,.06)`,

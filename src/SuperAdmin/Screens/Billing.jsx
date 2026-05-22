@@ -5,10 +5,10 @@ import superadminService from "../../services/superadmin.service";
 import SALoader from "../SALoader";
 
 const V = {
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  surface: "#FFFFFF", surface2: "#F2EDF8", bg: "#F7F4FB",
-  line: "rgba(28,15,55,.08)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  surface: "#FFFFFF", surface2: "#E7F2EC", bg: "#F3F8F5",
+  line: "rgba(6,40,30,.08)",
 };
 const mono = "'JetBrains Mono', monospace";
 
@@ -18,7 +18,7 @@ const fadeUp = {
 };
 const stagger = { visible: { transition: { staggerChildren: 0.06 } } };
 
-const planColors = { basic: "#0891B2", professional: "#7C3AED", enterprise: "#DB2777" };
+const planColors = { basic: "#0891B2", professional: "#047857", enterprise: "#F59E0B" };
 
 export default function Billing() {
   const [stats, setStats] = useState(null);
@@ -37,7 +37,7 @@ export default function Billing() {
   const basic = stats?.byPlan?.basic || 0;
   const pro = stats?.byPlan?.professional || 0;
   const ent = stats?.byPlan?.enterprise || 0;
-  const mrr = basic * 29 + pro * 79 + ent * 199;
+  const mrr = basic * 200 + pro * 500 + ent * 1000;
 
   const statCards = [
     { title: "Active Subscriptions", value: stats?.activeSubscriptions || 0, icon: CreditCard, color: "#059669", bg: "rgba(5,150,105,.08)" },
@@ -47,9 +47,9 @@ export default function Billing() {
   ];
 
   const planData = [
-    { plan: "basic", label: "Basic", price: 29, count: basic, color: planColors.basic },
-    { plan: "professional", label: "Professional", price: 79, count: pro, color: planColors.professional },
-    { plan: "enterprise", label: "Enterprise", price: 199, count: ent, color: planColors.enterprise },
+    { plan: "basic", label: "Basic", price: 200, count: basic, color: planColors.basic },
+    { plan: "professional", label: "Professional", price: 500, count: pro, color: planColors.professional },
+    { plan: "enterprise", label: "Enterprise", price: 1000, count: ent, color: planColors.enterprise },
   ];
   const totalSubs = stats?.activeSubscriptions || 1;
 
@@ -129,7 +129,7 @@ export default function Billing() {
           <div className="space-y-1">
             {stats.recentSignups.map((org, i) => (
               <motion.div key={org._id}
-                className="flex items-center justify-between py-3 px-3 rounded-lg transition-colors hover:bg-[#F2EDF8]/50"
+                className="flex items-center justify-between py-3 px-3 rounded-lg transition-colors hover:bg-[#E7F2EC]/50"
                 initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 + i * 0.05 }}>
                 <div className="flex items-center gap-3">

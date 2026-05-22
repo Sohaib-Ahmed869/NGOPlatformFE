@@ -4,13 +4,13 @@ import { Check, X, ChevronDown, Shield, Zap, Headphones } from "lucide-react";
 import PlanCard from "./PlanCard";
 
 const V = {
-  bg: "#F7F4FB", surface: "#FFFFFF", surface2: "#F2EDF8",
-  line: "rgba(28,15,55,.08)", line2: "rgba(28,15,55,.04)",
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
+  bg: "#F3F8F5", surface: "#FFFFFF", surface2: "#E7F2EC",
+  line: "rgba(6,40,30,.08)", line2: "rgba(6,40,30,.04)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
   success: "#059669",
 };
-const font = "'Space Grotesk', system-ui, sans-serif";
+const font = "'Outfit', system-ui, sans-serif";
 const mono = "'JetBrains Mono', monospace";
 
 /* Scroll-reveal — same as homepage */
@@ -37,43 +37,43 @@ const fadeUpChild = {
 const css = `
 /* Override global index.css h1-h6 font-heading (Cormorant Garamond) */
 .saas-page h1, .saas-page h2, .saas-page h3, .saas-page h4, .saas-page h5, .saas-page h6 {
-  font-family: 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: 'Outfit', system-ui, sans-serif !important;
 }
 
 /* Regular (non-featured) price cards */
 .saas-price-regular {
-  border: 1px solid rgba(28,15,55,.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 4px 16px -4px rgba(124,58,237,.06);
+  border: 1px solid rgba(6,40,30,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 4px 16px -4px rgba(4,120,87,.06);
   transition: transform .4s ease, border-color .3s, box-shadow .4s ease;
 }
 .saas-price-regular:hover {
   transform: translateY(-4px);
-  border-color: rgba(124,58,237,.3);
+  border-color: rgba(4,120,87,.3);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.04),
-    0 0 0 1px rgba(124,58,237,.15),
-    0 8px 24px -4px rgba(124,58,237,.15),
-    0 20px 50px -12px rgba(124,58,237,.12);
+    0 0 0 1px rgba(4,120,87,.15),
+    0 8px 24px -4px rgba(4,120,87,.15),
+    0 20px 50px -12px rgba(4,120,87,.12);
 }
 
 /* Featured (popular) price card */
 .saas-price-featured {
-  border: 1px solid rgba(124,58,237,.4);
+  border: 1px solid rgba(4,120,87,.4);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.08),
-    0 0 0 1px rgba(124,58,237,.25),
-    0 8px 32px -8px rgba(124,58,237,.3),
-    0 24px 60px -20px rgba(124,58,237,.2);
+    0 0 0 1px rgba(4,120,87,.25),
+    0 8px 32px -8px rgba(4,120,87,.3),
+    0 24px 60px -20px rgba(4,120,87,.2);
   transition: transform .4s ease, border-color .3s, box-shadow .4s ease;
 }
 .saas-price-featured:hover {
   transform: translateY(-4px);
-  border-color: rgba(124,58,237,.6);
+  border-color: rgba(4,120,87,.6);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.08),
-    0 0 0 1px rgba(124,58,237,.4),
-    0 0 40px -4px rgba(124,58,237,.25),
-    0 28px 70px -20px rgba(124,58,237,.35);
+    0 0 0 1px rgba(4,120,87,.4),
+    0 0 40px -4px rgba(4,120,87,.25),
+    0 28px 70px -20px rgba(4,120,87,.35);
 }
 
 /* Gloss sweep on all price cards */
@@ -96,7 +96,7 @@ const css = `
 .saas-btn-primary:hover::before { transform: translateX(120%); }
 
 .saas-faq-item { transition: border-color .3s; }
-.saas-faq-item:hover { border-color: rgba(124,58,237,.15); }
+.saas-faq-item:hover { border-color: rgba(4,120,87,.15); }
 
 .saas-comp-table { transition: box-shadow .4s; }
 .saas-comp-table:hover { box-shadow: 0 12px 28px -12px rgba(15,23,42,.1); }
@@ -111,7 +111,7 @@ const css = `
 `;
 
 const plans = [
-  { name: "Basic", key: "basic", monthlyPrice: 29, annualPrice: 279, description: "Perfect for small organisations just getting started with online fundraising",
+  { name: "Basic", key: "basic", monthlyPrice: 200, annualPrice: 1920, description: "Perfect for small organisations just getting started with online fundraising",
     features: [
       { name: "Up to 3 campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
       { name: "Donor management", included: true }, { name: "Automated email receipts", included: true },
@@ -119,7 +119,7 @@ const plans = [
       { name: "Volunteer management", included: false }, { name: "Program follow-up updates", included: false },
       { name: "Priority support", included: false },
     ] },
-  { name: "Professional", key: "professional", monthlyPrice: 79, annualPrice: 759, popular: true,
+  { name: "Professional", key: "professional", monthlyPrice: 500, annualPrice: 4800, popular: true,
     description: "For growing organisations with active campaigns and team collaboration needs",
     features: [
       { name: "Up to 5 campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
@@ -128,7 +128,7 @@ const plans = [
       { name: "Up to 10 volunteers", included: true }, { name: "Program follow-up updates", included: true },
       { name: "Priority support", included: false },
     ] },
-  { name: "Enterprise", key: "enterprise", monthlyPrice: 199, annualPrice: 1909,
+  { name: "Enterprise", key: "enterprise", monthlyPrice: 1000, annualPrice: 9600,
     description: "For established organisations that need unlimited capacity and premium support",
     features: [
       { name: "Unlimited campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
@@ -191,7 +191,7 @@ export default function PlansPage() {
           <Reveal>
             <span className="inline-block px-2.5 py-1 rounded text-[10.5px] tracking-[.08em] uppercase mb-4"
               style={{ fontFamily: mono, color: V.inkSoft, background: V.surface, border: `1px solid ${V.line}` }}>
-              <span className="inline-block w-1.5 h-1.5 rounded-full mr-2" style={{ background: V.accent, boxShadow: `0 0 0 3px rgba(219,39,119,.25)` }} />
+              <span className="inline-block w-1.5 h-1.5 rounded-full mr-2" style={{ background: V.accent, boxShadow: `0 0 0 3px rgba(245,158,11,.25)` }} />
               Pricing
             </span>
           </Reveal>
@@ -213,7 +213,7 @@ export default function PlansPage() {
               {/* Sliding background pill */}
               <motion.div
                 className="absolute top-1.5 bottom-1.5 rounded-lg"
-                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(124,58,237,.4)` }}
+                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(4,120,87,.4)` }}
                 animate={{ left: billingCycle === "monthly" ? 6 : "50%", right: billingCycle === "annual" ? 6 : "50%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               />
@@ -313,7 +313,7 @@ export default function PlansPage() {
                 </thead>
                 <tbody>
                   {comparisonFeatures.map((feature, i) => (
-                    <tr key={feature.name} style={{ borderBottom: `1px solid ${V.line2}`, background: i % 2 === 0 ? "rgba(28,15,55,.02)" : "transparent" }}>
+                    <tr key={feature.name} style={{ borderBottom: `1px solid ${V.line2}`, background: i % 2 === 0 ? "rgba(6,40,30,.02)" : "transparent" }}>
                       <td className="px-6 py-3 text-sm" style={{ color: V.ink }}>{feature.name}</td>
                       {["basic", "professional", "enterprise"].map((plan) => {
                         const val = feature[plan];

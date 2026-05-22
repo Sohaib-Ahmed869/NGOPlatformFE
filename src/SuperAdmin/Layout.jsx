@@ -3,16 +3,16 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
 const V = {
-  bg: "#F7F4FB", line: "rgba(28,15,55,.08)",
+  bg: "#F3F8F5", line: "rgba(6,40,30,.08)",
 };
 
 const css = `
-.sa-page h1,.sa-page h2,.sa-page h3,.sa-page h4,.sa-page h5,.sa-page h6{font-family:'Space Grotesk',system-ui,sans-serif!important}
+.sa-page h1,.sa-page h2,.sa-page h3,.sa-page h4,.sa-page h5,.sa-page h6{font-family:'Outfit',system-ui,sans-serif!important}
 `;
 
 export default function SuperAdminLayout() {
   return (
-    <div className="sa-page flex h-screen" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif", background: V.bg }}>
+    <div className="sa-page flex h-screen" style={{ fontFamily: "'Outfit', system-ui, sans-serif", background: V.bg }}>
       <style>{css}</style>
       {/* Ambient grid */}
       <div style={{

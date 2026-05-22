@@ -6,10 +6,10 @@ import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
 const V = {
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  surface: "#FFFFFF", surface2: "#F2EDF8", bg: "#F7F4FB",
-  line: "rgba(28,15,55,.08)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  surface: "#FFFFFF", surface2: "#E7F2EC", bg: "#F3F8F5",
+  line: "rgba(6,40,30,.08)",
 };
 const mono = "'JetBrains Mono', monospace";
 
@@ -80,11 +80,11 @@ export default function ContactQueries() {
             className="px-4 py-2 text-sm font-medium rounded-lg capitalize transition-all"
             style={filter === f ? {
               background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff",
-              boxShadow: `0 0 16px rgba(124,58,237,.25), inset 0 1px 0 rgba(255,255,255,.15)`,
+              boxShadow: `0 0 16px rgba(4,120,87,.25), inset 0 1px 0 rgba(255,255,255,.15)`,
             } : {
               background: V.surface, color: V.inkSoft, border: `1px solid ${V.line}`,
             }}
-            onMouseEnter={(e) => { if (filter !== f) e.currentTarget.style.borderColor = "rgba(124,58,237,.2)"; }}
+            onMouseEnter={(e) => { if (filter !== f) e.currentTarget.style.borderColor = "rgba(4,120,87,.2)"; }}
             onMouseLeave={(e) => { if (filter !== f) e.currentTarget.style.borderColor = V.line; }}>
             {f}
           </button>
@@ -113,22 +113,22 @@ export default function ContactQueries() {
                   onClick={() => { setExpanded(isExpanded ? null : q._id); setNote(q.adminNote || ""); }}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="font-medium text-sm text-[#1A0D2E] truncate">{q.name}</span>
+                      <span className="font-medium text-sm text-[#102A23] truncate">{q.name}</span>
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${sc.bg} ${sc.text}`}>
                         <sc.icon className="w-3 h-3" />
                         {sc.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-[#5B4A7A]">
+                    <div className="flex items-center gap-3 text-xs text-[#46685C]">
                       <span>{q.email}</span>
                       <span>·</span>
                       <span>{q.subject}</span>
                     </div>
                   </div>
-                  <div className="text-xs text-[#9D90B5] whitespace-nowrap">
+                  <div className="text-xs text-[#8AA89C] whitespace-nowrap">
                     {new Date(q.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                   </div>
-                  <ChevronDown className={`w-4 h-4 text-[#9D90B5] transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-4 h-4 text-[#8AA89C] transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                 </button>
 
                 {/* Expanded content */}
@@ -142,16 +142,16 @@ export default function ContactQueries() {
                       className="overflow-hidden">
                       <div className="px-5 pb-5 border-t border-gray-100 pt-4">
                         {/* Message */}
-                        <div className="bg-[#F2EDF8] rounded-lg p-4 mb-4">
-                          <p className="text-xs font-medium text-[#9D90B5] uppercase tracking-wider mb-2">Message</p>
-                          <p className="text-sm text-[#1A0D2E] leading-relaxed whitespace-pre-wrap">{q.message}</p>
+                        <div className="bg-[#E7F2EC] rounded-lg p-4 mb-4">
+                          <p className="text-xs font-medium text-[#8AA89C] uppercase tracking-wider mb-2">Message</p>
+                          <p className="text-sm text-[#102A23] leading-relaxed whitespace-pre-wrap">{q.message}</p>
                         </div>
 
                         {/* Admin note */}
                         <div className="mb-4">
-                          <label className="text-xs font-medium text-[#9D90B5] uppercase tracking-wider mb-2 block">Admin Note</label>
+                          <label className="text-xs font-medium text-[#8AA89C] uppercase tracking-wider mb-2 block">Admin Note</label>
                           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED] resize-none"
+                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#047857]/20 focus:border-[#047857] resize-none"
                             placeholder="Add an internal note..." />
                         </div>
 

@@ -105,7 +105,7 @@ const NewsletterSubscribersScreen = () => {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KpiCard title="Total Subscribers" value={subscribers.length} icon={Users} color="#059669" animate={false} />
-        <KpiCard title="Active" value={activeCount} icon={Mail} color="#8B5CF6" animate={false} />
+        <KpiCard title="Active" value={activeCount} icon={Mail} color="#10B981" animate={false} />
         <KpiCard title="This Month" value={recentCount} icon={Clock} color="#06B6D4" animate={false} />
       </div>
 

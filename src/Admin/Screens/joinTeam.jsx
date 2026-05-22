@@ -229,7 +229,7 @@ const JoinTeamAdmin = () => {
           title="Male"
           value={maleApplicants}
           icon={User}
-          color="#8B5CF6"
+          color="#10B981"
           animate={false}
         />
         <KpiCard

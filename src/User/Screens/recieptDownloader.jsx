@@ -1,7 +1,6 @@
 // TAX RECEIPT GENERATOR
 import { jsPDF } from "jspdf";
 import { toast } from "react-hot-toast";
-import logo from "../../assets/images/logo.png";
 import taxDeductibleLogo from "../../assets/images/tax-deductible.png";
 import footer3 from "../../assets/footer3.png";
 
@@ -41,12 +40,15 @@ const downloadReceipt = async (donation, options = {}) => {
     }
     fileName += ".pdf";
 
-    // Add logos
-    try {
-      // Main logo (top left)
-      doc.addImage(logo, "PNG", marginLeft, marginTop, 30, 25);
+    // Company name (in place of the logo) - top left
+    const companyName = "HopeGive Foundation";
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(companyName, marginLeft, marginTop + 8);
+    doc.setFont("helvetica", "normal");
 
-      // Tax deductible logo (top right)
+    // Tax deductible logo (top right)
+    try {
       doc.addImage(taxDeductibleLogo, "PNG", marginRight - 40, marginTop, 40, 20);
     } catch (imageError) {
       console.warn("Could not load images:", imageError);
@@ -60,14 +62,6 @@ const downloadReceipt = async (donation, options = {}) => {
 
     // Set positions for header section - REDUCE the spacing from 30 to 28
     let yPos = marginTop + 35;
-
-    // Add header - organization name
-    doc.setFontSize(16);
-    doc.setFont("helvetica");
-    doc.text("HopeGive Foundation", marginLeft, yPos);
-    
-    // REDUCE spacing between lines - from 10 to 7
-    yPos += 7;
 
     // Receipt title
     doc.setFontSize(12);

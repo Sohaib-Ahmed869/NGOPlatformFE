@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { User, ShoppingCart, ChevronDown, Menu, X } from "lucide-react";
+import { User, ShoppingCart, ChevronDown, Menu, X, HeartHandshake } from "lucide-react";
 import { useCart } from "./cart";
 import { useAuth } from "../../context/AuthContext";
 import { useTenant } from "../../context/TenantContext";
@@ -174,8 +174,8 @@ const Navbar = () => {
             {branding?.logo ? (
               <img src={branding.logo} alt={organisation?.name || ""} className="h-8 w-8 object-contain rounded" />
             ) : organisation ? (
-              <div className="w-8 h-8 rounded flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: branding?.accentColor || "#C9A84C" }}>
-                {organisation.name?.charAt(0) || ""}
+              <div className="w-8 h-8 rounded flex items-center justify-center text-white" style={{ backgroundColor: branding?.accentColor || "#C9A84C" }}>
+                <HeartHandshake className="w-[18px] h-[18px]" />
               </div>
             ) : null}
             <div className="flex flex-col">

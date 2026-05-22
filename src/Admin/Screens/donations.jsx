@@ -599,6 +599,29 @@ const AdminDonationsList = () => {
     document.body.removeChild(link);
   };
   
+  const handleAddDonorUpdate = async (donationId, updateData) => {
+    try {
+      await AdminDonationService.addDonorUpdate(donationId, updateData);
+      toast.success(
+        updateData.type === "close-off"
+          ? "Close-off sent — donation marked complete"
+          : "Follow-up update shared with the donor"
+      );
+      // Refresh the modal details so the new update appears
+      const response = await AdminDonationService.getDonationById(donationId);
+      if (response && response.donation) {
+        setFullDonationDetails(response.donation);
+      }
+      fetchDonations();
+    } catch (error) {
+      console.error("Add donor update error:", error);
+      toast.error(
+        error?.response?.data?.message || "Failed to send update to donor"
+      );
+      throw error;
+    }
+  };
+
   const handleProcessCancellationRequest = async (action) => {
     try {
       if (!selectedDonation) return;
@@ -651,7 +674,7 @@ const AdminDonationsList = () => {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard title="Total Amount" value={formatCurrency(stats.totalAmount)} icon={TrendingUp} color="#059669" animate={false} />
-        <KpiCard title="Total Donations" value={stats.totalDonationsCount} icon={CheckCircle} color="#8B5CF6" animate={false} />
+        <KpiCard title="Total Donations" value={stats.totalDonationsCount} icon={CheckCircle} color="#10B981" animate={false} />
         <KpiCard title="Average" value={stats.totalDonationsCount > 0 ? formatCurrency(stats.totalAmount / stats.totalDonationsCount) : formatCurrency(0)} icon={Info} color="#06B6D4" animate={false} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -886,6 +909,7 @@ const AdminDonationsList = () => {
           onClose={closeFullDetailModal}
           onDownloadReceipt={() => handleDownloadReceipt(fullDonationDetails)}
           onUpdateStatus={updateDonationStatus}
+          onAddUpdate={handleAddDonorUpdate}
         />
       )}
 

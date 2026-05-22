@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import React from "react";
-const V = { primary: "#7C3AED", accent: "#DB2777" };
+const V = { primary: "#047857", accent: "#F59E0B" };
 
 // ── Orbital ──────────────────────────────────────────────
 export function OrbitalLoader({ label = "Loading" }) {
@@ -10,7 +10,7 @@ export function OrbitalLoader({ label = "Loading" }) {
         {/* Static background ring */}
         <div style={{
           position: "absolute", inset: 0, borderRadius: "50%",
-          border: "2px solid rgba(124,58,237,0.12)"
+          border: "2px solid rgba(4,120,87,0.12)"
         }} />
         {/* Outer spinning ring */}
         <motion.div
@@ -18,7 +18,7 @@ export function OrbitalLoader({ label = "Loading" }) {
             position: "absolute", inset: 0, borderRadius: "50%",
             border: "2.5px solid transparent",
             borderTopColor: V.primary,
-            borderRightColor: "rgba(124,58,237,0.3)",
+            borderRightColor: "rgba(4,120,87,0.3)",
           }}
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -29,7 +29,7 @@ export function OrbitalLoader({ label = "Loading" }) {
             position: "absolute", inset: 10, borderRadius: "50%",
             border: "2px solid transparent",
             borderTopColor: V.accent,
-            borderLeftColor: "rgba(219,39,119,0.3)",
+            borderLeftColor: "rgba(245,158,11,0.3)",
           }}
           animate={{ rotate: -360 }}
           transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
@@ -63,11 +63,11 @@ export function DotsLoader({ label = "Processing" }) {
 // ── Bars ─────────────────────────────────────────────────
 export function BarsLoader({ label = "Analyzing" }) {
   const bars = [
-    { height: 28, color: "#7C3AED", delay: 0 },
+    { height: 28, color: "#047857", delay: 0 },
     { height: 40, color: "#9333EA", delay: 0.1 },
     { height: 20, color: "#A855F7", delay: 0.2 },
     { height: 36, color: "#C026D3", delay: 0.3 },
-    { height: 24, color: "#DB2777", delay: 0.4 },
+    { height: 24, color: "#F59E0B", delay: 0.4 },
     { height: 32, color: "#EC4899", delay: 0.5 },
   ];
   return (

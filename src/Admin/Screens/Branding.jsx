@@ -16,6 +16,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  HeartHandshake,
 } from "lucide-react";
 import brandingService from "../../services/branding.service";
 import themeCategories, { getThemeById } from "../../config/themePresets";
@@ -479,10 +480,10 @@ export default function Branding() {
                       />
                     ) : (
                       <div
-                        className="w-6 h-6 rounded flex items-center justify-center text-white text-[8px] font-bold transition-colors duration-300"
+                        className="w-6 h-6 rounded flex items-center justify-center text-white transition-colors duration-300"
                         style={{ backgroundColor: branding.accentColor }}
                       >
-                        {orgName?.charAt(0) || "N"}
+                        <HeartHandshake className="w-3.5 h-3.5" />
                       </div>
                     )}
                     <div>

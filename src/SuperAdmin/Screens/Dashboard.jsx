@@ -5,10 +5,10 @@ import superadminService from "../../services/superadmin.service";
 import SALoader from "../SALoader";
 
 const V = {
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  surface: "#FFFFFF", surface2: "#F2EDF8", bg: "#F7F4FB",
-  line: "rgba(28,15,55,.08)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  surface: "#FFFFFF", surface2: "#E7F2EC", bg: "#F3F8F5",
+  line: "rgba(6,40,30,.08)",
 };
 const mono = "'JetBrains Mono', monospace";
 
@@ -20,13 +20,13 @@ const kpiCSS = `
 }
 .sa-kpi:hover {
   transform: translateY(-3px) scale(1.04);
-  border-color: rgba(124,58,237,.25);
+  border-color: rgba(4,120,87,.25);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.9),
-    0 0 0 1px rgba(124,58,237,.12),
-    0 0 24px -4px rgba(124,58,237,.18),
-    0 0 48px -8px rgba(124,58,237,.10),
-    0 16px 40px -12px rgba(124,58,237,.15);
+    0 0 0 1px rgba(4,120,87,.12),
+    0 0 24px -4px rgba(4,120,87,.18),
+    0 0 48px -8px rgba(4,120,87,.10),
+    0 16px 40px -12px rgba(4,120,87,.15);
 }
 
 /* Gloss sweep */
@@ -178,7 +178,7 @@ export default function SADashboard() {
   const ent = stats?.byPlan?.enterprise || 0;
 
   // Revenue estimates
-  const mrr = basic * 29 + pro * 79 + ent * 199;
+  const mrr = basic * 200 + pro * 500 + ent * 1000;
   const arr = mrr * 12;
 
   const kpis = [
@@ -187,7 +187,7 @@ export default function SADashboard() {
     { title: "Active Subscriptions", value: activeOrgs.toLocaleString(), delta: `${totalOrgs ? Math.round((activeOrgs / totalOrgs) * 100) : 0}% active`, deltaUp: true, icon: Activity, color: "#0891B2", sparkData: [8, 12, 16, 20, 25, 28, 30, 34, 38, 40, 42, activeOrgs] },
     { title: "Annual Run Rate", value: `$${arr.toLocaleString()}`, delta: null, deltaUp: true, icon: TrendingUp, color: V.accent, sparkData: [200, 350, 420, 500, 600, 750, 850, 950, 1100, 1250, 1400, arr / 10], sparkColor: V.accent },
     { title: "Failed Payments", value: failed.toString(), delta: failed > 0 ? "needs attention" : "all clear", deltaUp: failed === 0, icon: AlertTriangle, color: failed > 0 ? "#DC2626" : "#059669" },
-    { title: "Avg Revenue / Org", value: `$${totalOrgs ? Math.round(mrr / totalOrgs) : 0}`, delta: null, deltaUp: true, icon: CreditCard, color: "#8B5CF6" },
+    { title: "Avg Revenue / Org", value: `$${totalOrgs ? Math.round(mrr / totalOrgs) : 0}`, delta: null, deltaUp: true, icon: CreditCard, color: "#10B981" },
   ];
 
   const planPct = totalOrgs ? { basic: Math.round((basic / totalOrgs) * 100), pro: Math.round((pro / totalOrgs) * 100), ent: Math.round((ent / totalOrgs) * 100) } : { basic: 0, pro: 0, ent: 0 };
@@ -273,9 +273,9 @@ export default function SADashboard() {
         <h2 className="text-sm font-semibold mb-5" style={{ color: V.ink }}>Revenue by Plan</h2>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { plan: "Basic", price: 29, count: basic, color: "#0891B2" },
-            { plan: "Professional", price: 79, count: pro, color: V.primary },
-            { plan: "Enterprise", price: 199, count: ent, color: V.accent },
+            { plan: "Basic", price: 200, count: basic, color: "#0891B2" },
+            { plan: "Professional", price: 500, count: pro, color: V.primary },
+            { plan: "Enterprise", price: 1000, count: ent, color: V.accent },
           ].map((p, i) => (
             <motion.div key={p.plan} className="rounded-lg p-4"
               style={{ background: V.bg, border: `1px solid ${V.line}` }}
@@ -301,7 +301,7 @@ export default function SADashboard() {
           <div className="space-y-1">
             {stats.recentSignups.map((org, i) => (
               <motion.div key={org._id}
-                className="flex items-center justify-between py-3 px-3 rounded-lg transition-colors hover:bg-[#F2EDF8]/50"
+                className="flex items-center justify-between py-3 px-3 rounded-lg transition-colors hover:bg-[#E7F2EC]/50"
                 initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.6 + i * 0.06 }}>
                 <div className="flex items-center gap-3">

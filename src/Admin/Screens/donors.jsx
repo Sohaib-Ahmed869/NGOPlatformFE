@@ -561,7 +561,7 @@ const DonorsPage = () => {
           {/* KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <KpiCard title="Total Donors" value={stats.totalDonors || 0} icon={User} color="#059669" animate={false} />
-            <KpiCard title="Total Donations" value={`$${(stats.totalAmount || 0).toLocaleString()}`} icon={DollarSign} color="#8B5CF6" animate={false} />
+            <KpiCard title="Total Donations" value={`$${(stats.totalAmount || 0).toLocaleString()}`} icon={DollarSign} color="#10B981" animate={false} />
             <KpiCard title="Average Donation" value={`$${(stats.averageDonation || 0).toLocaleString()}`} icon={TrendingUp} color="#06B6D4" animate={false} />
             <KpiCard title="Recurring Donors" value={stats.recurringDonations || 0} icon={Heart} color="#EC4899" animate={false} />
           </div>

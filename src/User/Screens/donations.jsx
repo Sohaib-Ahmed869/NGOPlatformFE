@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
-import { Calendar, Search, ChevronLeft, ChevronRight, ChevronDown, RefreshCcw, ChevronUp, X, Plus, Download, Loader, FileText, DollarSign, AlertCircle } from 'lucide-react'
+import { Calendar, Search, ChevronLeft, ChevronRight, ChevronDown, RefreshCcw, ChevronUp, X, Plus, Download, Loader, FileText, DollarSign, AlertCircle, Bell, CheckCircle2, MessageSquare } from 'lucide-react'
 import { toast } from "react-hot-toast"
 import DonationService from "../../services/donation.service"
 import logo from "../../assets/logo.png"
@@ -575,6 +575,15 @@ const UserDonations = () => {
                           </span>
                         )}
                       </div>
+                      {donation.donorUpdates?.some((u) => u.type === "close-off") && (
+                        <span
+                          className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-800 border border-green-200"
+                          title="The organisation has posted a close-off update for this donation. Open Details to read it."
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          Closed off
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm font-semibold text-gray-900">
@@ -1131,6 +1140,72 @@ const UserDonations = () => {
                         <p className="text-sm">{selectedDonation.transactionDetails.stripeStatus}</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Updates from the organisation */}
+              {selectedDonation.donorUpdates && selectedDonation.donorUpdates.length > 0 && (
+                <div className="border-t pt-4">
+                  <h3 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
+                    <Bell className="w-4 h-4 mr-2 text-accent" />
+                    Updates on Your Donation
+                  </h3>
+                  <div className="space-y-3">
+                    {[...selectedDonation.donorUpdates]
+                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                      .map((u, idx) => (
+                        <div
+                          key={u._id || idx}
+                          className={`rounded-lg border p-4 ${
+                            u.type === "close-off"
+                              ? "border-green-200 bg-green-50"
+                              : "border-blue-200 bg-blue-50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                u.type === "close-off"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-blue-100 text-blue-800"
+                              }`}
+                            >
+                              {u.type === "close-off" ? (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              ) : (
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              )}
+                              {u.type === "close-off" ? "Completed" : "Progress Update"}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(u.createdAt).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </div>
+                          {u.comment && (
+                            <p className="text-sm text-gray-700 whitespace-pre-line">
+                              {u.comment}
+                            </p>
+                          )}
+                          {u.images && u.images.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {u.images.map((img, i) => (
+                                <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                  <img
+                                    src={img}
+                                    alt={`Update ${i + 1}`}
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:opacity-80"
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}

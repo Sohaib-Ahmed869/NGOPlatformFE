@@ -6,14 +6,14 @@ import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
 const V = {
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  surface: "#FFFFFF", surface2: "#F2EDF8", bg: "#F7F4FB",
-  line: "rgba(28,15,55,.08)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  surface: "#FFFFFF", surface2: "#E7F2EC", bg: "#F3F8F5",
+  line: "rgba(6,40,30,.08)",
 };
 const mono = "'JetBrains Mono', monospace";
 
-const planColors = { basic: "#0891B2", professional: "#7C3AED", enterprise: "#DB2777" };
+const planColors = { basic: "#0891B2", professional: "#047857", enterprise: "#F59E0B" };
 const statusStyles = {
   active: "bg-green-50 text-green-700 ring-1 ring-green-200",
   pending: "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
@@ -91,7 +91,7 @@ export default function Organisations() {
             placeholder="Search by name or slug..."
             className="w-full pl-10 pr-4 py-2.5 rounded-lg text-sm outline-none transition-all"
             style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.ink }}
-            onFocus={(e) => { e.target.style.borderColor = "rgba(124,58,237,.4)"; e.target.style.boxShadow = "0 0 0 3px rgba(124,58,237,.1)"; }}
+            onFocus={(e) => { e.target.style.borderColor = "rgba(4,120,87,.4)"; e.target.style.boxShadow = "0 0 0 3px rgba(4,120,87,.1)"; }}
             onBlur={(e) => { e.target.style.borderColor = V.line; e.target.style.boxShadow = "none"; }}
           />
         </div>
@@ -199,7 +199,7 @@ export default function Organisations() {
                   </thead>
                   <tbody>
                     {orgs.map((org) => (
-                      <tr key={org._id} className="transition-colors hover:bg-[#F2EDF8]/30" style={{ borderTop: `1px solid ${V.line}` }}>
+                      <tr key={org._id} className="transition-colors hover:bg-[#E7F2EC]/30" style={{ borderTop: `1px solid ${V.line}` }}>
                         <td className="px-4 py-3 text-sm font-medium" style={{ color: V.ink }}>{org.name}</td>
                         <td className="px-4 py-3 text-[11px]" style={{ fontFamily: mono, color: V.inkFaint }}>{org.slug}</td>
                         <td className="px-4 py-3">
@@ -269,9 +269,9 @@ export default function Organisations() {
               <select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg mb-4 text-sm outline-none"
                 style={{ background: V.bg, border: `1px solid ${V.line}`, color: V.ink }}>
-                <option value="basic">Basic — $29/mo</option>
-                <option value="professional">Professional — $79/mo</option>
-                <option value="enterprise">Enterprise — $199/mo</option>
+                <option value="basic">Basic — $200/mo</option>
+                <option value="professional">Professional — $500/mo</option>
+                <option value="enterprise">Enterprise — $1000/mo</option>
               </select>
               <div className="flex gap-3">
                 <button onClick={() => setPlanModal(null)}
@@ -279,7 +279,7 @@ export default function Organisations() {
                   style={{ border: `1px solid ${V.line}`, color: V.ink }}>Cancel</button>
                 <button onClick={handleChangePlan}
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
-                  style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 0 16px rgba(124,58,237,.3)` }}>
+                  style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 0 16px rgba(4,120,87,.3)` }}>
                   Update
                 </button>
               </div>

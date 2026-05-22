@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X, ArrowRight } from "lucide-react";
+import { Menu, X, ArrowRight, HeartHandshake } from "lucide-react";
 
 const V = {
-  bg: "#F7F4FB", ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  surface: "#FFFFFF", line: "rgba(28,15,55,.08)", success: "#059669",
+  bg: "#F3F8F5", ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  surface: "#FFFFFF", line: "rgba(6,40,30,.08)", success: "#059669",
 };
 
 export default function SaaSNavbar() {
@@ -33,7 +33,7 @@ export default function SaaSNavbar() {
     <>
       <nav
         className="fixed top-4 left-0 right-0 z-50 flex justify-center pointer-events-none"
-        style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
+        style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
       >
         <motion.div
           initial={{ y: -80, opacity: 0 }}
@@ -52,35 +52,18 @@ export default function SaaSNavbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 pr-4 mr-1 border-r" style={{ borderColor: V.line }}>
             <div
-              className="w-6 h-6 rounded-md grid place-items-center text-white text-[11px] font-bold"
+              className="w-8 h-8 rounded-xl grid place-items-center text-white"
               style={{
                 background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})`,
-                boxShadow: `inset 0 1px 0 rgba(255,255,255,.35), 0 0 16px rgba(124,58,237,.35)`,
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,.35), 0 6px 16px -6px rgba(4,120,87,.6)`,
               }}
             >
-              N
+              <HeartHandshake className="w-[18px] h-[18px]" />
             </div>
-            <span className="text-[15px] font-medium tracking-tight" style={{ color: V.ink }}>
+            <span className="text-[15px] font-semibold tracking-tight" style={{ color: V.ink }}>
               NGO Platform
             </span>
           </Link>
-
-          {/* Status */}
-          <div
-            className="hidden md:inline-flex items-center gap-1.5 px-3 border-r mr-1"
-            style={{
-              borderColor: V.line,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: "11px",
-              color: V.inkFaint,
-            }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ background: V.success, boxShadow: `0 0 0 3px rgba(5,150,105,.3)` }}
-            />
-            v2.4 · all systems operational
-          </div>
 
           {/* Desktop Links */}
           <div className="hidden md:flex">
@@ -104,7 +87,7 @@ export default function SaaSNavbar() {
             className="hidden md:inline-flex items-center gap-2 ml-1.5 px-4 py-2 rounded-[7px] text-[13px] font-semibold text-white transition-transform hover:scale-[1.02]"
             style={{
               background: `linear-gradient(180deg, ${V.primary} 0%, ${V.primary2} 100%)`,
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.30), 0 12px 32px -8px rgba(124,58,237,.6)`,
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.30), 0 12px 32px -8px rgba(4,120,87,.6)`,
             }}
           >
             Get started <ArrowRight className="w-3.5 h-3.5" />
@@ -131,7 +114,7 @@ export default function SaaSNavbar() {
             transition={{ duration: 0.25 }}
             className="fixed top-16 left-4 right-4 z-50 overflow-hidden rounded-xl border"
             style={{
-              fontFamily: "'Space Grotesk', system-ui, sans-serif",
+              fontFamily: "'Outfit', system-ui, sans-serif",
               background: "rgba(255,255,255,.95)",
               backdropFilter: "blur(20px)",
               borderColor: V.line,

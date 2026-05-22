@@ -196,7 +196,7 @@ const UserDashboard = () => {
         <KpiCard title="Total Donated" value={formatCurrency(stats?.totalDonated)} icon={DollarSign}
           color={accentColor} sparkData={monthlyAmounts} defaultSpark={DEFAULT_SPARKS.rising} index={1} />
         <KpiCard title="Paid Amount" value={formatCurrency(stats?.paidDonated)} icon={CreditCard}
-          color="#8B5CF6" sparkData={sparkAmounts} defaultSpark={DEFAULT_SPARKS.steady} index={2} />
+          color="#10B981" sparkData={sparkAmounts} defaultSpark={DEFAULT_SPARKS.steady} index={2} />
         <KpiCard title="Average Donation" value={formatCurrency(stats?.averageDonation)} icon={TrendingUp}
           color="#06B6D4" defaultSpark={DEFAULT_SPARKS.wave} index={3} />
       </div>
@@ -208,7 +208,7 @@ const UserDashboard = () => {
         <KpiCard title="One-Time" value={stats?.singleDonations || 0} icon={CreditCard}
           color="#059669" defaultSpark={DEFAULT_SPARKS.steady} index={5} />
         <KpiCard title="Recurring" value={stats?.recurringDonations || 0} icon={RepeatIcon}
-          color="#8B5CF6" defaultSpark={DEFAULT_SPARKS.dip} index={6} />
+          color="#10B981" defaultSpark={DEFAULT_SPARKS.dip} index={6} />
         <KpiCard title="Installments" value={stats?.installmentDonations || 0} icon={Layers}
           color="#F59E0B" defaultSpark={DEFAULT_SPARKS.flat} index={7} />
       </div>

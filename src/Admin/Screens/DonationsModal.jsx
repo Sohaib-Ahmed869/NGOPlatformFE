@@ -1,8 +1,56 @@
-import React from "react";
-import { X, Download, FileText, Printer, Eye, Check, AlertCircle, Calendar, CreditCard } from "lucide-react";
+import React, { useState } from "react";
+import { X, Download, FileText, Printer, Eye, Check, AlertCircle, Calendar, CreditCard, MessageSquarePlus, Image as ImageIcon, Send, Loader2, CheckCircle2, Bell } from "lucide-react";
+import { toast } from "react-hot-toast";
 
-const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateStatus, onPrintReceipt }) => {
+const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateStatus, onPrintReceipt, onAddUpdate }) => {
+  const [updateType, setUpdateType] = useState("follow-up");
+  const [updateComment, setUpdateComment] = useState("");
+  const [updateImages, setUpdateImages] = useState([]);
+  const [submittingUpdate, setSubmittingUpdate] = useState(false);
+
   if (!donation) return null;
+
+  // "Individual" donations are single / one-time contributions
+  const isIndividualDonation =
+    donation.paymentType === "single" ||
+    donation.paymentType === "one-time" ||
+    donation.paymentType === "one_time" ||
+    !donation.paymentType;
+
+  const donorUpdates = donation.donorUpdates || [];
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    setUpdateImages((prev) => [...prev, ...files].slice(0, 5));
+    e.target.value = "";
+  };
+
+  const removeImage = (idx) => {
+    setUpdateImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmitUpdate = async () => {
+    if (!updateComment.trim() && updateImages.length === 0) {
+      toast.error("Add a comment or at least one image");
+      return;
+    }
+    if (!onAddUpdate) return;
+    try {
+      setSubmittingUpdate(true);
+      await onAddUpdate(donation._id, {
+        type: updateType,
+        comment: updateComment.trim(),
+        images: updateImages,
+      });
+      setUpdateComment("");
+      setUpdateImages([]);
+      setUpdateType("follow-up");
+    } catch (error) {
+      // error toast handled by parent
+    } finally {
+      setSubmittingUpdate(false);
+    }
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat("en-US", {
@@ -529,6 +577,192 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
               <p className="text-sm text-red-700">
                 <span className="font-medium">Date:</span> {formatDate(donation.cancellationDetails.date)}
               </p>
+            </div>
+          )}
+
+          {/* Donor Updates — follow-up / close-off (individual donations only) */}
+          {isIndividualDonation && (
+            <div className="mt-6 border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Bell className="w-5 h-5 mr-2 text-accent" />
+                Donor Updates
+              </h3>
+
+              {/* Existing updates timeline */}
+              {donorUpdates.length > 0 ? (
+                <div className="space-y-3 mb-5">
+                  {[...donorUpdates]
+                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                    .map((u, idx) => (
+                      <div
+                        key={u._id || idx}
+                        className={`rounded-lg border p-4 ${
+                          u.type === "close-off"
+                            ? "border-green-200 bg-green-50"
+                            : "border-blue-200 bg-blue-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              u.type === "close-off"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {u.type === "close-off" ? (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <MessageSquarePlus className="w-3.5 h-3.5" />
+                            )}
+                            {u.type === "close-off" ? "Close-off" : "Follow-up"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {formatDateTime(u.createdAt)}
+                          </span>
+                        </div>
+                        {u.comment && (
+                          <p className="text-sm text-gray-700 whitespace-pre-line">
+                            {u.comment}
+                          </p>
+                        )}
+                        {u.images && u.images.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {u.images.map((img, i) => (
+                              <a
+                                key={i}
+                                href={img}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <img
+                                  src={img}
+                                  alt={`Update ${i + 1}`}
+                                  className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:opacity-80"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        {u.createdByName && (
+                          <p className="text-xs text-gray-400 mt-2">
+                            by {u.createdByName}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 mb-5">
+                  No updates shared with the donor yet.
+                </p>
+              )}
+
+              {/* Add update form */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3">
+                  Send an update to the donor
+                </h4>
+
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setUpdateType("follow-up")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      updateType === "follow-up"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <MessageSquarePlus className="w-4 h-4" />
+                    Follow-up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUpdateType("close-off")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      updateType === "close-off"
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Close-off
+                  </button>
+                </div>
+
+                {updateType === "close-off" && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+                    A close-off marks this donation as completed and lets the
+                    donor know their contribution has been delivered.
+                  </p>
+                )}
+
+                <textarea
+                  value={updateComment}
+                  onChange={(e) => setUpdateComment(e.target.value)}
+                  rows={3}
+                  placeholder={
+                    updateType === "close-off"
+                      ? "Describe how the donation was used / delivered..."
+                      : "Share a progress update with the donor..."
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none"
+                />
+
+                {/* Image previews */}
+                {updateImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {updateImages.map((file, idx) => (
+                      <div key={idx} className="relative">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Selected ${idx + 1}`}
+                          className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(idx)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-3">
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer">
+                    <ImageIcon className="w-4 h-4" />
+                    Add Images
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      disabled={updateImages.length >= 5}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSubmitUpdate}
+                    disabled={submittingUpdate}
+                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-light disabled:opacity-50"
+                  >
+                    {submittingUpdate ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    {updateType === "close-off" ? "Send Close-off" : "Send Update"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  Up to 5 images. The donor will be notified by email.
+                </p>
+              </div>
             </div>
           )}
 

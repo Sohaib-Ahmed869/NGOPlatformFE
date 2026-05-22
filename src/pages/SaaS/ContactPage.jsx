@@ -5,13 +5,13 @@ import axiosInstance from "../../services/axios";
 import { toast } from "react-hot-toast";
 
 const V = {
-  bg: "#F7F4FB", surface: "#FFFFFF", surface2: "#F2EDF8",
-  line: "rgba(28,15,55,.08)", line2: "rgba(28,15,55,.04)",
-  ink: "#1A0D2E", inkSoft: "#5B4A7A", inkFaint: "#9D90B5",
-  primary: "#7C3AED", primary2: "#6D28D9", accent: "#DB2777",
-  accentGlow: "rgba(219,39,119,.20)", success: "#059669",
+  bg: "#F3F8F5", surface: "#FFFFFF", surface2: "#E7F2EC",
+  line: "rgba(6,40,30,.08)", line2: "rgba(6,40,30,.04)",
+  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  accentGlow: "rgba(245,158,11,.20)", success: "#059669",
 };
-const font = "'Space Grotesk', system-ui, sans-serif";
+const font = "'Outfit', system-ui, sans-serif";
 const mono = "'JetBrains Mono', monospace";
 
 const Reveal = ({ children, delay = 0, className = "" }) => {
@@ -28,9 +28,9 @@ const Reveal = ({ children, delay = 0, className = "" }) => {
 };
 
 const css = `
-.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Space Grotesk',system-ui,sans-serif!important}
+.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Outfit',system-ui,sans-serif!important}
 .saas-input{transition:border-color .3s,box-shadow .3s}
-.saas-input:focus{border-color:rgba(124,58,237,.4);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.saas-input:focus{border-color:rgba(4,120,87,.4);box-shadow:0 0 0 3px rgba(4,120,87,.12)}
 .saas-submit{position:relative;overflow:hidden;transition:transform .3s}
 .saas-submit:hover{transform:translateY(-1px)}
 .saas-submit::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.50) 50%,transparent 65%);transform:translateX(-120%);transition:transform 1s cubic-bezier(.2,.8,.2,1);pointer-events:none}
@@ -76,8 +76,8 @@ export default function ContactPage() {
 
       {/* Hero glows */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        <div className="absolute rounded-full" style={{ top: "-5%", left: "60%", width: 600, height: 400, filter: "blur(90px)", background: "radial-gradient(circle, rgba(124,58,237,.35), transparent 60%)" }} />
-        <div className="absolute rounded-full" style={{ top: "30%", left: "-10%", width: 400, height: 400, filter: "blur(90px)", background: "radial-gradient(circle, rgba(219,39,119,.20), transparent 60%)" }} />
+        <div className="absolute rounded-full" style={{ top: "-5%", left: "60%", width: 600, height: 400, filter: "blur(90px)", background: "radial-gradient(circle, rgba(4,120,87,.35), transparent 60%)" }} />
+        <div className="absolute rounded-full" style={{ top: "30%", left: "-10%", width: 400, height: 400, filter: "blur(90px)", background: "radial-gradient(circle, rgba(245,158,11,.20), transparent 60%)" }} />
       </div>
 
       {/* Header */}
@@ -86,7 +86,7 @@ export default function ContactPage() {
           <Reveal>
             <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded text-[10.5px] tracking-[.08em] uppercase mb-4"
               style={{ fontFamily: mono, color: V.inkSoft, background: V.surface, border: `1px solid ${V.line}` }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: V.accent, boxShadow: `0 0 0 3px rgba(219,39,119,.25)` }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: V.accent, boxShadow: `0 0 0 3px rgba(245,158,11,.25)` }} />
               Get in touch
             </span>
           </Reveal>
@@ -163,7 +163,7 @@ export default function ContactPage() {
                   </div>
                   <button type="submit" disabled={loading}
                     className="saas-submit w-full py-3.5 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-                    style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.30), 0 1px 2px rgba(0,0,0,.30), 0 12px 32px -8px rgba(124,58,237,.6)` }}>
+                    style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.30), 0 1px 2px rgba(0,0,0,.30), 0 12px 32px -8px rgba(4,120,87,.6)` }}>
                     {loading ? "Sending..." : "Send message"}
                     {!loading && <Send className="w-4 h-4" />}
                   </button>
@@ -176,7 +176,7 @@ export default function ContactPage() {
           <div className="space-y-4">
             <Reveal delay={0.2}>
               <div className="rounded-xl p-6" style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
-                <div className="w-9 h-9 rounded-lg grid place-items-center mb-4" style={{ background: `rgba(124,58,237,.12)`, border: `1px solid rgba(124,58,237,.3)` }}>
+                <div className="w-9 h-9 rounded-lg grid place-items-center mb-4" style={{ background: `rgba(4,120,87,.12)`, border: `1px solid rgba(4,120,87,.3)` }}>
                   <Mail className="w-5 h-5" style={{ color: V.primary }} />
                 </div>
                 <h4 className="font-medium mb-1" style={{ color: V.ink }}>Email us</h4>
@@ -186,7 +186,7 @@ export default function ContactPage() {
 
             <Reveal delay={0.3}>
               <div className="rounded-xl p-6" style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
-                <div className="w-9 h-9 rounded-lg grid place-items-center mb-4" style={{ background: `rgba(219,39,119,.12)`, border: `1px solid rgba(219,39,119,.3)` }}>
+                <div className="w-9 h-9 rounded-lg grid place-items-center mb-4" style={{ background: `rgba(245,158,11,.12)`, border: `1px solid rgba(245,158,11,.3)` }}>
                   <MessageSquare className="w-5 h-5" style={{ color: V.accent }} />
                 </div>
                 <h4 className="font-medium mb-1" style={{ color: V.ink }}>Response time</h4>
@@ -195,7 +195,7 @@ export default function ContactPage() {
             </Reveal>
 
             <Reveal delay={0.4}>
-              <div className="rounded-xl p-6" style={{ background: `radial-gradient(circle at 100% 0%, rgba(124,58,237,.15), transparent 50%), ${V.surface}`, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
+              <div className="rounded-xl p-6" style={{ background: `radial-gradient(circle at 100% 0%, rgba(4,120,87,.15), transparent 50%), ${V.surface}`, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
                 <h4 className="font-medium mb-2" style={{ color: V.ink }}>Ready to get started?</h4>
                 <p className="text-sm mb-4" style={{ color: V.inkSoft }}>Skip the form and launch your portal in under 3 minutes.</p>
                 <a href="/plans" className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: V.primary }}>
