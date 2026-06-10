@@ -392,7 +392,7 @@ export default function RegistrationFlow() {
                           <label className="block text-sm font-semibold text-[#102A23] mb-2">Portal Subdomain</label>
                           <div className="flex">
                             <input type="text" value={form.slug} onChange={(e) => up("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} className="flex-1 px-5 py-3.5 bg-white border border-gray-200 rounded-l-2xl text-sm text-[#102A23] placeholder-gray-400 focus:ring-2 focus:ring-[#047857]/30 focus:border-[#047857]/40 outline-none transition-all" placeholder="hopegivefoundation" />
-                            <span className="px-4 py-3.5 bg-gray-50 border border-l-0 border-gray-200 rounded-r-2xl text-xs text-[#8AA89C] font-mono">.charities.ltd</span>
+                            <span className="px-4 py-3.5 bg-gray-50 border border-l-0 border-gray-200 rounded-r-2xl text-xs text-[#8AA89C] font-mono">.{import.meta.env.VITE_ROOT_DOMAIN}</span>
                           </div>
                           <div className="h-5 mt-1">
                             {slugStatus === "checking" && <p className="text-[#8AA89C] text-xs flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Checking...</p>}
@@ -718,7 +718,7 @@ export default function RegistrationFlow() {
                         <h3 className="text-[10px] font-bold text-[#047857] uppercase tracking-[0.15em] mb-3">Organisation</h3>
                         <div className="grid grid-cols-2 gap-y-3 text-sm items-center">
                           <span className="text-[#8AA89C]">Name</span><span className="text-[#102A23] font-medium text-right">{form.orgName}</span>
-                          <span className="text-[#8AA89C]">Portal</span><span className="text-[#102A23] font-medium text-right font-mono text-xs">{form.slug}.charities.ltd</span>
+                          <span className="text-[#8AA89C]">Portal</span><span className="text-[#102A23] font-medium text-right font-mono text-xs">{form.slug}.{import.meta.env.VITE_ROOT_DOMAIN}</span>
                           {logoPreview && (
                             <>
                               <span className="text-[#8AA89C]">Logo</span>

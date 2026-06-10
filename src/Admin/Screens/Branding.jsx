@@ -454,7 +454,7 @@ export default function Branding() {
                 </div>
                 <div className="flex-1 bg-white rounded-full h-5 ml-2 flex items-center px-3">
                   <span className="text-[9px] text-gray-400">
-                    {orgSlug}.charities.ltd
+                    {orgSlug}.{import.meta.env.VITE_ROOT_DOMAIN}
                   </span>
                 </div>
               </div>
