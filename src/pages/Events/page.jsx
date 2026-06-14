@@ -1,435 +1,369 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Link } from "react-router-dom";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  useReducedMotion,
+} from "framer-motion";
+import {
+  Calendar,
+  CalendarDays,
+  Clock,
+  MapPin,
+  ArrowRight,
+  ArrowDown,
+  Ticket,
+  Users,
+  Star,
+  Sparkles,
+  Tag,
+} from "lucide-react";
 import axiosInstance from "../../services/axios";
 import NewsletterSection from "../Home/Newsletter/newsletter";
-import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
+import { cn } from "../../utils/cn";
+import {
+  EVENT_TYPE_LABELS,
+  IMG_FALLBACK,
+  D,
+  fmtDateRange,
+  typeLabel,
+  locationOf,
+  timeOf,
+  priceLabel,
+  plainPreview,
+  monthKeyOf,
+} from "./eventHelpers";
 
-// React Markdown + remark plugins for GitHub-flavored Markdown and breaks
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
+/* ── motion vocabulary (Hope / Contact / Programs) ────────────────────── */
+const reveal = (delay = 0) => ({
+  initial: { opacity: 0, y: 32 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1], delay },
+});
 
-// Static fallback events shown when the API returns an empty list
-const fallbackEvents = [
-  {
-    id: "fallback-1",
-    image:
-      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80",
-    title: "Annual Gala Dinner",
-    description:
-      "An evening of elegance and philanthropy featuring keynote speakers, live entertainment, and an exclusive auction.",
-    date: "Saturday, December 15",
-    time: "6:00 PM - 10:00 PM",
-    location: "London, UK",
-    registrationLink: null,
-    status: "upcoming",
-  },
-  {
-    id: "fallback-2",
-    image:
-      "https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=600&q=80",
-    title: "Charity Marathon",
-    description:
-      "Run for a cause! Join hundreds of runners raising funds for education and healthcare in underserved communities.",
-    date: "Tuesday, January 20",
-    time: "7:00 AM - 12:00 PM",
-    location: "New York, USA",
-    registrationLink: null,
-    status: "upcoming",
-  },
-  {
-    id: "fallback-3",
-    image:
-      "https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&q=80",
-    title: "Fundraising Auction",
-    description:
-      "Bid on exclusive items and experiences while supporting clean water initiatives across three continents.",
-    date: "Sunday, February 8",
-    time: "3:00 PM - 7:00 PM",
-    location: "Dubai, UAE",
-    registrationLink: null,
-    status: "upcoming",
-  },
-];
+function Eyebrow({ icon: Icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
+      {Icon && <Icon className="h-3.5 w-3.5" />} {children}
+    </span>
+  );
+}
 
+function MetaRow({ icon: Icon, children }) {
+  if (!children) return null;
+  return (
+    <div className="flex items-center gap-2 text-sm text-text-muted">
+      <Icon className="h-4 w-4 shrink-0 text-accent" />
+      <span className="truncate">{children}</span>
+    </div>
+  );
+}
+
+function Badge({ tone = "muted", children }) {
+  const tones = {
+    muted: "bg-gray-100 text-gray-600",
+    accent: "bg-accent/10 text-accent",
+    danger: "bg-red-50 text-red-600",
+    success: "bg-emerald-50 text-emerald-600",
+  };
+  return <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold", tones[tone])}>{children}</span>;
+}
+
+function Chip({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "border px-3 py-1.5 text-sm font-medium transition-colors",
+        active ? "border-accent bg-accent text-white" : "border-gray-200 bg-white text-text-muted hover:border-accent/50 hover:text-primary",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ── Event card (equal-height; whole card links to the detail page) ───── */
+function EventCard({ event, index, past }) {
+  const reduce = useReducedMotion();
+  const cap = event.capacity;
+  const full = event.isFull;
+  const spots = event.spotsLeft;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: (index % 3) * 0.08 }}
+      whileHover={reduce ? {} : { y: -6 }}
+      className="h-full"
+    >
+      <Link
+        to={`/events/${event._id}`}
+        state={{ event }}
+        className="group relative flex h-full flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+      >
+        {/* Image + overlays */}
+        <div className="relative h-44 overflow-hidden bg-gray-100">
+          <img
+            src={event.imageUrl || IMG_FALLBACK}
+            alt={event.title}
+            loading="lazy"
+            onError={(e) => { e.target.onerror = null; e.target.src = IMG_FALLBACK; }}
+            className={cn("h-full w-full object-cover transition-transform duration-500 group-hover:scale-105", past && "grayscale-[35%]")}
+          />
+          <div className="absolute left-3 top-3 grid place-items-center bg-white/90 px-2.5 py-1 text-center leading-none backdrop-blur-sm">
+            <span className="font-heading text-base font-bold text-primary">{new Date(event.date).getDate()}</span>
+            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-text-muted">{D(event.date, { month: "short" })}</span>
+          </div>
+          <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+            <span className="bg-accent px-2 py-0.5 text-[11px] font-semibold text-white">{typeLabel(event)}</span>
+            {event.featured && (
+              <span className="inline-flex items-center gap-1 bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-accent backdrop-blur-sm">
+                <Star className="h-3 w-3" /> Featured
+              </span>
+            )}
+          </div>
+          {past && <span className="absolute bottom-3 left-3 bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">Past event</span>}
+          {event.status === "cancelled" && <span className="absolute bottom-3 left-3 bg-red-600 px-2 py-0.5 text-[11px] font-semibold text-white">Cancelled</span>}
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 flex-col p-5">
+          <h3 className="font-heading text-lg font-bold text-primary transition-colors group-hover:text-accent">{event.title}</h3>
+
+          <div className="mt-3 space-y-1.5">
+            <MetaRow icon={Calendar}>{fmtDateRange(event.date, event.endDate)}</MetaRow>
+            <MetaRow icon={Clock}>{timeOf(event)}</MetaRow>
+            <MetaRow icon={MapPin}>{locationOf(event)}</MetaRow>
+          </div>
+
+          <p className="mt-3 line-clamp-2 flex-1 text-sm text-text-muted">{plainPreview(event.description)}</p>
+
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            <Badge tone={event.isPaid ? "muted" : "success"}>{event.isPaid ? <><Ticket className="h-3 w-3" /> {priceLabel(event)}</> : "Free"}</Badge>
+            {!past && cap != null && (full ? <Badge tone="danger">Sold out</Badge> : spots != null && <Badge tone="muted"><Users className="h-3 w-3" /> {spots} left</Badge>)}
+            {!past && event.registrationOpenNow && <Badge tone="accent">RSVP open</Badge>}
+            {!past && event.registrationMode === "external" && event.registrationLink && <Badge tone="accent">Tickets</Badge>}
+          </div>
+
+          <span className="mt-4 flex w-full items-center justify-center gap-2 border border-gray-200 py-2.5 text-sm font-semibold text-primary transition-colors group-hover:border-accent group-hover:text-accent">
+            View details <ArrowRight className="h-4 w-4" />
+          </span>
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
+/* ── Page ─────────────────────────────────────────────────────────────── */
 const Events = () => {
-  const [upcomingEvents, setUpcomingEvents] = useState([]);
-  const [pastEvents, setPastEvents] = useState([]);
+  const { content, loading: contentLoading } = usePageContent("events");
+  const hero = content?.hero || {};
+  const reduce = useReducedMotion();
+
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [monthKey, setMonthKey] = useState("all");
+  const [type, setType] = useState("all");
 
-  // Helper: Insert newline before bullet characters (✅ or ♦) if not at start
-  const processDescription = (desc) => {
-    if (!desc) return desc;
-    // Insert a newline before any bullet (✅ or ♦) that is not at the start of a line
-    return desc.replace(/(?!^)([✅♦])/g, "\n$1");
-  };
-
-  // Helper: Wrap specific heading-like lines in bold markdown syntax.
-  const processHeadings = (desc) => {
-    if (!desc) return desc;
-    // List of phrases you want to be bold
-    const headings = [
-      "Event Details",
-      "How to Participate:",
-      "Donation Details:",
-      "📞 Contact for Registration:",
-      "💳 Bank Transfer:",
-    ];
-    headings.forEach((heading) => {
-      // Use multiline regex: for lines that exactly match the heading text.
-      const regex = new RegExp(`^(${heading})$`, "gm");
-      desc = desc.replace(regex, `**$1**`);
-    });
-    return desc;
-  };
+  const { scrollYProgress } = useScroll();
+  const progressX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.3 });
+  const heroRef = useRef(null);
+  const { scrollYProgress: heroProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const heroBgY = useTransform(heroProgress, [0, 1], reduce ? ["0%", "0%"] : ["-12%", "12%"]);
+  const heroScale = useTransform(heroProgress, [0, 1], reduce ? [1, 1] : [1, 1.08]);
+  const heroContentY = useTransform(heroProgress, [0, 1], reduce ? [0, 0] : [0, -60]);
+  const heroContentOpacity = useTransform(heroProgress, [0, 0.85], reduce ? [1, 1] : [1, 0]);
+  const gridRef = useRef(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get("/events");
-        const today = new Date();
-        const upcoming = [];
-        const past = [];
-
-        response.data.forEach((event) => {
-          const eventDate = new Date(event.date);
-          const formattedEvent = {
-            id: event._id,
-            image: event.imageUrl,
-            title: event.title,
-            // Store description as provided (assumed to be Markdown or plain text)
-            description: event.description,
-            date: formatDate(eventDate),
-            time: `${event.startTime} - ${event.endTime}`,
-            location: `${event.location.city}, ${event.location.venue}`,
-            registrationLink: event.registrationLink,
-            status: event.status,
-          };
-
-          if (eventDate >= today && event.status !== "completed") {
-            upcoming.push(formattedEvent);
-          } else {
-            past.push(formattedEvent);
-          }
-        });
-
-        // Sort upcoming events (earliest first)
-        upcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
-        // Sort past events (most recent first)
-        past.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        setUpcomingEvents(upcoming);
-        setPastEvents(past);
+        const res = await axiosInstance.get("/events");
+        setEvents(Array.isArray(res.data) ? res.data : []);
         setError(null);
       } catch (err) {
         console.error("Error fetching events:", err);
-        setError("Failed to load events. Please try again later.");
+        setError("We couldn't load events right now. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchEvents();
   }, []);
 
-  const formatDate = (date) => {
-    const options = { weekday: "long", day: "numeric", month: "long" };
-    return date.toLocaleDateString("en-US", options);
-  };
+  // Split + sort once (memoised).
+  const { upcoming, past } = useMemo(() => {
+    const now = new Date();
+    const up = [];
+    const pa = [];
+    for (const e of events) {
+      const end = e.endDate ? new Date(e.endDate) : new Date(e.date);
+      if (e.status === "completed" || e.status === "cancelled" || end < now) pa.push(e);
+      else up.push(e);
+    }
+    up.sort((a, b) => new Date(a.date) - new Date(b.date));
+    pa.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return { upcoming: up, past: pa };
+  }, [events]);
 
-  const handleImageError = (e) => {
-    e.target.onerror = null;
-    e.target.src = "https://via.placeholder.com/300";
-  };
+  // Filter options derived from the upcoming events (calendar + type).
+  const months = useMemo(() => {
+    const m = new Map();
+    for (const e of upcoming) {
+      const key = monthKeyOf(e.date);
+      if (!m.has(key)) m.set(key, D(e.date, { month: "short", year: "numeric" }));
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [upcoming]);
+
+  const types = useMemo(() => [...new Set(upcoming.map((e) => e.eventType))], [upcoming]);
+
+  const filteredUpcoming = useMemo(
+    () => upcoming.filter((e) => (type === "all" || e.eventType === type) && (monthKey === "all" || monthKeyOf(e.date) === monthKey)),
+    [upcoming, type, monthKey],
+  );
+
+  const scrollToGrid = () => gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const clearFilters = () => { setMonthKey("all"); setType("all"); };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      {/* Page Header */}
-      <div className="relative py-36 lg:py-44 overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80" alt="" className="w-full h-full object-cover" />
+      <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
+
+      {/* ── HERO ─────────────────────────────────────────────────────── */}
+      <div ref={heroRef} className="relative overflow-hidden py-36 lg:py-44">
+        <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80"} alt="" className="h-full w-full object-cover" />
           <HeroOverlay />
-        </div>
-        <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Events</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Join us at our upcoming gatherings</p>
-        </div>
+        </motion.div>
+        <motion.div style={{ y: heroContentY, opacity: heroContentOpacity }} className="relative z-10 px-6 text-center">
+          {contentLoading ? (
+            <div className="mx-auto flex flex-col items-center gap-4">
+              <div className="h-11 w-52 max-w-[80vw] animate-pulse bg-white/20 md:h-14" />
+              <div className="h-4 w-80 max-w-[90vw] animate-pulse bg-white/15" />
+            </div>
+          ) : (
+            <>
+              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="font-heading text-4xl font-bold text-[#F5EDE0] md:text-5xl lg:text-6xl">
+                {hero.title ?? "Events"}
+              </motion.h1>
+              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mx-auto mt-4 max-w-2xl font-body text-[#EDE4D3]/70">
+                {hero.subtitle ?? "Join us at our upcoming gatherings and be part of the change."}
+              </motion.p>
+            </>
+          )}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="mt-8 flex justify-center">
+            <motion.button type="button" onClick={scrollToGrid} whileHover={{ y: -3 }} className="inline-flex items-center gap-2 bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light">
+              See what's on
+              <motion.span animate={reduce ? {} : { y: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
+                <ArrowDown className="h-4 w-4" />
+              </motion.span>
+            </motion.button>
+          </motion.div>
+        </motion.div>
       </div>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {loading && (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          </div>
-        )}
+      {/* ── BODY ──────────────────────────────────────────────────────── */}
+      <section ref={gridRef} className="scroll-mt-24 px-6 py-16 lg:py-20">
+        <div className="mx-auto max-w-6xl">
+          {/* Upcoming heading */}
+          <motion.div {...reveal()} className="mb-6">
+            <Eyebrow icon={Sparkles}>Upcoming</Eyebrow>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Upcoming events</h2>
+          </motion.div>
 
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8">
-            <div className="flex">
-              <div className="ml-3">
-                <p className="text-sm text-red-700 text-justify">{error}</p>
+          {/* Calendar + type filters */}
+          {!loading && !error && upcoming.length > 0 && (
+            <motion.div {...reveal()} className="mb-8 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  <CalendarDays className="h-4 w-4 text-accent" /> Month
+                </span>
+                <Chip active={monthKey === "all"} onClick={() => setMonthKey("all")}>All dates</Chip>
+                {months.map(([key, label]) => (
+                  <Chip key={key} active={monthKey === key} onClick={() => setMonthKey(key)}>{label}</Chip>
+                ))}
               </div>
-            </div>
-          </div>
-        )}
+              {types.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="mr-1 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <Tag className="h-4 w-4 text-accent" /> Type
+                  </span>
+                  <Chip active={type === "all"} onClick={() => setType("all")}>All types</Chip>
+                  {types.map((t) => (
+                    <Chip key={t} active={type === t} onClick={() => setType(t)}>{EVENT_TYPE_LABELS[t] || t}</Chip>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
 
-        {!loading && !error && (
-          <>
-            {/* Upcoming Events */}
-            <h2 className="text-3xl font-bold mb-8 border-b-2 border-primary pb-2 inline-block">Upcoming Events</h2>
-            {upcomingEvents.length === 0 ? (
-              <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
-                {fallbackEvents.map((event) => (
-                  <motion.div
-                    key={event.id}
-                    variants={staggerItem}
-                    className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 flex flex-col"
-                  >
-                    <img
-                      src={event.image}
-                      alt={event.title}
-                      className="w-full h-48 object-cover"
-                      loading="lazy"
-                    />
-                    <div className="p-6 flex flex-col flex-1">
-                      <span className="text-sm text-accent font-semibold">
-                        {event.date} &middot; {event.location}
-                      </span>
-                      <h3 className="text-xl font-bold text-text-dark mt-2">
-                        {event.title}
-                      </h3>
-                      <p className="text-sm text-text-muted line-clamp-3 mt-2 flex-1">
-                        {event.description}
-                      </p>
-                      <button
-                        onClick={() => setSelectedEvent(event)}
-                        className="mt-6 w-full border-2 border-primary text-primary rounded-xl px-6 py-2 hover:bg-primary hover:text-white transition-colors font-semibold"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
-                {upcomingEvents.map((event) => (
-                  <motion.div
-                    key={event.id}
-                    variants={staggerItem}
-                    className="bg-white rounded-2xl overflow-hidden shadow-md transition-all duration-300 hover:shadow-xl border border-gray-100 hover:border-primary/30"
-                  >
-                    <div className="relative">
-                      <img
-                        src={event.image}
-                        alt={event.title}
-                        className="w-full h-64 object-cover"
-                         loading="lazy"
-                        onError={handleImageError}
-                      />
-                      <div className="absolute top-0 right-0 bg-primary text-white px-4 py-2 rounded-bl-lg font-semibold">
-                        {event.date.split(',')[0]}
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <h3 className="text-2xl font-bold mb-2 text-justify">{event.title}</h3>
-                      <div className="flex flex-col space-y-2 mb-4">
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                          </svg>
-                          <span>{event.date}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                          </svg>
-                          <span>{event.time}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                          </svg>
-                          <span className="text-justify">{event.location}</span>
-                        </div>
-                      </div>
-                      <div className="flex space-x-4 mt-6">
-                        <button
-                          onClick={() => setSelectedEvent(event)}
-                          className="bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-light transition-colors flex-1 flex items-center justify-center"
-                        >
-                          <span>More Details</span>
-                          <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
-                          </svg>
-                        </button>
-                        {event.registrationLink && (
-                          <a
-                            href={event.registrationLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="border border-primary text-primary px-4 py-2 rounded-xl hover:bg-background transition-colors flex-1 text-center"
-                          >
-                            Get Tickets
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-
-            {/* Past Events */}
-            <h2 className="text-3xl font-bold mb-8 border-b-2 border-primary pb-2 inline-block">Past Events</h2>
-            {pastEvents.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">
-                No past events to display.
-              </p>
-            ) : (
-              <motion.div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
-                {pastEvents.map((event) => (
-                  <motion.div
-                    key={event.id}
-                    variants={staggerItem}
-                    className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100"
-                  >
-                    <div className="relative">
-                      <img
-                        src={event.image}
-                        alt={event.title}
-                        className="w-full h-52 object-cover"
-                         loading="lazy"
-                        onError={handleImageError}
-                      />
-                      <div className="absolute top-0 left-0 bg-black bg-opacity-70 text-white px-3 py-1 m-2 rounded-md text-sm">
-                        Past Event
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-bold mb-2 text-justify">{event.title}</h3>
-                      <p className="text-gray-600 text-sm mb-1">{event.date}</p>
-                      <p className="text-gray-600 text-sm mb-3 text-justify">{event.location}</p>
-                      <button
-                        onClick={() => setSelectedEvent(event)}
-                        className="text-primary hover:text-primary font-medium flex items-center text-sm"
-                      >
-                        View Details
-                        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                        </svg>
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Modal for Detailed Event View */}
-      {selectedEvent && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
-          onClick={() => setSelectedEvent(null)} // Close when clicking the backdrop
-        >
-          <div 
-            className="bg-white rounded-2xl p-6 w-11/12 max-w-4xl relative max-h-[90vh] overflow-y-auto shadow-md"
-            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the modal content
-          >
-
-            <div className="flex flex-col md:flex-row md:gap-8">
-              <div className="md:w-1/2 mb-6 md:mb-0">
-                <img
-                  src={selectedEvent.image}
-                  alt={selectedEvent.title}
-                  className="w-full h-auto object-cover rounded-lg shadow-md"
-                   loading="lazy"
-                  onError={handleImageError}
-                />
-
-                <div className="mt-6 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                  <h3 className="font-bold text-lg mb-3 text-primary">Event Information</h3>
-                  
-                  <div className="flex items-start mb-3">
-                    <svg className="w-5 h-5 mr-3 text-primary mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                    <div>
-                      <p className="font-medium">Date</p>
-                      <p className="text-gray-600">{selectedEvent.date}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start mb-3">
-                    <svg className="w-5 h-5 mr-3 text-primary mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <div>
-                      <p className="font-medium">Time</p>
-                      <p className="text-gray-600">{selectedEvent.time}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <svg className="w-5 h-5 mr-3 text-primary mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    <div>
-                      <p className="font-medium">Location</p>
-                      <p className="text-gray-600 text-justify">{selectedEvent.location}</p>
-                    </div>
+          {loading ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="border border-gray-100 bg-white shadow-sm">
+                  <div className="h-44 animate-pulse bg-gray-100" />
+                  <div className="space-y-3 p-5">
+                    <div className="h-5 w-2/3 animate-pulse bg-gray-100" />
+                    <div className="h-4 w-full animate-pulse bg-gray-100" />
+                    <div className="h-4 w-1/2 animate-pulse bg-gray-100" />
                   </div>
                 </div>
-
-                {selectedEvent.registrationLink && (
-                  <a
-                    href={selectedEvent.registrationLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block bg-primary text-white px-6 py-3 rounded-xl hover:bg-primary-light transition-colors mt-6 w-full text-center font-medium"
-                  >
-                    Register for this Event
-                  </a>
-                )}
-              </div>
-
-              <div className="md:w-1/2">
-                <h2 className="text-2xl md:text-3xl font-bold mb-4 text-justify">{selectedEvent.title}</h2>
-                
-                {/* Description with Markdown, breaks, bold headings, and justified text */}
-                <div className="prose prose-sm w-full max-w-full text-gray-700 leading-relaxed">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkBreaks]}
-                    components={{
-                      h1: ({ node, ...props }) => <h1 className="font-bold text-justify my-4" {...props} />,
-                      h2: ({ node, ...props }) => <h2 className="font-bold text-justify my-3" {...props} />,
-                      h3: ({ node, ...props }) => <h3 className="font-bold text-justify my-2" {...props} />,
-                      h4: ({ node, ...props }) => <h4 className="font-bold text-justify my-2" {...props} />,
-                      h5: ({ node, ...props }) => <h5 className="font-bold text-justify my-1" {...props} />,
-                      h6: ({ node, ...props }) => <h6 className="font-bold text-justify my-1" {...props} />,
-                      p: ({ node, ...props }) => <p className="text-justify my-2" {...props} />,
-                      ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-2" {...props} />,
-                      ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2" {...props} />,
-                      li: ({ node, ...props }) => <li className="text-justify" {...props} />,
-                    }}
-                  >
-                    {processHeadings(processDescription(selectedEvent.description))}
-                  </ReactMarkdown>
-                </div>
-              </div>
+              ))}
             </div>
-          </div>
+          ) : error ? (
+            <div className="border border-red-100 bg-red-50/60 px-6 py-10 text-center text-sm text-red-600">{error}</div>
+          ) : upcoming.length === 0 ? (
+            <div className="border border-gray-100 bg-white px-6 py-16 text-center shadow-sm">
+              <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-xl bg-accent/10 text-accent">
+                <Calendar className="h-7 w-7" />
+              </span>
+              <p className="font-heading text-lg font-semibold text-primary">No upcoming events right now</p>
+              <p className="mt-1 text-sm text-text-muted">Check back soon — new gatherings are added regularly.</p>
+            </div>
+          ) : filteredUpcoming.length === 0 ? (
+            <div className="border border-gray-100 bg-white px-6 py-14 text-center shadow-sm">
+              <p className="font-heading text-base font-semibold text-primary">No events match this filter</p>
+              <button onClick={clearFilters} className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredUpcoming.map((ev, i) => (
+                <EventCard key={ev._id} event={ev} index={i} />
+              ))}
+            </div>
+          )}
+
+          {/* Past */}
+          {!loading && !error && past.length > 0 && (
+            <>
+              <motion.div {...reveal()} className="mb-8 mt-16">
+                <Eyebrow icon={Clock}>Looking back</Eyebrow>
+                <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Past events</h2>
+              </motion.div>
+              <div className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {past.map((ev, i) => (
+                  <EventCard key={ev._id} event={ev} index={i} past />
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </section>
 
       <NewsletterSection />
     </motion.div>

@@ -1,0 +1,98 @@
+/*
+ * Admin dark mode — scoped retrofit, tinted by the active theme.
+ *
+ * The 20 existing admin screens use hardcoded light Tailwind utilities
+ * (bg-white, bg-gray-50/100/200/300, text-gray-300..900, border-gray-100..300).
+ * Rather than edit every element, we remap those utilities to dark values, but
+ * ONLY inside the admin shell when it carries data-admin-theme="dark". Nothing
+ * outside the admin portal is affected.
+ *
+ * Surfaces are DERIVED FROM THE TENANT PRIMARY via color-mix, so dark mode
+ * follows whatever theme/palette is applied (warm theme → warm-dark, a blue
+ * theme → cool-dark, etc.). Text & borders stay neutral light for readability.
+ *
+ * Descendant selectors ([scope] .bg-white) outrank the single-class utilities
+ * they override, so no !important is needed (inline styles still win).
+ */
+
+[data-admin-theme="dark"] {
+  /* Surface ladder: each step mixes a little more of the tenant primary into a
+     progressively lighter near-black base → a themed, layered dark palette.
+     Exposed as tokens so shell components (dropdowns/popovers) can match. */
+  --admin-bg: color-mix(in srgb, var(--tenant-primary, #2c2418) 20%, #07080b);
+  --admin-soft: color-mix(in srgb, var(--tenant-primary, #2c2418) 22%, #0b0c10);
+  --admin-card: color-mix(in srgb, var(--tenant-primary, #2c2418) 26%, #101117);
+  --admin-elevated: color-mix(in srgb, var(--tenant-primary, #2c2418) 26%, #131419);
+  --admin-muted: color-mix(in srgb, var(--tenant-primary, #2c2418) 30%, #181a20);
+  --admin-muted-2: color-mix(in srgb, var(--tenant-primary, #2c2418) 34%, #20222a);
+  --admin-muted-3: color-mix(in srgb, var(--tenant-primary, #2c2418) 38%, #282b34);
+
+  --tenant-bg: var(--admin-bg);
+  color-scheme: dark;
+}
+
+/* Sensible default text color for any unstyled content in dark mode. */
+[data-admin-theme="dark"] .admin-content {
+  color: #c5cedb;
+}
+
+/* ---- Surfaces ---- */
+[data-admin-theme="dark"] .bg-white { background-color: var(--admin-card); }
+[data-admin-theme="dark"] .bg-surface { background-color: var(--admin-card); }
+[data-admin-theme="dark"] .bg-gray-50 { background-color: var(--admin-soft); }
+[data-admin-theme="dark"] .bg-gray-100 { background-color: var(--admin-muted); }
+[data-admin-theme="dark"] .bg-gray-200 { background-color: var(--admin-muted-2); }
+[data-admin-theme="dark"] .bg-gray-300 { background-color: var(--admin-muted-3); }
+
+/* Opacity-modified surfaces actually used in the screens */
+[data-admin-theme="dark"] .bg-white\/95 { background-color: var(--admin-card); }
+[data-admin-theme="dark"] .bg-white\/90 { background-color: var(--admin-card); }
+[data-admin-theme="dark"] .bg-white\/80 { background-color: color-mix(in srgb, var(--admin-card) 85%, transparent); }
+[data-admin-theme="dark"] .bg-white\/70 { background-color: color-mix(in srgb, var(--admin-card) 75%, transparent); }
+[data-admin-theme="dark"] .bg-white\/50 { background-color: color-mix(in srgb, var(--admin-card) 55%, transparent); }
+[data-admin-theme="dark"] .bg-white\/30 { background-color: color-mix(in srgb, var(--admin-card) 35%, transparent); }
+[data-admin-theme="dark"] .bg-gray-50\/60 { background-color: color-mix(in srgb, var(--admin-soft) 65%, transparent); }
+
+/* Hover surfaces */
+[data-admin-theme="dark"] .hover\:bg-gray-50:hover { background-color: var(--admin-muted); }
+[data-admin-theme="dark"] .hover\:bg-gray-100:hover { background-color: var(--admin-muted-2); }
+[data-admin-theme="dark"] .hover\:bg-gray-200:hover { background-color: var(--admin-muted-3); }
+[data-admin-theme="dark"] .hover\:bg-white:hover { background-color: var(--admin-muted); }
+
+/* ---- Text (neutral light for readability) ---- */
+[data-admin-theme="dark"] .text-gray-900 { color: #eef2f7; }
+[data-admin-theme="dark"] .text-gray-800 { color: #e2e8f0; }
+[data-admin-theme="dark"] .text-gray-700 { color: #cbd5e1; }
+[data-admin-theme="dark"] .text-gray-600 { color: #aab6c5; }
+[data-admin-theme="dark"] .text-gray-500 { color: #94a1b2; }
+[data-admin-theme="dark"] .text-gray-400 { color: #7c8a9a; }
+[data-admin-theme="dark"] .text-gray-300 { color: #677484; }
+[data-admin-theme="dark"] .text-black { color: #eef2f7; }
+[data-admin-theme="dark"] .text-primary { color: #eef2f7; }
+[data-admin-theme="dark"] .text-text-dark { color: #eef2f7; }
+[data-admin-theme="dark"] .text-text-muted { color: #94a1b2; }
+
+/* ---- Borders ---- */
+[data-admin-theme="dark"] .border-gray-100 { border-color: rgba(255, 255, 255, 0.06); }
+[data-admin-theme="dark"] .border-gray-200 { border-color: rgba(255, 255, 255, 0.10); }
+[data-admin-theme="dark"] .border-gray-300 { border-color: rgba(255, 255, 255, 0.16); }
+[data-admin-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255, 255, 255, 0.06); }
+[data-admin-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255, 255, 255, 0.10); }
+
+/* ---- Form controls ---- */
+[data-admin-theme="dark"] input,
+[data-admin-theme="dark"] textarea,
+[data-admin-theme="dark"] select {
+  color: #e8edf5;
+}
+[data-admin-theme="dark"] input::placeholder,
+[data-admin-theme="dark"] textarea::placeholder {
+  color: #6b7787;
+}
+
+/* Soften heavy light shadows so cards don't glow on the dark surface. */
+[data-admin-theme="dark"] .shadow-lg,
+[data-admin-theme="dark"] .shadow-xl,
+[data-admin-theme="dark"] .shadow-md {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}

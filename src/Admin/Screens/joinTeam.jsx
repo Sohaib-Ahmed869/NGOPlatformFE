@@ -1,644 +1,1311 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Search, Download, RefreshCw, Users, User, UserRound, Cake, Building2, Eye, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
-import axiosInstance from "../../services/axios";
-import KpiCard from "../../components/KpiCard";
-import Loader from "../../components/Loader";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import Portal from "../../components/Portal";
+import { toast } from "react-hot-toast";
+import {
+  Search,
+  Download,
+  RefreshCw,
+  Users,
+  Clock,
+  UserCheck,
+  UserX,
+  Eye,
+  Trash2,
+  Phone,
+  UserRound,
+  Inbox,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  LayoutGrid,
+  List,
+  X,
+  Mail,
+  Check,
+  Send,
+  CalendarPlus,
+  StickyNote,
+  CalendarDays,
+  Briefcase,
+  Clock4,
+  ExternalLink,
+  ListPlus,
+} from "lucide-react";
+import { TabLoader } from "../../components/TabLoader";
+import { CustomSelect } from "../../components/CustomSelect";
+import { withMinDelay } from "../../utils/minDelay";
+import { cn } from "../../utils/cn";
+import joinTeamService from "../../services/joinTeam.service";
+import eventsService from "../../services/events.service";
+import { getSocket } from "../../services/socket";
+import { useAdminRealtime } from "../../context/AdminRealtimeContext";
+import VolunteerFormBuilder from "./VolunteerFormBuilder";
+
+const PER_PAGE = 12;
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—";
+const fmtDateTime = (d) =>
+  d
+    ? new Date(d).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "—";
+
+const fullName = (a) => `${a.firstName || ""} ${a.lastName || ""}`.trim() || "Applicant";
+const initials = (a) =>
+  `${(a.firstName || "").charAt(0)}${(a.lastName || "").charAt(0)}`.toUpperCase() || "?";
+
+const STATUSES = [
+  { value: "pending", label: "Pending" },
+  { value: "reviewed", label: "Reviewed" },
+  { value: "shortlisted", label: "Shortlisted" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+];
+// Statuses that trigger an applicant email when "notify" is on.
+const EMAILABLE = new Set(["shortlisted", "approved", "rejected"]);
+const STATUS_BADGE = {
+  pending: "bg-amber-50 text-amber-700",
+  reviewed: "bg-accent/10 text-accent",
+  shortlisted: "bg-primary/10 text-primary",
+  approved: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-red-50 text-red-600",
+};
+const ASSIGNMENT_STATUS = [
+  { value: "assigned", label: "Assigned" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "attended", label: "Attended" },
+  { value: "no-show", label: "No-show" },
+];
+const SORTS = [
+  { value: "createdAt:desc", label: "Newest first" },
+  { value: "createdAt:asc", label: "Oldest first" },
+  { value: "firstName:asc", label: "Name A–Z" },
+  { value: "firstName:desc", label: "Name Z–A" },
+  { value: "age:asc", label: "Age (low–high)" },
+  { value: "status:asc", label: "Status" },
+];
+
+const fadeWrap = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.35, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+};
+const gridContainer = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.05 } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 16, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+};
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.05 } } };
+const rowVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+};
+
+function Avatar({ item, className }) {
+  return (
+    <span
+      className={cn(
+        "grid shrink-0 place-items-center rounded-full bg-accent/10 font-bold uppercase text-accent",
+        className,
+      )}
+    >
+      {initials(item)}
+    </span>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, tone = "accent" }) {
+  const tones = { accent: "bg-accent/10 text-accent", muted: "bg-gray-100 text-gray-500" };
+  return (
+    <div className="flex items-center gap-3 border border-gray-100 bg-white p-3.5 shadow-sm">
+      <span className={cn("grid h-9 w-9 shrink-0 place-items-center", tones[tone])}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div>
+        <p className="text-lg font-bold leading-none text-primary">{value}</p>
+        <p className="mt-1 text-xs text-text-muted">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const s = status || "pending";
+  return (
+    <span className={cn("inline-flex items-center px-2.5 py-1 text-xs font-semibold capitalize", STATUS_BADGE[s])}>
+      {s}
+    </span>
+  );
+}
+
+function RowActions({ item, onView, onDelete, size = "sm" }) {
+  const btn = size === "sm" ? "h-7 w-7" : "h-8 w-8";
+  const icon = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => onView(item)}
+        title="View details"
+        className={cn("grid place-items-center text-gray-400 transition-colors hover:bg-accent/5 hover:text-accent", btn)}
+      >
+        <Eye className={icon} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(item)}
+        title="Delete"
+        className={cn("grid place-items-center text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500", btn)}
+      >
+        <Trash2 className={icon} />
+      </button>
+    </div>
+  );
+}
+
+function Field({ label, value, full }) {
+  return (
+    <div className={full ? "sm:col-span-2" : ""}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">{label}</p>
+      <p className="mt-1 break-words text-sm text-gray-800">{value || value === 0 ? value : "—"}</p>
+    </div>
+  );
+}
+
+const EMPTY_STATS = { total: 0, pending: 0, approved: 0, rejected: 0 };
 
 const JoinTeamAdmin = () => {
-  const [joinApplications, setJoinApplications] = useState([]);
+  const navigate = useNavigate();
+  const { refreshVolunteers } = useAdminRealtime();
+
+  const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 1, stats: EMPTY_STATS });
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [applicationsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [viewApplication, setViewApplication] = useState(null);
-  const [applicationStatus, setApplicationStatus] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
+  // Filters / query state.
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [sort, setSort] = useState("createdAt:desc");
+  const [view, setView] = useState("list");
+  const [page, setPage] = useState(1);
+
+  // Bulk selection (list view).
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // Modals.
+  const [viewApp, setViewApp] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const [team, setTeam] = useState([]);
+  const [formQuestions, setFormQuestions] = useState([]);
+  const [formOpen, setFormOpen] = useState(false);
+
+  const items = data.items;
+  const stats = data.stats || EMPTY_STATS;
+
+  // Debounce the search box → query state.
   useEffect(() => {
-    fetchJoinApplications();
-  }, []);
+    const t = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const fetchJoinApplications = async () => {
-    setLoading(true);
-    try {
-      const response = await axiosInstance.get("/join");
-      setJoinApplications(response.data);
-      // Initialize status for each application
-      const statusObj = {};
-      response.data.forEach((app) => {
-        statusObj[app._id] = app.status || "pending";
-      });
-      setApplicationStatus(statusObj);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching join applications:", error);
-      setLoading(false);
-    }
-  };
+  // Reset to page 1 whenever a filter changes.
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, genderFilter, sort]);
 
-  // Filter applications by search term and filter
-  const filteredApplications = joinApplications.filter((app) => {
-    const fullName = `${app.firstName} ${app.lastName}`.toLowerCase();
-    const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      app.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.skills?.toLowerCase().includes(searchTerm.toLowerCase());
+  const fetchList = useCallback(
+    async ({ initial = false, force = false } = {}) => {
+      if (force) setRefreshing(true);
+      const [sortBy, sortOrder] = sort.split(":");
+      try {
+        const req = joinTeamService.list({
+          q: search,
+          status: statusFilter,
+          gender: genderFilter,
+          sortBy,
+          sortOrder,
+          page,
+          limit: PER_PAGE,
+        });
+        const res = await (initial ? withMinDelay(req) : req);
+        setData(res);
+        setSelected(new Set()); // stale across reloads
+      } catch {
+        toast.error("Failed to load applications");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [search, statusFilter, genderFilter, sort, page],
+  );
 
-    const matchesFilter =
-      filter === "all"
-        ? true
-        : filter === "gender"
-        ? app.gender?.toLowerCase() === "male"
-        : filter === "18+"
-        ? app.age >= 18
-        : filter === "skills"
-        ? app.skills?.toLowerCase().includes("leadership")
-        : true;
-
-    return matchesSearch && matchesFilter;
+  // Keep a ref to the latest fetch so socket handlers always re-run the current query.
+  const fetchRef = useRef(fetchList);
+  useEffect(() => {
+    fetchRef.current = fetchList;
   });
 
-  // Calculate pagination
-  const indexOfLastApplication = currentPage * applicationsPerPage;
-  const indexOfFirstApplication = indexOfLastApplication - applicationsPerPage;
-  const currentApplications = filteredApplications.slice(
-    indexOfFirstApplication,
-    indexOfLastApplication
-  );
-  const totalPages = Math.ceil(
-    filteredApplications.length / applicationsPerPage
-  );
+  useEffect(() => {
+    fetchList({ initial: loading });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchList]);
 
-  // Stats
-  const totalApplications = joinApplications.length;
-  const maleApplicants = joinApplications.filter(
-    (app) => app.gender?.toLowerCase() === "male"
-  ).length;
-  const femaleApplicants = joinApplications.filter(
-    (app) => app.gender?.toLowerCase() === "female"
-  ).length;
-  const under18 = joinApplications.filter((app) => app.age < 18).length;
-  const over18 = joinApplications.filter((app) => app.age >= 18).length;
+  // Team list (for assignment) + custom form questions — loaded once.
+  useEffect(() => {
+    joinTeamService.team().then(setTeam).catch(() => {});
+    joinTeamService.getForm().then(setFormQuestions).catch(() => {});
+  }, []);
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(1);
+  // Real-time: react to submissions / changes from anywhere.
+  useEffect(() => {
+    const socket = getSocket();
+    const onNew = ({ volunteer }) => {
+      toast.success(`New application from ${volunteer ? fullName(volunteer) : "a volunteer"}`, { icon: "🙌" });
+      fetchRef.current?.();
+    };
+    const onUpdated = ({ volunteer }) => {
+      fetchRef.current?.();
+      setViewApp((cur) => (cur && volunteer && cur._id === volunteer._id ? volunteer : cur));
+    };
+    const onRemoved = (payload) => {
+      const id = payload?.id;
+      fetchRef.current?.();
+      setViewApp((cur) => (cur && id && cur._id === id ? null : cur));
+    };
+    const onBulk = () => fetchRef.current?.();
+
+    socket.on("volunteer:new", onNew);
+    socket.on("volunteer:updated", onUpdated);
+    socket.on("volunteer:deleted", onRemoved);
+    socket.on("volunteer:bulk", onBulk);
+    return () => {
+      socket.off("volunteer:new", onNew);
+      socket.off("volunteer:updated", onUpdated);
+      socket.off("volunteer:deleted", onRemoved);
+      socket.off("volunteer:bulk", onBulk);
+    };
+  }, []);
+
+  /* ── selection helpers ─────────────────────────────────────────────── */
+  const allOnPageSelected = items.length > 0 && items.every((a) => selected.has(a._id));
+  const toggleSelect = (id) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const toggleSelectAll = () =>
+    setSelected((prev) => {
+      if (items.every((a) => prev.has(a._id))) return new Set();
+      return new Set(items.map((a) => a._id));
+    });
+
+  /* ── mutations ─────────────────────────────────────────────────────── */
+  const afterMutate = () => {
+    fetchRef.current?.();
+    refreshVolunteers();
   };
 
-  const handleFilterChange = (e) => {
-    setFilter(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const handleViewApplication = (application) => {
-    setViewApplication(application);
-  };
-
-  const closeViewModal = () => {
-    setViewApplication(null);
-  };
-
-  const handleStatusChange = async (id, status) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      // Here you would make an API call to update the status
-      // await axiosInstance.put(`/api/join/${id}/status`, { status });
-
-      setApplicationStatus({
-        ...applicationStatus,
-        [id]: status,
-      });
-    } catch (error) {
-      console.error("Error updating application status:", error);
+      await joinTeamService.remove(deleteTarget._id);
+      toast.success("Application deleted");
+      setDeleteTarget(null);
+      setViewApp((v) => (v && v._id === deleteTarget._id ? null : v));
+      afterMutate();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete application");
+    } finally {
+      setDeleting(false);
     }
   };
 
-  // Export to CSV function
-  const exportToCSV = () => {
-    // Define which fields to include in the CSV
-    const fields = [
-      "firstName",
-      "lastName",
-      "email",
-      "phoneNumber",
-      "age",
-      "gender",
-      "address",
-      "skills",
-      "availableDays",
-    ];
-
-    // Create the CSV header row
-    const header = [
-      "First Name",
-      "Last Name",
-      "Email",
-      "Phone Number",
-      "Age",
-      "Gender",
-      "Address",
-      "Skills",
-      "Available Days",
-    ].join(",");
-
-    // Convert data to CSV rows
-    const csvData = filteredApplications.map((app) => {
-      return fields
-        .map((field) => {
-          let value = app[field];
-
-          // Handle array fields like availableDays
-          if (field === "availableDays" && Array.isArray(value)) {
-            value = value.join("; ");
-          }
-
-          // Format values with commas or quotes
-          if (value === null || value === undefined) {
-            return '""';
-          }
-          return typeof value === "string"
-            ? `"${value.replace(/"/g, '""')}"`
-            : value;
-        })
-        .join(",");
-    });
-
-    // Combine header and rows
-    const csv = [header, ...csvData].join("\n");
-
-    // Create a blob and download link
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `team_applications_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const runBulk = async (action, status) => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      await joinTeamService.bulk(ids, action, status);
+      toast.success(
+        action === "delete" ? `Deleted ${ids.length} application(s)` : `Marked ${ids.length} as ${status}`,
+      );
+      setSelected(new Set());
+      afterMutate();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Bulk action failed");
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
-  if (loading) return <Loader label="Loading applications..." />;
+  const exportToCSV = async () => {
+    try {
+      const rows = await joinTeamService.exportAll({ status: statusFilter });
+      const header = [
+        "First Name", "Last Name", "Email", "Phone", "Age", "Gender", "Address",
+        "Skills", "Available Days", "Status", "Assigned To", "Events", "Hours", "Received",
+        ...formQuestions.map((q) => q.label),
+      ].join(",");
+      const esc = (v) => {
+        if (v === null || v === undefined) return '""';
+        return typeof v === "string" ? `"${v.replace(/"/g, '""')}"` : v;
+      };
+      const lines = rows.map((a) => {
+        const hours = (a.assignments || []).reduce((s, x) => s + (x.hours || 0), 0);
+        const ans = a.answers || {};
+        return [
+          esc(a.firstName), esc(a.lastName), esc(a.email), esc(a.phoneNumber),
+          a.age ?? "", esc(a.gender), esc(a.address), esc(a.skills),
+          esc(Array.isArray(a.availableDays) ? a.availableDays.join("; ") : ""),
+          esc(a.status || "pending"),
+          esc(a.assignedTo?.name || ""),
+          (a.assignments || []).length,
+          hours,
+          esc(a.createdAt ? new Date(a.createdAt).toISOString().slice(0, 10) : ""),
+          ...formQuestions.map((q) => {
+            const val = ans[q.key];
+            return esc(Array.isArray(val) ? val.join("; ") : val ?? "");
+          }),
+        ].join(",");
+      });
+      const csv = [header, ...lines].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `volunteers_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Export failed");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <TabLoader label="Loading applications…" />
+      </div>
+    );
+  }
+
+  const showingFrom = data.total === 0 ? 0 : (data.page - 1) * PER_PAGE + 1;
+  const showingTo = Math.min(data.page * PER_PAGE, data.total);
 
   return (
-    <motion.div
-      className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <div className="w-full space-y-5">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-primary">
-            Team Applications
-          </h1>
-          <p className="text-sm text-text-muted mt-0.5">
-            Review and manage volunteer join requests
-          </p>
+          <h1 className="text-2xl font-bold text-primary">Volunteers</h1>
+          <p className="mt-1 text-sm text-text-muted">Review, engage and deploy your volunteer applications.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
-            className="px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent-light transition-all duration-300 shadow-sm flex items-center gap-2 text-sm font-medium"
-            onClick={exportToCSV}
+            type="button"
+            onClick={() => setFormOpen(true)}
+            className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            <Download className="w-4 h-4" />
-            Export CSV
+            <ListPlus className="h-4 w-4" /> Customize form
           </button>
           <button
-            className="px-4 py-2 rounded-xl bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-sm flex items-center gap-2 text-sm font-medium"
-            onClick={fetchJoinApplications}
+            type="button"
+            onClick={() => fetchList({ force: true })}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={exportToCSV}
+            disabled={stats.total === 0}
+            className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" /> Export CSV
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <KpiCard
-          title="Total Applications"
-          value={totalApplications}
-          icon={Users}
-          color="#059669"
-          animate={false}
-        />
-        <KpiCard
-          title="Male"
-          value={maleApplicants}
-          icon={User}
-          color="#10B981"
-          animate={false}
-        />
-        <KpiCard
-          title="Female"
-          value={femaleApplicants}
-          icon={UserRound}
-          color="#EC4899"
-          animate={false}
-        />
-        <KpiCard
-          title="Under 18"
-          value={under18}
-          icon={Cake}
-          color="#F59E0B"
-          animate={false}
-        />
-        <KpiCard
-          title="Adults"
-          value={over18}
-          icon={Building2}
-          color="#06B6D4"
-          animate={false}
-        />
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard icon={Users} label="Total applications" value={stats.total} tone="accent" />
+        <StatCard icon={Clock} label="Pending review" value={stats.pending} tone="accent" />
+        <StatCard icon={UserCheck} label="Approved" value={stats.approved} tone="accent" />
+        <StatCard icon={UserX} label="Rejected" value={stats.rejected} tone="muted" />
       </div>
 
-      {/* Table Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row items-stretch md:items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name, email, or skills..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
-              value={searchTerm}
-              onChange={handleSearch}
-            />
-          </div>
-          <select
-            className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all md:w-48"
-            value={filter}
-            onChange={handleFilterChange}
-          >
-            <option value="all">All Applications</option>
-            <option value="gender">Male Applicants</option>
-            <option value="18+">18 and Above</option>
-            <option value="skills">Leadership Skills</option>
-          </select>
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 border border-gray-100 bg-white p-3 shadow-sm lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name, email, phone, skills…"
+            className="w-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent focus:bg-white"
+          />
         </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Name
-                </th>
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Email
-                </th>
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Phone
-                </th>
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Age
-                </th>
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Gender
-                </th>
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Skills
-                </th>
-                <th className="text-[11px] font-semibold text-text-muted uppercase tracking-wider text-left px-4 py-3">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentApplications.length > 0 ? (
-                currentApplications.map((application) => (
-                  <tr
-                    key={application._id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{`${application.firstName} ${application.lastName}`}</td>
-                    <td className="px-4 py-3 text-sm text-accent">
-                      {application.email}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {application.phoneNumber}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {application.age}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                          application.gender?.toLowerCase() === "male"
-                            ? "bg-violet-50 text-violet-700"
-                            : "bg-pink-50 text-pink-700"
-                        }`}
-                      >
-                        {application.gender}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
-                      {application.skills}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        className="p-2 rounded-xl bg-gray-50 hover:bg-accent/10 text-gray-500 hover:text-accent transition-all duration-200"
-                        onClick={() => handleViewApplication(application)}
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" className="text-center py-16">
-                    <Inbox className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                    <p className="text-sm font-medium text-gray-500">
-                      No join applications found
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Try adjusting your search or filters
-                    </p>
-                  </td>
-                </tr>
+        <div className="flex flex-wrap items-center gap-2">
+          <CustomSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[{ value: "all", label: "All status" }, ...STATUSES]}
+            triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            className="min-w-[140px]"
+          />
+          <CustomSelect
+            value={genderFilter}
+            onChange={setGenderFilter}
+            options={[
+              { value: "all", label: "All genders" },
+              { value: "Male", label: "Male" },
+              { value: "Female", label: "Female" },
+            ]}
+            triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            className="min-w-[130px]"
+          />
+          <CustomSelect
+            value={sort}
+            onChange={setSort}
+            options={SORTS}
+            triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+            className="min-w-[150px]"
+          />
+          <div className="inline-flex shrink-0 border border-gray-200">
+            <button
+              type="button"
+              onClick={() => setView("grid")}
+              title="Grid view"
+              className={cn(
+                "grid h-9 w-9 place-items-center transition-colors",
+                view === "grid" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50",
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-gray-500">
-              Showing{" "}
-              {filteredApplications.length
-                ? (currentPage - 1) * applicationsPerPage + 1
-                : 0}{" "}
-              to{" "}
-              {Math.min(
-                currentPage * applicationsPerPage,
-                filteredApplications.length
-              )}{" "}
-              of {filteredApplications.length} entries
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`p-1.5 rounded-lg ${
-                  currentPage === 1
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "text-gray-500 hover:bg-gray-100"
-                }`}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNumber;
-                if (totalPages <= 5) {
-                  pageNumber = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNumber = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNumber = totalPages - (4 - i);
-                } else {
-                  pageNumber = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(pageNumber)}
-                    className={`min-w-[32px] h-8 rounded-lg text-xs font-medium transition-colors ${
-                      currentPage === pageNumber
-                        ? "bg-accent text-white shadow-sm"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    {pageNumber}
-                  </button>
-                );
-              })}
-
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className={`p-1.5 rounded-lg ${
-                  currentPage === totalPages || totalPages === 0
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "text-gray-500 hover:bg-gray-100"
-                }`}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("list")}
+              title="List view"
+              className={cn(
+                "grid h-9 w-9 place-items-center transition-colors",
+                view === "list" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50",
+              )}
+            >
+              <List className="h-4 w-4" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* View Application Modal */}
-      {viewApplication && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto">
-          <div
-            className="fixed inset-0 bg-black opacity-40 transition-opacity"
-            onClick={closeViewModal}
-          ></div>
-
-          <div className="relative bg-white w-full max-w-3xl mx-auto rounded-lg shadow-2xl overflow-hidden transform transition-all">
-            {/* Header */}
-            <div className="bg-gray-100 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-xl font-semibold text-gray-800">
-                Team Application Details
-              </h3>
+      {/* Bulk action bar (list view) */}
+      <AnimatePresence>
+        {view === "list" && selected.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="flex flex-wrap items-center justify-between gap-3 border border-accent/20 bg-accent/5 px-4 py-3"
+          >
+            <span className="text-sm font-medium text-primary">{selected.size} selected</span>
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={closeViewModal}
-                className="text-gray-500 hover:text-gray-700"
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => runBulk("status", "shortlisted")}
+                className="inline-flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <Check className="h-3.5 w-3.5" /> Shortlist
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => runBulk("status", "approved")}
+                className="inline-flex items-center gap-1.5 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <UserCheck className="h-3.5 w-3.5" /> Approve
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => runBulk("status", "rejected")}
+                className="inline-flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              >
+                <UserX className="h-3.5 w-3.5" /> Reject
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={() => runBulk("delete")}
+                className="inline-flex items-center gap-1.5 border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+              >
+                {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
               </button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            {/* Content */}
-            <div className="px-6 py-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.firstName || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        {items.length === 0 ? (
+          <motion.div
+            key="empty"
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="border border-gray-100 bg-white p-12 text-center shadow-sm"
+          >
+            <Inbox className="mx-auto mb-3 h-10 w-10 text-text-muted" />
+            <p className="text-text-muted">
+              {stats.total === 0 ? "No volunteer applications yet." : "No applications match your filters."}
+            </p>
+          </motion.div>
+        ) : view === "grid" ? (
+          <motion.div
+            key={`grid-${data.page}`}
+            variants={gridContainer}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          >
+            {items.map((a, i) => {
+              const hours = (a.assignments || []).reduce((s, x) => s + (x.hours || 0), 0);
+              return (
+                <motion.div
+                  key={a._id || i}
+                  variants={cardVariants}
+                  className="group flex flex-col border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar item={a} className="h-11 w-11 text-sm" />
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/volunteers/${a._id}`)}
+                        className="block max-w-full truncate text-left text-sm font-semibold text-primary transition-colors hover:text-accent hover:underline"
+                        title={`View ${fullName(a)}'s profile`}
+                      >
+                        {fullName(a)}
+                      </button>
+                      <a
+                        href={`mailto:${a.email}`}
+                        className="block truncate text-xs text-accent hover:underline"
+                        title={a.email}
+                      >
+                        {a.email}
+                      </a>
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.lastName || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
+                  <div className="mt-3 space-y-1.5 text-xs text-text-muted">
+                    <p className="flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 shrink-0" /> {a.phoneNumber || "—"}
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <UserRound className="h-3 w-3 shrink-0" />
+                      {[a.gender, a.age ? `${a.age} yrs` : null].filter(Boolean).join(" · ") || "—"}
+                    </p>
+                    <p className="line-clamp-2 min-h-[32px] leading-snug">{a.skills || "No skills listed"}</p>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.email || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.phoneNumber || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Age
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.age || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.gender || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={viewApplication.address || ""}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                    readOnly
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Skills
-                  </label>
-                  <textarea
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent h-24 resize-none"
-                    value={viewApplication.skills || ""}
-                    readOnly
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Available Days
-                  </label>
-                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-300 rounded-md">
-                    {viewApplication.availableDays &&
-                    viewApplication.availableDays.length > 0 ? (
-                      viewApplication.availableDays.map((day, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-accent/10 text-blue-800"
-                        >
-                          {day}
+                  {(a.assignedTo || (a.assignments || []).length > 0) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      {a.assignedTo && (
+                        <span className="inline-flex items-center gap-1 bg-primary/5 px-2 py-0.5 font-medium text-primary">
+                          <Briefcase className="h-3 w-3" /> {a.assignedTo.name || a.assignedTo.email}
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-gray-500">No days selected</span>
-                    )}
+                      )}
+                      {(a.assignments || []).length > 0 && (
+                        <span className="inline-flex items-center gap-1 bg-accent/10 px-2 py-0.5 font-medium text-accent">
+                          <CalendarDays className="h-3 w-3" /> {a.assignments.length} event
+                          {a.assignments.length > 1 ? "s" : ""}
+                          {hours > 0 ? ` · ${hours}h` : ""}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
+                    <StatusBadge status={a.status} />
+                    <RowActions item={a} onView={setViewApp} onDelete={setDeleteTarget} />
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`list-${data.page}`}
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="overflow-hidden border border-gray-100 bg-white shadow-sm"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    <th className="w-10 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={toggleSelectAll}
+                        className={cn(
+                          "grid h-4 w-4 place-items-center border transition-colors",
+                          allOnPageSelected ? "border-accent bg-accent text-white" : "border-gray-300 hover:border-accent",
+                        )}
+                        aria-label="Select all on page"
+                      >
+                        {allOnPageSelected && <Check className="h-3 w-3" />}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">Applicant</th>
+                    <th className="px-4 py-3">Phone</th>
+                    <th className="px-4 py-3">Assigned</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <motion.tbody variants={listContainer} initial="hidden" animate="show">
+                  {items.map((a, i) => {
+                    const isSel = selected.has(a._id);
+                    return (
+                      <motion.tr
+                        key={a._id || i}
+                        variants={rowVariants}
+                        className={cn(
+                          "border-b border-gray-50 last:border-0 transition-colors hover:bg-gray-50/60",
+                          isSel && "bg-accent/5",
+                        )}
+                      >
+                        <td className="px-4 py-2.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleSelect(a._id)}
+                            className={cn(
+                              "grid h-4 w-4 place-items-center border transition-colors",
+                              isSel ? "border-accent bg-accent text-white" : "border-gray-300 hover:border-accent",
+                            )}
+                            aria-label="Select row"
+                          >
+                            {isSel && <Check className="h-3 w-3" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-3">
+                            <Avatar item={a} className="h-9 w-9 text-xs" />
+                            <div className="min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/admin/volunteers/${a._id}`)}
+                                className="block max-w-full truncate text-left font-medium text-primary transition-colors hover:text-accent hover:underline"
+                                title={`View ${fullName(a)}'s profile`}
+                              >
+                                {fullName(a)}
+                              </button>
+                              <p className="max-w-[260px] truncate text-xs text-accent">{a.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-text-muted">{a.phoneNumber || "—"}</td>
+                        <td className="px-4 py-2.5 text-text-muted">
+                          {a.assignedTo ? (
+                            <span className="text-primary">{a.assignedTo.name || a.assignedTo.email}</span>
+                          ) : (
+                            <span className="text-gray-400">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <StatusBadge status={a.status} />
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center justify-end">
+                            <RowActions item={a} onView={setViewApp} onDelete={setDeleteTarget} size="md" />
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </motion.tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pagination */}
+      {data.pages > 1 && (
+        <div className="flex items-center justify-between border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <span className="text-xs text-text-muted">
+            Showing {showingFrom}–{showingTo} of {data.total}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={data.page === 1}
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(5, data.pages) }, (_, i) => {
+              let pg;
+              if (data.pages <= 5) pg = i + 1;
+              else if (data.page <= 3) pg = i + 1;
+              else if (data.page >= data.pages - 2) pg = data.pages - (4 - i);
+              else pg = data.page - 2 + i;
+              return (
+                <button
+                  key={pg}
+                  type="button"
+                  onClick={() => setPage(pg)}
+                  className={cn(
+                    "h-8 w-8 text-xs font-medium transition-colors",
+                    data.page === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100",
+                  )}
+                >
+                  {pg}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(data.pages, p + 1))}
+              disabled={data.page === data.pages}
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Form builder */}
+      <VolunteerFormBuilder open={formOpen} onClose={() => setFormOpen(false)} onSaved={setFormQuestions} />
+
+      {/* Details drawer */}
+      <VolunteerDrawer
+        volunteer={viewApp}
+        team={team}
+        questions={formQuestions}
+        onClose={() => setViewApp(null)}
+        onChanged={(updated) => {
+          setViewApp(updated);
+          afterMutate();
+        }}
+        onDelete={(v) => {
+          setDeleteTarget(v);
+          setViewApp(null);
+        }}
+      />
+
+      {/* Delete confirmation */}
+      <Portal>
+        <AnimatePresence>
+          {deleteTarget && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !deleting && setDeleteTarget(null)} />
+              <motion.div
+                className="relative w-full max-w-sm border border-gray-100 bg-white p-6 text-center shadow-2xl"
+                initial={{ scale: 0.96, y: 16 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.96, y: 16 }}
+              >
+                <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-red-50">
+                  <Trash2 className="h-5 w-5 text-red-500" />
+                </div>
+                <h3 className="text-base font-semibold text-primary">Delete this application?</h3>
+                <p className="mt-1 break-words text-sm text-text-muted">
+                  The application from <span className="font-medium text-primary">{fullName(deleteTarget)}</span> will be
+                  permanently removed. This can't be undone.
+                </p>
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={deleting}
+                    className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="inline-flex flex-1 items-center justify-center gap-2 bg-red-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Portal>
+    </div>
+  );
+};
+
+/* ── Details drawer: status + assignment + events + notes + profile ──── */
+
+function VolunteerDrawer({ volunteer, team, questions = [], onClose, onChanged, onDelete }) {
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [notify, setNotify] = useState(true);
+  const [noteInput, setNoteInput] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  // Events (for the link picker) — loaded lazily once the drawer opens.
+  const [events, setEvents] = useState([]);
+  const [eventToAdd, setEventToAdd] = useState("");
+  const [linking, setLinking] = useState(false);
+
+  useEffect(() => {
+    if (!volunteer) return;
+    setNoteInput("");
+    setEventToAdd("");
+    eventsService
+      .getAll()
+      .then((res) => setEvents(res?.events || res || []))
+      .catch(() => {});
+  }, [volunteer]);
+
+  if (!volunteer) return null;
+
+  const v = volunteer;
+  const assignments = v.assignments || [];
+  const notes = v.notes || [];
+  const totalHours = assignments.reduce((s, a) => s + (a.hours || 0), 0);
+  const linkedIds = new Set(assignments.map((a) => String(a.event?._id || a.event)));
+  const availableEvents = events.filter((e) => !linkedIds.has(String(e._id)));
+
+  const teamOptions = [
+    { value: "", label: "Unassigned" },
+    ...team.map((m) => ({ value: m._id, label: m.name || m.email })),
+  ];
+
+  const setStatus = async (status) => {
+    setSavingStatus(true);
+    try {
+      const willNotify = notify && EMAILABLE.has(status);
+      const updated = await joinTeamService.setStatus(v._id, status, willNotify);
+      onChanged(updated);
+      toast.success(updated.emailed ? "Status updated · applicant emailed" : "Status updated");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update status");
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
+  const assign = async (userId) => {
+    try {
+      const updated = await joinTeamService.assign(v._id, userId || null);
+      onChanged(updated);
+      toast.success(userId ? "Assigned" : "Unassigned");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to assign");
+    }
+  };
+
+  const addNote = async () => {
+    const body = noteInput.trim();
+    if (!body) return;
+    setSavingNote(true);
+    try {
+      const updated = await joinTeamService.addNote(v._id, body);
+      onChanged(updated);
+      setNoteInput("");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to add note");
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const removeNote = async (noteId) => {
+    try {
+      const updated = await joinTeamService.deleteNote(v._id, noteId);
+      onChanged(updated);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to remove note");
+    }
+  };
+
+  const linkEvent = async () => {
+    if (!eventToAdd) return;
+    setLinking(true);
+    try {
+      const updated = await joinTeamService.linkEvent(v._id, { eventId: eventToAdd });
+      onChanged(updated);
+      setEventToAdd("");
+      toast.success("Linked to event");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to link event");
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const updateAssignment = async (assignmentId, payload) => {
+    try {
+      const updated = await joinTeamService.updateAssignment(v._id, assignmentId, payload);
+      onChanged(updated);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update");
+    }
+  };
+
+  const unlink = async (assignmentId) => {
+    try {
+      const updated = await joinTeamService.unlinkEvent(v._id, assignmentId);
+      onChanged(updated);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to remove");
+    }
+  };
+
+  const SectionTitle = ({ icon: Icon, children, right }) => (
+    <div className="mb-3 flex items-center justify-between">
+      <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-500">
+        <Icon className="h-3.5 w-3.5" /> {children}
+      </h4>
+      {right}
+    </div>
+  );
+
+  return (
+    <Portal>
+      <AnimatePresence>
+        {volunteer && (
+          <motion.div
+            className="fixed inset-0 z-50 flex justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <motion.div
+              className="relative flex h-full w-full max-w-xl flex-col bg-white shadow-2xl"
+              initial={{ x: 40, opacity: 0.6 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 40, opacity: 0 }}
+              transition={{ type: "tween", duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* Header */}
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar item={v} className="h-11 w-11 text-sm" />
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-semibold text-primary">{fullName(v)}</h3>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <StatusBadge status={v.status} />
+                      <span className="truncate text-xs text-text-muted">Applied {fmtDate(v.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="grid h-8 w-8 shrink-0 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-6 overflow-y-auto p-6">
+                {/* Quick contact actions */}
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to={`/admin/volunteers/${v._id}`}
+                    onClick={onClose}
+                    className="inline-flex items-center gap-1.5 border border-accent/30 bg-accent/5 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/10"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Full profile
+                  </Link>
+                  <a
+                    href={`mailto:${v.email}`}
+                    className="inline-flex items-center gap-1.5 border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <Mail className="h-3.5 w-3.5" /> Email
+                  </a>
+                  {v.phoneNumber && (
+                    <a
+                      href={`tel:${v.phoneNumber}`}
+                      className="inline-flex items-center gap-1.5 border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      <Phone className="h-3.5 w-3.5" /> Call
+                    </a>
+                  )}
+                </div>
+
+                {/* Status + assignment */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="border border-gray-100 bg-gray-50/70 p-4">
+                    <SectionTitle icon={Check}>Status</SectionTitle>
+                    <CustomSelect
+                      value={v.status || "pending"}
+                      onChange={setStatus}
+                      disabled={savingStatus}
+                      options={STATUSES}
+                      triggerClassName="w-full border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+                    />
+                    <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-text-muted">
+                      <input
+                        type="checkbox"
+                        checked={notify}
+                        onChange={(e) => setNotify(e.target.checked)}
+                        className="mt-0.5 accent-accent"
+                      />
+                      <span>
+                        Email the applicant on <strong>shortlist / approve / reject</strong>.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="border border-gray-100 bg-gray-50/70 p-4">
+                    <SectionTitle icon={Briefcase}>Assigned to</SectionTitle>
+                    <CustomSelect
+                      value={v.assignedTo?._id || ""}
+                      onChange={assign}
+                      options={teamOptions}
+                      triggerClassName="w-full border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+                    />
+                    <p className="mt-2.5 text-xs text-text-muted">
+                      Owner responsible for following up with this volunteer.
+                    </p>
                   </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Application Status
-                  </label>
-                  <select
-                    value={
-                      applicationStatus[viewApplication._id] || "pending"
+                {/* Events */}
+                <div>
+                  <SectionTitle
+                    icon={CalendarDays}
+                    right={
+                      totalHours > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-accent">
+                          <Clock4 className="h-3.5 w-3.5" /> {totalHours}h logged
+                        </span>
+                      ) : null
                     }
-                    onChange={(e) =>
-                      handleStatusChange(viewApplication._id, e.target.value)
-                    }
-                    className="w-full px-4 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
                   >
-                    <option value="pending">Pending</option>
-                    <option value="reviewed">Reviewed</option>
-                    <option value="shortlisted">Shortlisted</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
+                    Events ({assignments.length})
+                  </SectionTitle>
+
+                  <div className="space-y-2">
+                    {assignments.length === 0 && (
+                      <p className="text-sm text-text-muted">Not assigned to any events yet.</p>
+                    )}
+                    {assignments.map((a) => (
+                      <div key={a._id} className="flex flex-wrap items-center gap-2 border border-gray-100 p-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-primary">
+                            {a.event?.title || "Event"}
+                          </p>
+                          <p className="text-xs text-text-muted">{a.event?.date ? fmtDate(a.event.date) : "—"}</p>
+                        </div>
+                        <CustomSelect
+                          value={a.status}
+                          onChange={(val) => updateAssignment(a._id, { status: val })}
+                          options={ASSIGNMENT_STATUS}
+                          triggerClassName="border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-accent"
+                          className="w-[120px]"
+                        />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            defaultValue={a.hours || 0}
+                            onBlur={(e) => {
+                              const hrs = Math.max(0, Number(e.target.value) || 0);
+                              if (hrs !== (a.hours || 0)) updateAssignment(a._id, { hours: hrs });
+                            }}
+                            className="w-14 border border-gray-200 px-2 py-1 text-xs outline-none focus:border-accent"
+                            title="Hours"
+                          />
+                          <span className="text-xs text-text-muted">h</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => unlink(a._id)}
+                          title="Remove from event"
+                          className="grid h-7 w-7 place-items-center text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {availableEvents.length > 0 && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <CustomSelect
+                        value={eventToAdd}
+                        onChange={setEventToAdd}
+                        options={[
+                          { value: "", label: "Add to an event…" },
+                          ...availableEvents.map((e) => ({
+                            value: e._id,
+                            label: `${e.title} · ${fmtDate(e.date)}`,
+                          })),
+                        ]}
+                        triggerClassName="w-full border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+                        className="flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={linkEvent}
+                        disabled={!eventToAdd || linking}
+                        className="inline-flex items-center gap-1.5 bg-accent px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
+                      >
+                        {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+                        Add
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <SectionTitle icon={StickyNote}>Internal notes ({notes.length})</SectionTitle>
+                  <div className="space-y-2">
+                    {notes.length === 0 && (
+                      <p className="text-sm text-text-muted">No notes yet — jot down anything the team should know.</p>
+                    )}
+                    {notes.map((n) => (
+                      <div key={n._id} className="group border border-gray-100 bg-gray-50/60 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-primary">
+                            {n.author?.name || n.author?.email || "Team member"}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-text-muted">{fmtDateTime(n.createdAt)}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeNote(n._id)}
+                              className="text-gray-300 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                              title="Delete note"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-700">{n.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2.5 flex items-start gap-2">
+                    <textarea
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") addNote();
+                      }}
+                      rows={2}
+                      placeholder="Add an internal note… (⌘/Ctrl + Enter)"
+                      className="flex-1 resize-none border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none transition-colors focus:border-accent focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={addNote}
+                      disabled={!noteInput.trim() || savingNote}
+                      className="inline-flex h-9 items-center gap-1.5 bg-accent px-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
+                    >
+                      {savingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Profile */}
+                <div>
+                  <SectionTitle icon={UserRound}>Application details</SectionTitle>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                    <Field label="Email" value={<a href={`mailto:${v.email}`} className="text-accent hover:underline">{v.email}</a>} />
+                    <Field
+                      label="Phone"
+                      value={v.phoneNumber ? <a href={`tel:${v.phoneNumber}`} className="hover:underline">{v.phoneNumber}</a> : "—"}
+                    />
+                    <Field label="Age" value={v.age} />
+                    <Field label="Gender" value={v.gender} />
+                    <Field full label="Address" value={v.address} />
+                    <Field full label="Skills & experience" value={v.skills} />
+                    <div className="sm:col-span-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Available days</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {v.availableDays?.length ? (
+                          v.availableDays.map((d, idx) => (
+                            <span key={idx} className="bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+                              {d}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-800">—</span>
+                        )}
+                      </div>
+                    </div>
+                    {questions.map((q) => {
+                      const val = v.answers?.[q.key];
+                      if (val === undefined || val === "" || (Array.isArray(val) && !val.length)) return null;
+                      return (
+                        <Field key={q.key} full label={q.label} value={Array.isArray(val) ? val.join(", ") : String(val)} />
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 px-6 py-4">
                 <button
-                  className="px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-colors duration-200"
-                  onClick={closeViewModal}
+                  type="button"
+                  onClick={() => onDelete(v)}
+                  className="inline-flex items-center gap-2 border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="border border-gray-200 px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Close
                 </button>
-                <button
-                  className="px-4 py-2 bg-accent text-white font-medium rounded-md hover:bg-accent-light focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 transition-colors duration-200"
-                  onClick={() => {
-                    // Here you would make an API call to save the application status
-                    closeViewModal();
-                  }}
-                >
-                  Save Changes
-                </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Portal>
   );
-};
+}
 
 export default JoinTeamAdmin;

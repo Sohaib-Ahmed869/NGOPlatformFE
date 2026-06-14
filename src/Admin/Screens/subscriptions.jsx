@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { CustomSelect } from "../../components/CustomSelect";
 import {
   Search,
   ChevronDown,
@@ -33,7 +34,8 @@ import toast from "react-hot-toast";
 import { motion } from "framer-motion";
 import Modal from "../../components/Modal";
 import KpiCard from "../../components/KpiCard";
-import Loader from "../../components/Loader";
+import { TabLoader } from "../../components/TabLoader";
+import { withMinDelay } from "../../utils/minDelay";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -114,6 +116,11 @@ const TableLoader = () => (
 );
 
 const SubscriptionsPage = () => {
+  // Start from the cached default table load if present — the page loader only
+  // shows on the very first, uncached open; cached revisits render instantly.
+  const cachedList = SubscriptionService.getCachedAdminSubscriptions();
+  const firstLoadRef = useRef(!cachedList);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFrequency, setSelectedFrequency] = useState("All");
@@ -125,7 +132,7 @@ const SubscriptionsPage = () => {
   const [activeSubscription, setActiveSubscription] = useState([]);
   
   // State for API data
-  const [subscriptions, setSubscriptions] = useState([]);
+  const [subscriptions, setSubscriptions] = useState(cachedList?.data?.subscriptions || []);
   const [dashboardStats, setDashboardStats] = useState({
     activeSubscriptions: 0,
     monthlyRecurringRevenue: 0,
@@ -133,11 +140,11 @@ const SubscriptionsPage = () => {
     avgLifetimeValue: 0,
     trendData: [],
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!cachedList);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
   const [isChartsLoading, setIsChartsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState(cachedList?.data?.pagination || {
     total: 0,
     pages: 0,
     currentPage: 1,
@@ -317,49 +324,65 @@ const SubscriptionsPage = () => {
   // Fetch subscriptions with filters and pagination
   useEffect(() => {
     const fetchSubscriptions = async () => {
-      setIsLoading(true);
+      const params = {
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: searchTerm,
+        frequency:
+          selectedFrequency !== "All"
+            ? selectedFrequency.toLowerCase()
+            : undefined,
+        status:
+          selectedStatus !== "All"
+            ? selectedStatus.toLowerCase()
+            : undefined,
+        sortBy: sortConfig.key,
+        sortOrder: sortConfig.direction,
+      };
+
+      // The default (unfiltered, page 1, default sort) view is served from the
+      // service cache — don't flip the page loader back on for those revisits.
+      const isDefaultView =
+        currentPage === 1 &&
+        searchTerm === "" &&
+        selectedFrequency === "All" &&
+        selectedStatus === "All" &&
+        sortConfig.key === "startDate" &&
+        sortConfig.direction === "desc";
+      const fromCache =
+        isDefaultView && !!SubscriptionService.getCachedAdminSubscriptions();
+
+      if (!fromCache) setIsLoading(true);
       try {
-        const response = await axiosInstance.get("/admin/subscriptions", {
-          params: {
-            page: currentPage,
-            limit: ITEMS_PER_PAGE,
-            search: searchTerm,
-            frequency:
-              selectedFrequency !== "All"
-                ? selectedFrequency.toLowerCase()
-                : undefined,
-            status:
-              selectedStatus !== "All"
-                ? selectedStatus.toLowerCase()
-                : undefined,
-            sortBy: sortConfig.key,
-            sortOrder: sortConfig.direction,
-          },
-        });
-        console.log("Subscriptions response:", response.data);
-        if (response.data?.status === "Success") {
-          const allSubscriptions = response.data.data.subscriptions || [];
+        const call = SubscriptionService.getAdminSubscriptions(params);
+        // Min-delay only on the very first uncached load (while the loader shows).
+        const data =
+          firstLoadRef.current && !fromCache ? await withMinDelay(call) : await call;
+        firstLoadRef.current = false;
+        console.log("Subscriptions response:", data);
+        if (data?.status === "Success") {
+          const allSubscriptions = data.data.subscriptions || [];
           setSubscriptions(allSubscriptions);
-          setPagination(response.data.data.pagination || {
+          setPagination(data.data.pagination || {
             total: 0,
             pages: 0,
             currentPage: 1,
             perPage: ITEMS_PER_PAGE,
           });
-          
+
           // Calculate status distribution for current page subscriptions
           const statusCounts = {};
           allSubscriptions.forEach(sub => {
             const status = sub.status || 'unknown';
             statusCounts[status] = (statusCounts[status] || 0) + 1;
           });
-          
+
           // Convert to array format for recharts
           const statusData = Object.keys(statusCounts).map(status => ({
             name: status.charAt(0).toUpperCase() + status.slice(1),
             value: statusCounts[status]
           }));
-          
+
           setStatusDistribution(statusData);
         }
       } catch (error) {
@@ -397,30 +420,29 @@ const SubscriptionsPage = () => {
         `Cancellation request ${action === "approve" ? "approved" : "rejected"} successfully`
       );
       setShowCancelRequestDialog(false);
-      // Refresh subscriptions
+      // Refresh subscriptions — force-refresh so the cache reflects the change.
       const fetchSubscriptions = async () => {
         setIsLoading(true);
         try {
-          const response = await axiosInstance.get("/admin/subscriptions", {
-            params: {
-              page: currentPage,
-              limit: ITEMS_PER_PAGE,
-              search: searchTerm,
-              frequency:
-                selectedFrequency !== "All"
-                  ? selectedFrequency.toLowerCase()
-                  : undefined,
-              status:
-                selectedStatus !== "All"
-                  ? selectedStatus.toLowerCase()
-                  : undefined,
-              sortBy: sortConfig.key,
-              sortOrder: sortConfig.direction,
-            },
-          });
-          if (response.data?.status === "Success") {
-            setSubscriptions(response.data.data.subscriptions || []);
-            setPagination(response.data.data.pagination || {
+          const params = {
+            page: currentPage,
+            limit: ITEMS_PER_PAGE,
+            search: searchTerm,
+            frequency:
+              selectedFrequency !== "All"
+                ? selectedFrequency.toLowerCase()
+                : undefined,
+            status:
+              selectedStatus !== "All"
+                ? selectedStatus.toLowerCase()
+                : undefined,
+            sortBy: sortConfig.key,
+            sortOrder: sortConfig.direction,
+          };
+          const data = await SubscriptionService.getAdminSubscriptions(params, { force: true });
+          if (data?.status === "Success") {
+            setSubscriptions(data.data.subscriptions || []);
+            setPagination(data.data.pagination || {
               total: 0,
               pages: 0,
               currentPage: 1,
@@ -473,7 +495,11 @@ const SubscriptionsPage = () => {
 
   // Show page loader only on initial load
   if (isStatsLoading && isChartsLoading && isLoading) {
-    return <Loader />;
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <TabLoader />
+      </div>
+    );
   }
 
   return (
@@ -572,18 +598,25 @@ const SubscriptionsPage = () => {
                 placeholder="Search subscriptions..."
                 className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-56" />
             </div>
-            <select value={selectedFrequency} onChange={(e) => setSelectedFrequency(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
-              <option value="All">All Frequencies</option>
-              <option value="Daily">Daily</option><option value="Weekly">Weekly</option>
-              <option value="Monthly">Monthly</option><option value="Yearly">Yearly</option>
-            </select>
-            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
-              <option value="All">All Status</option>
-              <option value="active">Active</option><option value="paused">Paused</option>
-              <option value="cancelled">Cancelled</option><option value="failed">Failed</option><option value="ended">Ended</option>
-            </select>
+            <CustomSelect value={selectedFrequency} onChange={(value) => setSelectedFrequency(value)}
+              options={[
+                { value: "All", label: "All Frequencies" },
+                { value: "Daily", label: "Daily" },
+                { value: "Weekly", label: "Weekly" },
+                { value: "Monthly", label: "Monthly" },
+                { value: "Yearly", label: "Yearly" },
+              ]}
+              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
+            <CustomSelect value={selectedStatus} onChange={(value) => setSelectedStatus(value)}
+              options={[
+                { value: "All", label: "All Status" },
+                { value: "active", label: "Active" },
+                { value: "paused", label: "Paused" },
+                { value: "cancelled", label: "Cancelled" },
+                { value: "failed", label: "Failed" },
+                { value: "ended", label: "Ended" },
+              ]}
+              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
           </div>
         </div>
 
@@ -653,7 +686,7 @@ const SubscriptionsPage = () => {
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage <= 1}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
               {Array.from({ length: Math.min(5, pagination.pages || 1) }, (_, i) => {
                 let pg;
                 const pages = pagination.pages || 1;
@@ -663,11 +696,11 @@ const SubscriptionsPage = () => {
                 else pg = currentPage - 2 + i;
                 return (
                   <button key={i} onClick={() => setCurrentPage(pg)}
-                    className={`w-8 h-8 rounded-lg text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
+                    className={`w-8 h-8 text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
                 );
               })}
               <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage >= (pagination.pages || 1)}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
+                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
         )}
@@ -706,19 +739,19 @@ const SubscriptionsPage = () => {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowCancelRequestDialog(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleProcessCancellationRequest("reject")}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 Reject
               </button>
               <button
                 onClick={() => handleProcessCancellationRequest("approve")}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 Approve
               </button>

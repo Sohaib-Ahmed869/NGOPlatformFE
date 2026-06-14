@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 // Unsplash image constants
 const image1 = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200&q=80";
@@ -105,6 +106,10 @@ const EducationInitiatives = () => {
   const { addItem } = useCart();
   const [adminProducts, setAdminProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { content } = usePageContent("education");
+  const hero = content?.hero || {};
+  const mission = content?.mission || {};
+  const donateBanner = content?.donateBanner || {};
 
   useEffect(() => {
     const fetchEducationProducts = async () => {
@@ -122,7 +127,7 @@ const EducationInitiatives = () => {
     fetchEducationProducts();
   }, []);
 
-  const focusAreas = [
+  const defaultFocusAreas = [
     {
       image: focus1,
       title: "Community schooling system",
@@ -142,18 +147,19 @@ const EducationInitiatives = () => {
         "Our program empowers teachers to support students by sharing innovative teaching methods, building skills, and fostering mentorship.",
     },
   ];
+  const focusAreas = content?.focusAreas?.length ? content.focusAreas : defaultFocusAreas;
 
   return (
     <motion.div className="bg-background" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Hero Section */}
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Education</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Building futures through learning</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Education"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Building futures through learning"}</p>
         </div>
       </div>
 
@@ -214,24 +220,22 @@ const EducationInitiatives = () => {
           </div>
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-justify text-text-dark">
-              We aim to educate every child in every corner of the country, who
-              are deprived of quality education in order to steer Pakistan
-              forward.
+              {mission.heading ??
+                "We aim to educate every child in every corner of the country, who are deprived of quality education in order to steer Pakistan forward."}
             </h2>
             <p className="text-text-muted text-justify">
-              We believe that in order to progress further it's imperative that
-              education for girls becomes our goal and with this in mind, we
-              have set out to achieve our mission.
+              {mission.text ??
+                "We believe that in order to progress further it's imperative that education for girls becomes our goal and with this in mind, we have set out to achieve our mission."}
             </p>
           </div>
         </motion.div>
       </motion.div>
 
-      <QuickDonate image="https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80" title="Support Education Today" />
+      <QuickDonate image={donateBanner.image ?? "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=800&q=80"} title={donateBanner.title ?? "Support Education Today"} />
 
       {/* Focus Areas Section */}
       <div className="max-w-7xl mx-auto px-6 py-20">
-        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>Our Focus Areas</motion.h2>
+        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>{content?.focusHeading ?? "Our Focus Areas"}</motion.h2>
 
         <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
           {focusAreas.map((area, index) => (

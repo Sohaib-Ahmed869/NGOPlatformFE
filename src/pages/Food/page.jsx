@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 // Unsplash image constants
 const heroBg = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200&q=80";
@@ -89,6 +90,10 @@ const FoodInitiatives = () => {
   const [customAmount, setCustomAmount] = useState(70);
   const [adminProducts, setAdminProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { content } = usePageContent("food");
+  const hero = content?.hero || {};
+  const mission = content?.mission || {};
+  const donateBanner = content?.donateBanner || {};
 
   useEffect(() => {
     const fetchFoodProducts = async () => {
@@ -107,7 +112,7 @@ const FoodInitiatives = () => {
   }, []);
 
 
-  const focusAreas = [
+  const defaultFocusAreas = [
     {
       image: pipelineImg,
       title: "Ration Drives in Pakistan",
@@ -121,6 +126,7 @@ const FoodInitiatives = () => {
         "The HopeGive Foundation Ramadan Food Drive provides food and essentials to underprivileged families during Ramadan. It aligns with HopeGive's mission of Hope Not Out, focusing on humanitarian aid. The initiative promotes the spirit of giving and engages local donors and volunteers.",
     },
   ];
+  const focusAreas = content?.focusAreas?.length ? content.focusAreas : defaultFocusAreas;
 
   const handleCustomAmountChange = (e) => {
     const value = parseInt(e.target.value);
@@ -139,12 +145,12 @@ const FoodInitiatives = () => {
       {/* Hero Section */}
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Food Security</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">No family should go hungry</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Food Security"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "No family should go hungry"}</p>
         </div>
       </div>
 
@@ -205,23 +211,21 @@ const FoodInitiatives = () => {
           </div>
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-justify text-text-dark">
-              We aim to provide immediate healthy food to the underprivileged.
+              {mission.heading ?? "We aim to provide immediate healthy food to the underprivileged."}
             </h2>
             <p className="text-text-muted text-justify">
-              With our vision of providing basic necessities to the
-              underprivileged, HopeGive teams work to provide immediate assistance to
-              maintain life, improve health and support the morale of the
-              affected population.
+              {mission.text ??
+                "With our vision of providing basic necessities to the underprivileged, HopeGive teams work to provide immediate assistance to maintain life, improve health and support the morale of the affected population."}
             </p>
           </div>
         </motion.div>
       </motion.div>
 
-      <QuickDonate image="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=800&q=80" title="Help Feed a Family" />
+      <QuickDonate image={donateBanner.image ?? "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=800&q=80"} title={donateBanner.title ?? "Help Feed a Family"} />
 
       {/* Focus Areas */}
       <div className="max-w-7xl mx-auto px-6 py-20">
-        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>Our Focus Areas</motion.h2>
+        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>{content?.focusHeading ?? "Our Focus Areas"}</motion.h2>
 
         <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-8" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
           {focusAreas.map((area, index) => (

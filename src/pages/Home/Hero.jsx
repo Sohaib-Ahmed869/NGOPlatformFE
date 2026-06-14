@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useTenant } from "../../context/TenantContext";
+import usePageContent from "../../hooks/usePageContent";
 
 /**
  * Mix a hex color toward white by a ratio (0 = original, 1 = white).
@@ -23,6 +24,8 @@ function darken(hex, ratio) {
 
 const Hero = () => {
   const { branding, organisation } = useTenant();
+  const { content } = usePageContent("home");
+  const hero = content?.hero || {};
 
   // Derive hero gradient colors from theme
   const primary = branding?.primaryColor || "#2C2418";
@@ -36,6 +39,49 @@ const Hero = () => {
   const accentDark = darken(accent, 0.35);  // dark accent for gradient text
 
   const orgName = organisation?.name || "";
+
+  // Content with fallbacks to the original copy (zero visual change until edited)
+  const badge = hero.badge ?? "Empowering communities worldwide";
+  const subtitle =
+    hero.subtitle ??
+    "Join thousands of donors making a real difference in communities around the world. Transparent. Accountable. Impactful.";
+  const primaryCtaText = hero.primaryCtaText ?? "Donate Now";
+  const primaryCtaLink = hero.primaryCtaLink ?? "/donate";
+  const secondaryCtaText = hero.secondaryCtaText ?? "Learn More";
+  const secondaryCtaLink = hero.secondaryCtaLink ?? "/about";
+  const stats =
+    Array.isArray(hero.stats) && hero.stats.length
+      ? hero.stats
+      : [
+          { value: "$2.4M+", label: "Raised" },
+          { value: "48K+", label: "Lives Impacted" },
+          { value: "120+", label: "Projects" },
+          { value: "30+", label: "Countries" },
+        ];
+
+  // Render the title with an optional highlighted phrase in the accent gradient.
+  const renderTitle = () => {
+    const title = hero.title ?? "Changing Lives, One Act of Kindness";
+    const highlight = hero.highlight ?? "One Act";
+    if (highlight && title.includes(highlight)) {
+      const idx = title.indexOf(highlight);
+      const before = title.slice(0, idx);
+      const after = title.slice(idx + highlight.length);
+      return (
+        <>
+          {before && <span style={{ color: primary }}>{before}</span>}
+          <span
+            className="bg-clip-text text-transparent"
+            style={{ backgroundImage: `linear-gradient(90deg, ${accentDark}, ${accent}, ${accentDark})` }}
+          >
+            {highlight}
+          </span>
+          {after && <span style={{ color: primary }}>{after}</span>}
+        </>
+      );
+    }
+    return <span style={{ color: primary }}>{title}</span>;
+  };
 
   return (
     <section className="relative flex flex-col overflow-hidden will-change-auto" style={{ minHeight: "100dvh" }}>
@@ -123,7 +169,7 @@ const Hero = () => {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accent }} />
-              Empowering communities worldwide
+              {badge}
             </span>
           </motion.div>
 
@@ -134,15 +180,7 @@ const Hero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.4 }}
           >
-            <span style={{ color: primary }}>Changing Lives, </span>
-            <span
-              className="bg-clip-text text-transparent"
-              style={{ backgroundImage: `linear-gradient(90deg, ${accentDark}, ${accent}, ${accentDark})` }}
-            >
-              One Act
-            </span>
-            <br />
-            <span style={{ color: primary }}>of Kindness</span>
+            {renderTitle()}
           </motion.h1>
 
           {/* Sub */}
@@ -153,8 +191,7 @@ const Hero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.55 }}
           >
-            Join thousands of donors making a real difference in communities
-            around the world. Transparent. Accountable. Impactful.
+            {subtitle}
           </motion.p>
 
           {/* CTAs */}
@@ -165,7 +202,7 @@ const Hero = () => {
             transition={{ duration: 0.7, delay: 0.7 }}
           >
             <Link
-              to="/donate"
+              to={primaryCtaLink}
               className="group relative inline-flex items-center gap-2 font-semibold rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:scale-[1.02]"
               style={{
                 color: primary,
@@ -174,11 +211,11 @@ const Hero = () => {
               }}
             >
               <span className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 via-transparent to-transparent pointer-events-none" />
-              <span className="relative">Donate Now</span>
+              <span className="relative">{primaryCtaText}</span>
               <svg className="w-5 h-5 relative group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
             </Link>
             <Link
-              to="/about"
+              to={secondaryCtaLink}
               className="relative inline-flex items-center gap-2 rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:bg-white/40"
               style={{
                 color: primary,
@@ -187,7 +224,7 @@ const Hero = () => {
               }}
             >
               <span className="absolute inset-0 rounded-full bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
-              <span className="relative">Learn More</span>
+              <span className="relative">{secondaryCtaText}</span>
             </Link>
           </motion.div>
 
@@ -198,14 +235,9 @@ const Hero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.9 }}
           >
-            {[
-              { value: "$2.4M+", label: "Raised" },
-              { value: "48K+", label: "Lives Impacted" },
-              { value: "120+", label: "Projects" },
-              { value: "30+", label: "Countries" },
-            ].map((stat) => (
+            {stats.map((stat, i) => (
               <div
-                key={stat.label}
+                key={stat.label || i}
                 className="relative text-center p-5 rounded-2xl overflow-hidden"
                 style={{
                   border: "1px solid rgba(255,255,255,0.5)",

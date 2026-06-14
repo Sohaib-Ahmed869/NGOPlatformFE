@@ -1,42 +1,146 @@
-import React, { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { FaEdit, FaTrash } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { Search, Plus, Package, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getProducts, deleteProduct, getCategories } from '../../../services/productService';
-import Loader from '../../../components/Loader';
+import React, { useState, useEffect, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import Portal from "../../../components/Portal";
+import { Link } from "react-router-dom";
+import { toast } from "react-hot-toast";
+import {
+  Search,
+  Plus,
+  Package,
+  Pencil,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  List,
+  Eye,
+  EyeOff,
+  Boxes,
+  Tag,
+  Loader2,
+  ImageOff,
+} from "lucide-react";
+import {
+  getAdminProducts,
+  getCachedAdminProducts,
+  deleteProduct,
+  getCategories,
+  updateProduct,
+} from "../../../services/productService";
+import { TabLoader } from "../../../components/TabLoader";
+import { withMinDelay } from "../../../utils/minDelay";
+import { cn } from "../../../utils/cn";
+import { CustomSelect } from "../../../components/CustomSelect";
 
-const ITEMS_PER_PAGE = 12;
+const ITEMS_PER_PAGE = 15;
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  visible: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.4 } }),
+// Entrance/exit motion — a coordinated stagger so cards/rows appear smoothly,
+// plus a clean cross-fade when switching between grid and list (the content is
+// keyed by view+page, so it replays on open, view-switch and pagination).
+const fadeWrap = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.45, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.28 } },
+};
+const gridContainer = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.07, delayChildren: 0.1 } },
+  exit: { opacity: 0, transition: { duration: 0.28 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+};
+const listContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.055, delayChildren: 0.1 } },
+};
+const rowVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] } },
 };
 
+// Image with a graceful empty state for missing OR broken-URL images.
+function ProductImage({ src, alt, compact = false }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-cover"
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <div className="grid h-full w-full place-items-center bg-gray-50 text-gray-300">
+      {compact ? (
+        <ImageOff className="h-4 w-4" />
+      ) : (
+        <div className="flex flex-col items-center gap-1">
+          <ImageOff className="h-7 w-7" />
+          <span className="text-[10px] font-medium uppercase tracking-wide">No image</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, tone = "accent" }) {
+  const tones = {
+    accent: "bg-accent/10 text-accent",
+    muted: "bg-gray-100 text-gray-500",
+  };
+  return (
+    <div className="flex items-center gap-3 border border-gray-100 bg-white p-3.5 shadow-sm">
+      <span className={cn("grid h-9 w-9 shrink-0 place-items-center", tones[tone])}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div>
+        <p className="text-lg font-bold leading-none text-primary">{value}</p>
+        <p className="mt-1 text-xs text-text-muted">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 const ProductList = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const cached = getCachedAdminProducts();
+  const [products, setProducts] = useState(cached || []);
+  const [loading, setLoading] = useState(!cached);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // all | active | hidden
   const [categories, setCategories] = useState([]);
-  const [deleteModal, setDeleteModal] = useState(null);
+  const [view, setView] = useState("grid"); // grid | list
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    fetchProducts();
+    // Only hit the API when we don't already have the list cached.
+    if (!getCachedAdminProducts()) loadProducts();
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchProducts = async () => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, statusFilter]);
+
+  const loadProducts = async () => {
     try {
-      const data = await getProducts();
-      console.log('Fetched products:', data);
+      setLoading(true);
+      const data = await withMinDelay(getAdminProducts());
       setProducts(data.products || []);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to fetch products');
+    } catch {
+      toast.error("Failed to fetch products");
+    } finally {
       setLoading(false);
     }
   };
@@ -44,236 +148,428 @@ const ProductList = () => {
   const fetchCategories = async () => {
     try {
       const data = await getCategories();
-      console.log('Fetched categories:', data);
       setCategories(data.categories || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast.error('Failed to fetch categories');
+    } catch {
+      /* optional */
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-        await deleteProduct(id);
-        toast.success('Product deleted successfully');
-        setDeleteModal(null);
-        fetchProducts();
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        toast.error(error.response?.data?.message || 'Failed to delete product');
-      }
+      await deleteProduct(deleteTarget._id);
+      setProducts((prev) => prev.filter((p) => p._id !== deleteTarget._id));
+      toast.success("Product deleted");
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete product");
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        product.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !categoryFilter || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const toggleActive = async (p) => {
+    setTogglingId(p._id);
+    try {
+      await updateProduct(p._id, {
+        title: p.title,
+        description: p.description,
+        price: p.price,
+        category: p.category,
+        isActive: !p.isActive,
+      });
+      setProducts((prev) => prev.map((x) => (x._id === p._id ? { ...x, isActive: !x.isActive } : x)));
+      toast.success(!p.isActive ? "Product is now visible" : "Product hidden");
+    } catch {
+      toast.error("Failed to update");
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+  const stats = useMemo(() => {
+    const active = products.filter((p) => p.isActive).length;
+    const cats = new Set(products.map((p) => p.category).filter(Boolean)).size;
+    return { total: products.length, active, hidden: products.length - active, cats };
+  }, [products]);
+
+  const filtered = useMemo(
+    () =>
+      products.filter((p) => {
+        const q = searchTerm.toLowerCase();
+        const matchesSearch =
+          !q || p.title?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q);
+        const matchesCat = !categoryFilter || p.category === categoryFilter;
+        const matchesStatus =
+          statusFilter === "all" || (statusFilter === "active" ? p.isActive : !p.isActive);
+        return matchesSearch && matchesCat && matchesStatus;
+      }),
+    [products, searchTerm, categoryFilter, statusFilter],
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, categoryFilter]);
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   if (loading) {
     return (
-      <Loader />
+      <div className="flex h-[60vh] items-center justify-center">
+        <TabLoader label="Loading products…" />
+      </div>
     );
   }
 
   return (
-    <motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-
+    <div className="w-full space-y-5">
       {/* Header */}
-      <motion.div variants={fadeUp} initial="hidden" animate="visible"
-        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-bold text-primary">Products</h1>
-          <p className="text-sm text-text-muted mt-0.5">
-            {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
-          </p>
+          <h1 className="text-2xl font-bold text-primary">Products</h1>
+          <p className="mt-1 text-sm text-text-muted">Manage the items in your shop.</p>
         </div>
         <Link
           to="/admin/products/new"
-          className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 transition-colors"
+          className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
         >
-          <Plus className="w-4 h-4" /> Add Product
+          <Plus className="h-4 w-4" /> Add product
         </Link>
-      </motion.div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard icon={Boxes} label="Total products" value={stats.total} tone="accent" />
+        <StatCard icon={Eye} label="Active" value={stats.active} tone="accent" />
+        <StatCard icon={EyeOff} label="Hidden" value={stats.hidden} tone="muted" />
+        <StatCard icon={Tag} label="Categories" value={stats.cats} tone="accent" />
+      </div>
 
       {/* Toolbar */}
-      <motion.div variants={fadeUp} custom={1} initial="hidden" animate="visible"
-        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by title or description..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <select
-            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white min-w-[160px]"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col gap-3 border border-gray-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search products…"
+            className="w-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent focus:bg-white"
+          />
         </div>
-      </motion.div>
+        <CustomSelect
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={[
+            { value: "", label: "All categories" },
+            ...categories.map((c) => ({ value: c, label: cap(c) })),
+          ]}
+          triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+          className="sm:min-w-[150px]"
+        />
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "All status" },
+            { value: "active", label: "Active" },
+            { value: "hidden", label: "Hidden" },
+          ]}
+          triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent"
+        />
+        <div className="inline-flex shrink-0 border border-gray-200">
+          <button
+            type="button"
+            onClick={() => setView("grid")}
+            title="Grid view"
+            className={cn(
+              "grid h-9 w-9 place-items-center transition-colors",
+              view === "grid" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50",
+            )}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("list")}
+            title="List view"
+            className={cn(
+              "grid h-9 w-9 place-items-center transition-colors",
+              view === "list" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50",
+            )}
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
 
-      {/* Product Grid */}
-      {paginatedProducts.length > 0 ? (
-        <motion.div variants={fadeUp} custom={2} initial="hidden" animate="visible"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {paginatedProducts.map((product, i) => (
-            <motion.div key={product._id}
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col h-full">
-              <div className="relative pt-[100%] bg-gray-50">
-                <img
-                  className="absolute inset-0 w-full h-full object-cover"
-                  src={product.image || '/placeholder-product.png'}
-                  alt={product.title}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/placeholder-product.png';
-                  }}
-                />
-              </div>
-              <div className="p-4 flex flex-col flex-grow">
-                <div className="mb-2">
-                  <span className="text-xs font-medium text-accent uppercase tracking-wider">
-                    {product.category || 'Uncategorized'}
-                  </span>
-                  <h3 className="text-base font-semibold text-gray-900 line-clamp-1 mb-1">
-                    {product.title}
-                  </h3>
-                  {product.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2 h-10">
-                      {product.description}
-                    </p>
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        {paginated.length === 0 ? (
+          <motion.div
+            key="empty"
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="border border-gray-100 bg-white p-12 text-center shadow-sm"
+          >
+          <Package className="mx-auto mb-3 h-10 w-10 text-text-muted" />
+          <p className="text-text-muted">
+            {products.length === 0
+              ? 'No products yet. Click "Add product" to get started.'
+              : "No products match your filters."}
+          </p>
+          </motion.div>
+        ) : view === "grid" ? (
+          <motion.div
+            key={`grid-${currentPage}`}
+            variants={gridContainer}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
+          {paginated.map((p) => (
+            <motion.div
+              key={p._id}
+              variants={cardVariants}
+              className="group flex flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+            >
+              <div className="relative h-40 shrink-0 overflow-hidden bg-gray-50">
+                <ProductImage src={p.image} alt={p.title} />
+                <span
+                  className={cn(
+                    "absolute left-1.5 top-1.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white",
+                    p.isActive ? "bg-accent" : "bg-gray-900/70",
                   )}
-                </div>
-
-                <div className="mt-auto pt-3 border-t border-gray-100">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-gray-900">
-                      ${product.price?.toFixed(2) || '0.00'}
-                    </span>
-                    <div className="flex space-x-1">
-                      <Link
-                        to={`/admin/products/edit/${product._id}`}
-                        className="p-2 rounded-lg text-gray-400 hover:text-accent hover:bg-accent/5 transition-colors"
-                        title="Edit"
-                      >
-                        <FaEdit className="w-4 h-4" />
-                      </Link>
-                      <button
-                        onClick={() => setDeleteModal(product._id)}
-                        className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        title="Delete"
-                      >
-                        <FaTrash className="w-4 h-4" />
-                      </button>
-                    </div>
+                >
+                  {p.isActive ? "Active" : "Hidden"}
+                </span>
+              </div>
+              <div className="flex flex-1 flex-col p-2.5">
+                <span className="block h-3.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-accent">
+                  {cap(p.category) || "—"}
+                </span>
+                <h3 className="mt-1 line-clamp-1 text-[13px] font-semibold leading-tight text-primary">
+                  {p.title}
+                </h3>
+                <p className="mt-1 line-clamp-2 min-h-[30px] text-[11px] leading-snug text-text-muted">
+                  {p.description || "No description"}
+                </p>
+                <div className="mt-auto flex items-center justify-between pt-2.5">
+                  <span className="text-sm font-bold text-primary">{money(p.price)}</span>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleActive(p)}
+                      disabled={togglingId === p._id}
+                      title={p.isActive ? "Hide from shop" : "Show in shop"}
+                      className="grid h-7 w-7 place-items-center text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-50"
+                    >
+                      {togglingId === p._id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : p.isActive ? (
+                        <Eye className="h-3.5 w-3.5" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <Link
+                      to={`/admin/products/edit/${p._id}`}
+                      state={{ product: p }}
+                      title="Edit"
+                      className="grid h-7 w-7 place-items-center text-gray-400 transition-colors hover:bg-accent/5 hover:text-accent"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(p)}
+                      title="Delete"
+                      className="grid h-7 w-7 place-items-center text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
             </motion.div>
           ))}
-        </motion.div>
-      ) : (
-        <motion.div variants={fadeUp} custom={2} initial="hidden" animate="visible"
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-          <Package className="w-10 h-10 mx-auto mb-3 text-text-muted" />
-          <p className="text-text-muted">
-            {products.length === 0
-              ? 'No products yet. Click "Add Product" to get started.'
-              : 'No matching products found.'}
-          </p>
-        </motion.div>
-      )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`list-${currentPage}`}
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="overflow-hidden border border-gray-100 bg-white shadow-sm"
+          >
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <motion.tbody variants={listContainer}>
+                {paginated.map((p) => (
+                  <motion.tr key={p._id} variants={rowVariants} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 shrink-0 overflow-hidden bg-gray-100">
+                          <ProductImage src={p.image} alt="" compact />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-primary">{p.title}</p>
+                          <p className="max-w-[320px] truncate text-xs text-text-muted">{p.description}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-text-muted">{cap(p.category) || "—"}</td>
+                    <td className="px-4 py-2.5 font-semibold text-primary">{money(p.price)}</td>
+                    <td className="px-4 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleActive(p)}
+                        disabled={togglingId === p._id}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold transition-colors",
+                          p.isActive ? "bg-accent/10 text-accent" : "bg-gray-100 text-gray-500",
+                        )}
+                      >
+                        {togglingId === p._id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : p.isActive ? (
+                          <Eye className="h-3 w-3" />
+                        ) : (
+                          <EyeOff className="h-3 w-3" />
+                        )}
+                        {p.isActive ? "Active" : "Hidden"}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          to={`/admin/products/edit/${p._id}`}
+                          state={{ product: p }}
+                          className="grid h-8 w-8 place-items-center text-gray-400 transition-colors hover:bg-accent/5 hover:text-accent"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(p)}
+                          className="grid h-8 w-8 place-items-center text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </motion.tbody>
+            </table>
+          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <motion.div variants={fadeUp} custom={3} initial="hidden" animate="visible"
-          className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+        <div className="flex items-center justify-between border border-gray-100 bg-white px-4 py-3 shadow-sm">
           <span className="text-xs text-text-muted">
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length}
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+            {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
           </span>
           <div className="flex items-center gap-1">
             <button
+              type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
+                type="button"
                 onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                  currentPage === page
-                    ? 'bg-accent text-white'
-                    : 'text-text-muted hover:bg-gray-100'
-                }`}
+                className={cn(
+                  "h-8 w-8 text-xs font-medium transition-colors",
+                  currentPage === page ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100",
+                )}
               >
                 {page}
               </button>
             ))}
             <button
+              type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-        </motion.div>
+        </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete confirmation */}
+      <Portal>
       <AnimatePresence>
-        {deleteModal && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteModal(null)} />
-            <motion.div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center"
-              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
-              <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaTrash className="w-5 h-5 text-red-500" />
+        {deleteTarget && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => !deleting && setDeleteTarget(null)}
+            />
+            <motion.div
+              className="relative w-full max-w-sm border border-gray-100 bg-white p-6 text-center shadow-2xl"
+              initial={{ scale: 0.96, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 16 }}
+            >
+              <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-red-50">
+                <Trash2 className="h-5 w-5 text-red-500" />
               </div>
-              <h3 className="text-base font-semibold text-primary mb-1">Delete Product?</h3>
-              <p className="text-sm text-text-muted mb-5">This action cannot be undone.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setDeleteModal(null)}
-                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium">Cancel</button>
-                <button onClick={() => handleDelete(deleteModal)}
-                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600">Delete</button>
+              <h3 className="text-base font-semibold text-primary">Delete “{deleteTarget.title}”?</h3>
+              <p className="mt-1 text-sm text-text-muted">
+                This permanently removes the product. This can't be undone.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={deleting}
+                  className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex flex-1 items-center justify-center gap-2 bg-red-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Delete
+                </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+      </Portal>
+    </div>
   );
 };
 

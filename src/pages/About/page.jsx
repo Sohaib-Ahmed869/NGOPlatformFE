@@ -4,43 +4,54 @@ import NewsletterSection from "../Home/Newsletter/newsletter";
 import { useNavigate } from "react-router-dom";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 const IMAGE_VISION = "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=400&h=400&fit=crop&q=80"; // volunteer,team
 const IMAGE_LEADERSHIP = "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?w=400&h=400&fit=crop&q=80"; // nonprofit,people
 const IMAGE_PARTNERS = "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&h=400&fit=crop&q=80"; // community,help
 const IMAGE_IMPACT = "https://images.unsplash.com/photo-1526958097901-5e6d742d3371?w=400&h=400&fit=crop&q=80"; // impact,global
 
+const DEFAULT_CARDS = [
+  {
+    title: "Our Vision & Mission",
+    description:
+      "We are committed to serving underprivileged communities. Our vision and mission guide everything we do, ensuring meaningful and lasting impact.",
+    image: IMAGE_VISION,
+    link: "/about-us",
+  },
+  {
+    title: "Our Leadership",
+    description:
+      "Meet the dedicated team behind our vision. Our leadership brings together diverse expertise and a shared passion for driving positive change.",
+    image: IMAGE_LEADERSHIP,
+    link: "/about-us",
+  },
+  {
+    title: "Our Partners",
+    description:
+      "Collaboration is at the heart of our success. We proudly work with organizations and individuals who share our mission to amplify our impact.",
+    image: IMAGE_PARTNERS,
+    link: "/our-partners",
+  },
+  {
+    title: "Our Impact",
+    description:
+      "Explore how we are empowering communities and creating sustainable solutions for a better tomorrow.",
+    image: IMAGE_IMPACT,
+    link: "/about-us",
+  },
+];
+
 const AboutSection = () => {
-  const aboutCards = [
-    {
-      title: "Our Vision & Mission",
-      description:
-        "We are committed to serving underprivileged communities. Our vision and mission guide everything we do, ensuring meaningful and lasting impact.",
-      image: IMAGE_VISION,
-      link: "/about-us",
-    },
-    {
-      title: "Our Leadership",
-      description:
-        "Meet the dedicated team behind our vision. Our leadership brings together diverse expertise and a shared passion for driving positive change.",
-      image: IMAGE_LEADERSHIP,
-      link: "/about-us",
-    },
-    {
-      title: "Our Partners",
-      description:
-        "Collaboration is at the heart of our success. We proudly work with organizations and individuals who share our mission to amplify our impact.",
-      image: IMAGE_PARTNERS,
-      link: "/our-partners",
-    },
-    {
-      title: "Our Impact",
-      description:
-        "Explore how we are empowering communities and creating sustainable solutions for a better tomorrow.",
-      image: IMAGE_IMPACT,
-      link: "/about-us",
-    },
-  ];
+  const { content } = usePageContent("about");
+  const hero = content?.hero || {};
+  const heroImage =
+    hero.image ||
+    "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1600&q=80";
+  const aboutCards =
+    Array.isArray(content?.cards) && content.cards.length
+      ? content.cards
+      : DEFAULT_CARDS;
 
   const navigate = useNavigate();
 
@@ -53,12 +64,12 @@ const AboutSection = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={heroImage} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">About Us</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Our mission to create lasting change</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "About Us"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Our mission to create lasting change"}</p>
         </div>
       </div>
 

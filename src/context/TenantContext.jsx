@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axiosInstance from "../services/axios";
+import siteService from "../services/site.service";
 import planLimitsConfig from "../config/planLimits";
 
 const TenantContext = createContext(null);
@@ -88,6 +89,41 @@ function applyBrandingCSS(branding) {
   root.style.setProperty("--tenant-accent-light", accentLight);
 }
 
+/**
+ * Apply the tenant's browser-tab identity: the document title and favicon.
+ * - Title: branding.siteTitle, falling back to the org name, then a default.
+ * - Favicon: branding.favicon, unless `faviconUseIcon` is set, in which case the
+ *   collapsed/icon logo is used. Falls back through favicon → iconLogo → existing.
+ */
+function applyTenantHead(branding, orgName) {
+  const title =
+    (branding?.siteTitle && branding.siteTitle.trim()) ||
+    orgName ||
+    "Charity Platform";
+  document.title = title;
+
+  // Favicons sit on a (usually light) browser tab, so prefer the dark icon
+  // variant, then the light icon. A dedicated favicon upload overrides both.
+  const faviconUrl = branding
+    ? branding.faviconUseIcon
+      ? branding.iconLogoDark || branding.iconLogo || branding.favicon
+      : branding.favicon || branding.iconLogoDark || branding.iconLogo
+    : "";
+
+  if (faviconUrl) {
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    // Let the browser infer the type from the URL; clear any stale type so a
+    // PNG/SVG/ICO swap doesn't keep an incorrect MIME hint.
+    link.removeAttribute("type");
+    link.href = faviconUrl;
+  }
+}
+
 export function TenantProvider({ children }) {
   const { tenantMode, slug } = parseTenantFromHostname();
   const [organisation, setOrganisation] = useState(null);
@@ -102,10 +138,18 @@ export function TenantProvider({ children }) {
         .then((res) => {
           setOrganisation(res.data);
           setError(null);
-          // Apply branding CSS vars
+          // Apply branding CSS vars + browser-tab identity (title + favicon)
           if (res.data.branding) {
             applyBrandingCSS(res.data.branding);
           }
+          applyTenantHead(res.data.branding, res.data.name);
+          // Warm the CMS content cache for every enabled page in the background,
+          // so navigating to any page is instant (no loading flash).
+          const pageKeys = (res.data.pages || [])
+            .filter((p) => p.enabled !== false)
+            .map((p) => p.key)
+            .filter(Boolean);
+          siteService.prefetchPages(pageKeys);
         })
         .catch((err) => {
           console.error("Failed to load organisation:", err);
@@ -119,6 +163,14 @@ export function TenantProvider({ children }) {
   const plan = organisation?.plan || null;
   const limits = plan ? planLimitsConfig[plan] : null;
   const branding = organisation?.branding || null;
+  const pages = organisation?.pages || [];
+
+  // Is a given route path an enabled page? Paths not managed by the CMS
+  // (e.g. /login, /checkout) return true so they always render.
+  const isPathEnabled = (path) => {
+    const page = pages.find((p) => p.path === path);
+    return page ? page.enabled : true;
+  };
 
   const value = {
     tenantMode,
@@ -127,6 +179,8 @@ export function TenantProvider({ children }) {
     plan,
     limits,
     branding,
+    pages,
+    isPathEnabled,
     loading,
     error,
   };

@@ -19,6 +19,7 @@ import { CartProvider } from "./pages/Components/cart";
 import Navbar from "./pages/Components/navbar";
 import Footer from "./pages/Components/footer";
 import Cart from "./pages/Components/cart";
+import BackToTop from "./components/BackToTop";
 
 // Public pages
 import Home from "./pages/Home/Home";
@@ -29,6 +30,7 @@ import SignUp from "./pages/Signup/page";
 import ChangePassword from "./pages/Login/change-password";
 import InitiativesSection from "./pages/Initiatives/page";
 import Events from "./pages/Events/page";
+import EventDetailPage from "./pages/Events/EventDetail";
 import IslamicGiving from "./pages/IslamicGivings/page";
 import ZakatCalculator from "./pages/ZakatCalculator/page";
 import RamadanDonations from "./pages/Home/RamdanDonations/page";
@@ -51,9 +53,11 @@ import AdminDashboard from "./Admin/Screens/dashboard";
 import DonationsPage from "./Admin/Screens/donations";
 import DonorsPage from "./Admin/Screens/donors";
 import SubscriptionsPage from "./Admin/Screens/subscriptions";
-import EventsPage from "./Admin/Screens/events";
+import EventsManagement from "./Admin/Screens/Events";
 import AdminLogin from "./pages/AdminLogin/login";
+import Unsubscribe from "./pages/Unsubscribe";
 import JoinTeamAdmin from "./Admin/Screens/joinTeam";
+import VolunteerProfile from "./Admin/Screens/VolunteerProfile";
 import ContactRequestsAdmin from "./Admin/Screens/contacts";
 import ProductsManagement from "./Admin/Screens/Products";
 import NewsletterScreen from "./Admin/Screens/newsletter";
@@ -63,6 +67,7 @@ import AdminInstallments from "./Admin/Screens/installments";
 import DonationTypes from "./Admin/Screens/DonationTypes";
 import BrandingScreen from "./Admin/Screens/Branding";
 import OrganisationSettings from "./Admin/Screens/OrganisationSettings";
+import AdminPages from "./Admin/Screens/Pages";
 
 // User
 import UserLayout from "./User/UserLayout";
@@ -80,6 +85,10 @@ import ProgramsPage from "./pages/Programs/ProgramsPage";
 import ProgramDetailPage from "./pages/Programs/ProgramDetail";
 import ProgramCheckout from "./pages/Programs/ProgramCheckout";
 import AdminPrograms from "./Admin/Screens/Programs";
+import CampaignsPage from "./pages/P2PCampaigns/CampaignsPage";
+import CampaignDetail from "./pages/P2PCampaigns/CampaignDetail";
+import StartFundraiser from "./pages/P2PCampaigns/StartFundraiser";
+import GoFundMeAdmin from "./Admin/Screens/GoFundMe";
 
 // SaaS pages
 import SaaSHome from "./pages/SaaS/SaaSHome";
@@ -102,7 +111,17 @@ import TenantLoader from "./components/TenantLoader";
 
 import { Toaster } from "react-hot-toast";
 
-const P2PCampaigns = () => <div className="p-8">P2P Campaigns Page</div>;
+
+// Redirect to Home if a CMS-managed page has been disabled by the tenant.
+// Paths not managed by the CMS always render (isPathEnabled returns true).
+const PageGate = ({ path, children }) => {
+  const { isPathEnabled } = useTenant();
+  // In the admin live-preview iframe (?preview=1), always render — even disabled
+  // pages — so the editor can preview them.
+  const isPreview = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "1";
+  if (!isPreview && !isPathEnabled(path)) return <Navigate to="/" replace />;
+  return children;
+};
 
 // ============================================================
 // TENANT ROUTES — existing charity portal (runs on org subdomains)
@@ -111,33 +130,37 @@ const TenantRoutes = () => (
   <Routes>
     {/* Public Routes */}
     <Route path="/" element={<Home />} />
-    <Route path="/donate" element={<DonatePage />} />
+    <Route path="/donate" element={<PageGate path="/donate"><DonatePage /></PageGate>} />
     <Route path="/ramadans" element={<Home />} />
     <Route path="/login" element={<Login />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password/:token" element={<ResetPassword />} />
     <Route path="/change-password" element={<ChangePassword />} />
     <Route path="/signup" element={<SignUp />} />
-    <Route path="/our-partners" element={<PartnersSection />} />
-    <Route path="/initiatives" element={<InitiativesSection />} />
-    <Route path="/initiative-1" element={<EducationInitiatives />} />
-    <Route path="/initiative-2" element={<WaterInitiatives />} />
-    <Route path="/initiative-3" element={<FoodInitiatives />} />
-    <Route path="/initiative-4" element={<EmergenciesInitiatives />} />
-    <Route path="/giving" element={<IslamicGiving />} />
-    <Route path="/zakat/calculator" element={<ZakatCalculator />} />
-    <Route path="/Ramadan" element={<RamadanDonations />} />
-    <Route path="/about" element={<AboutSection />} />
-    <Route path="/about-us" element={<AboutUsPage />} />
-    <Route path="/team-hope" element={<Hope />} />
-    <Route path="/events" element={<Events />} />
-    <Route path="/contact-us" element={<Contact />} />
-    <Route path="/p2p-campaigns" element={<P2PCampaigns />} />
+    <Route path="/our-partners" element={<PageGate path="/our-partners"><PartnersSection /></PageGate>} />
+    <Route path="/initiatives" element={<PageGate path="/initiatives"><InitiativesSection /></PageGate>} />
+    <Route path="/initiative-1" element={<PageGate path="/initiative-1"><EducationInitiatives /></PageGate>} />
+    <Route path="/initiative-2" element={<PageGate path="/initiative-2"><WaterInitiatives /></PageGate>} />
+    <Route path="/initiative-3" element={<PageGate path="/initiative-3"><FoodInitiatives /></PageGate>} />
+    <Route path="/initiative-4" element={<PageGate path="/initiative-4"><EmergenciesInitiatives /></PageGate>} />
+    <Route path="/giving" element={<PageGate path="/giving"><IslamicGiving /></PageGate>} />
+    <Route path="/zakat/calculator" element={<PageGate path="/zakat/calculator"><ZakatCalculator /></PageGate>} />
+    <Route path="/Ramadan" element={<PageGate path="/Ramadan"><RamadanDonations /></PageGate>} />
+    <Route path="/about" element={<PageGate path="/about"><AboutSection /></PageGate>} />
+    <Route path="/about-us" element={<PageGate path="/about-us"><AboutUsPage /></PageGate>} />
+    <Route path="/team-hope" element={<PageGate path="/team-hope"><Hope /></PageGate>} />
+    <Route path="/events" element={<PageGate path="/events"><Events /></PageGate>} />
+    <Route path="/events/:id" element={<EventDetailPage />} />
+    <Route path="/contact-us" element={<PageGate path="/contact-us"><Contact /></PageGate>} />
+    <Route path="/p2p-campaigns" element={<PageGate path="/p2p-campaigns"><CampaignsPage /></PageGate>} />
+    <Route path="/p2p-campaigns/start" element={<ProtectedRoute><StartFundraiser /></ProtectedRoute>} />
+    <Route path="/p2p-campaigns/:slug" element={<CampaignDetail />} />
     <Route path="/checkout" element={<UnifiedCheckout />} />
     <Route path="/order-confirmation" element={<OrderConfirmation />} />
-    <Route path="/programs" element={<ProgramsPage />} />
+    <Route path="/programs" element={<PageGate path="/programs"><ProgramsPage /></PageGate>} />
     <Route path="/programs/:id" element={<ProgramDetailPage />} />
     <Route path="/program-checkout" element={<ProgramCheckout />} />
+    <Route path="/unsubscribe" element={<Unsubscribe />} />
 
     {/* Admin Routes */}
     <Route path="/admin/login" element={<AdminLogin />} />
@@ -148,8 +171,9 @@ const TenantRoutes = () => (
       <Route path="donors" element={<DonorsPage />} />
       <Route path="subscriptions" element={<SubscriptionsPage />} />
       <Route path="installments" element={<AdminInstallments />} />
-      <Route path="events" element={<EventsPage />} />
+      <Route path="events/*" element={<EventsManagement />} />
       <Route path="volunteers" element={<JoinTeamAdmin />} />
+      <Route path="volunteers/:id" element={<VolunteerProfile />} />
       <Route path="contacts" element={<ContactRequestsAdmin />} />
       <Route path="newsletter" element={<NewsletterScreen />} />
       <Route path="profile" element={<ProfileSetting />} />
@@ -159,6 +183,10 @@ const TenantRoutes = () => (
       />
       <Route path="products/*" element={<ProductsManagement />} />
       <Route path="programs" element={<AdminPrograms />} />
+      <Route path="p2p-campaigns" element={<GoFundMeAdmin />} />
+      <Route path="pages" element={<AdminPages />} />
+      {/* Payments moved into Organisation Settings → Payments tab */}
+      <Route path="payments" element={<Navigate to="/admin/settings?tab=payments" replace />} />
       <Route path="branding" element={<BrandingScreen />} />
       <Route path="settings" element={<OrganisationSettings />} />
     </Route>
@@ -293,6 +321,7 @@ const AppLayout = ({ children }) => {
       {needsSpacer && <div className="h-16" />}
       {children}
       <Footer />
+      <BackToTop />
     </>
   );
 };
@@ -352,11 +381,35 @@ function AppInner() {
     <LoaderContext.Provider value={{ loaderDone }}>
       <Toaster
         position="top-right"
+        gutter={10}
         toastOptions={{
-          duration: 2000,
-          style: { background: "#333", color: "#fff" },
-          success: { style: { background: "#22c55e" } },
-          error: { style: { background: "#ef4444" } },
+          duration: 3000,
+          // Clean surface card with a thin status accent-bar on the left and a
+          // coloured status icon (Sonner/Linear style). The default/info bar
+          // follows the tenant accent; success/error keep the universal colours.
+          style: {
+            background: "#ffffff",
+            color: "#1f2937",
+            borderRadius: "12px",
+            borderLeft: "4px solid var(--tenant-accent, #C9A84C)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06)",
+            padding: "12px 16px",
+            fontSize: "14px",
+            fontWeight: 500,
+            maxWidth: "400px",
+          },
+          success: {
+            iconTheme: { primary: "#16a34a", secondary: "#ffffff" },
+            style: { borderLeft: "4px solid #16a34a" },
+          },
+          error: {
+            iconTheme: { primary: "#ef4444", secondary: "#ffffff" },
+            style: { borderLeft: "4px solid #ef4444" },
+          },
+          loading: {
+            iconTheme: { primary: "var(--tenant-accent, #C9A84C)", secondary: "#ffffff" },
+            style: { borderLeft: "4px solid var(--tenant-accent, #C9A84C)" },
+          },
         }}
       />
       <AppLayout>

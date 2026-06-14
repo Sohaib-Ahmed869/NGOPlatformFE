@@ -3,12 +3,15 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { sectionReveal } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 const zakatmain = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=600&q=80";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 
 const ZakatCalculator = () => {
   const navigate = useNavigate();
+  const { content } = usePageContent("zakat");
+  const hero = content?.hero || {};
   const [formData, setFormData] = useState({
     cashInHand: "",
     goldValue: "",
@@ -108,12 +111,12 @@ const ZakatCalculator = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Zakat Calculator</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Calculate your Zakat obligation</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Zakat Calculator"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Calculate your Zakat obligation"}</p>
         </div>
       </div>
 

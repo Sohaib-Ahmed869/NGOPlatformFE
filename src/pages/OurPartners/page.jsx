@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 // Placeholder partner images (nonprofit / charity themed)
 const logo1 = "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=300&q=80";
@@ -19,7 +20,9 @@ const logo11 = "https://images.unsplash.com/photo-1578357078586-491adf1aa5ba?w=3
 const logo12 = "https://images.unsplash.com/photo-1526958097901-5e6d742d3371?w=300&q=80";
 
 const PartnersSection = () => {
-  const partners = [
+  const { content } = usePageContent("partners");
+  const hero = content?.hero || {};
+  const defaultPartners = [
     { logo: logo1, name: "Community Aid Network" },
     { logo: logo2, name: "Bright Futures Foundation" },
     { logo: logo3, name: "Unity Education Trust" },
@@ -33,24 +36,25 @@ const PartnersSection = () => {
     { logo: logo11, name: "Brothers in Need" },
     { logo: logo12, name: "Multicultural Community Group" },
   ];
+  const partners = content?.partners?.length ? content.partners : defaultPartners;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1552664730-d307ca884978?w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Our Partners</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Organizations making change together</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Our Partners"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Organizations making change together"}</p>
         </div>
       </div>
 
       <motion.div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20" {...sectionReveal}>
-        <p className="text-sm mb-2">About Us</p>
+        <p className="text-sm mb-2">{content?.introLabel ?? "About Us"}</p>
         <h2 className="text-4xl font-bold mb-16">
-          We are proudly partnered with
+          {content?.introHeading ?? "We are proudly partnered with"}
         </h2>
 
         <motion.div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-12" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>

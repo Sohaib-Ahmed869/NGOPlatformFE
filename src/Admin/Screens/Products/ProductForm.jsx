@@ -1,354 +1,409 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { getProductById, createProduct, updateProduct } from '../../../services/productService';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import Portal from "../../../components/Portal";
+import { toast } from "react-hot-toast";
+import { ArrowLeft, UploadCloud, X, Loader2, Check, Package, Trash2 } from "lucide-react";
+import {
+  getProductById,
+  getCachedAdminProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getCategories,
+} from "../../../services/productService";
+import { TabLoader } from "../../../components/TabLoader";
+import { CustomSelect } from "../../../components/CustomSelect";
+import { cn } from "../../../utils/cn";
 
-const ProductForm = () => {
+const DEFAULT_CATEGORIES = ["education", "food", "emergencies", "water"];
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// Match the profile/settings underline "line" field aesthetic.
+const labelCls = "mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500";
+const lineInput =
+  "w-full border-b border-gray-200 bg-transparent py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-accent";
+
+export default function ProductForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isEditMode = Boolean(id);
-  
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    category: 'education',
-    isActive: true,
+  const location = useLocation();
+  const isEdit = Boolean(id);
+  const fileRef = useRef(null);
+
+  // Seed from data handed over by the list (router state) or the session cache
+  // so a normal "Edit" click renders instantly with NO network call.
+  const preset = isEdit ? location.state?.product || getCachedAdminProduct(id) : null;
+  const toForm = (p) => ({
+    title: p?.title || "",
+    description: p?.description || "",
+    price: p?.price ?? "",
+    category: p?.category || "education",
+    isActive: p ? p.isActive !== false : true,
   });
-  const [imagePreview, setImagePreview] = useState('');
+
+  const [form, setForm] = useState(() => toForm(preset));
+  const [imagePreview, setImagePreview] = useState(preset?.image || "");
   const [imageFile, setImageFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState([
-    'education',
-    'food',
-    'emergencies',
-    'water',
-    
-  ]);
+  const [loading, setLoading] = useState(isEdit && !preset);
+  const [saving, setSaving] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (isEditMode) {
-      fetchProduct();
-    }
-  }, [id, isEditMode]);
+    getCategories()
+      .then((d) => {
+        if (d.categories?.length) setCategories(d.categories);
+      })
+      .catch(() => {});
+    // Only deep-links / hard refreshes (no preset) need to fetch from the API.
+    if (isEdit && !preset) fetchProduct();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const fetchProduct = async () => {
     try {
       setLoading(true);
-      const response = await getProductById(id);
-      const { title, description, price, category, image, isActive } = response.product;
-      
-      setFormData({
-        title,
-        description,
-        price,
-        category,
-        isActive
-      });
-      
-      if (image) {
-        setImagePreview(image.includes('http') ? image : `${process.env.REACT_APP_API_URL}${image}`);
-      }
-    } catch (error) {
-      console.error('Error fetching product:', error);
-      toast.error(error.response?.data?.message || 'Failed to load product data');
-      navigate('/admin/products');
+      const res = await getProductById(id);
+      setForm(toForm(res.product));
+      if (res.product.image) setImagePreview(res.product.image);
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Failed to load product");
+      navigate("/admin/products");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteProduct(id);
+      toast.success("Product deleted");
+      navigate("/admin/products");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Failed to delete product");
+      setDeleting(false);
+    }
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+  const set = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
+
+  const pickImage = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Please choose an image file");
+    if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5MB");
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.title || !formData.description || !formData.price || !formData.category) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    if (!form.title || !form.description || !form.price || !form.category)
+      return toast.error("Please fill all required fields");
+    if (!isEdit && !imageFile) return toast.error("Please upload a product image");
 
-    if (!isEditMode && !imageFile) {
-      toast.error('Please upload an image');
-      return;
-    }
-
-    setLoading(true);
-    
+    setSaving(true);
     try {
-      setLoading(true);
-      
-      const productData = {
-        ...formData,
-        price: parseFloat(formData.price),
-        image: imageFile || (isEditMode ? undefined : null),
+      const payload = {
+        ...form,
+        price: parseFloat(form.price),
+        image: imageFile || (isEdit ? undefined : null),
       };
-
-      if (isEditMode) {
-        await updateProduct(id, productData);
-        toast.success('Product updated successfully');
+      if (isEdit) {
+        await updateProduct(id, payload);
+        toast.success("Product updated");
       } else {
-        await createProduct(productData);
-        toast.success('Product created successfully');
+        await createProduct(payload);
+        toast.success("Product created");
       }
-      
-      navigate('/admin/products');
-    } catch (error) {
-      console.error('Error saving product:', error);
-      toast.error(`Failed to ${isEditMode ? 'update' : 'create'} product`);
+      navigate("/admin/products");
+    } catch (e) {
+      toast.error(e.response?.data?.message || `Failed to ${isEdit ? "update" : "create"} product`);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <TabLoader label="Loading product…" />
+      </div>
+    );
+  }
+
   return (
-    <div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen">
-      <div>
-        <h1 className="text-2xl font-heading font-bold text-primary">
-          {isEditMode ? 'Edit Product' : 'Add New Product'}
-        </h1>
-        <nav className="flex mt-1" aria-label="Breadcrumb">
-          <ol className="inline-flex items-center space-x-1">
-            <li className="inline-flex items-center">
-              <Link to="/admin/dashboard" className="text-sm text-accent hover:text-accent/80 transition-colors">
-                Dashboard
-              </Link>
-            </li>
-            <li>
-              <div className="flex items-center">
-                <svg className="w-4 h-4 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path>
-                </svg>
-                <Link to="/admin/products" className="text-sm text-accent hover:text-accent/80 transition-colors">
-                  Products
-                </Link>
-              </div>
-            </li>
-            <li aria-current="page">
-              <div className="flex items-center">
-                <svg className="w-4 h-4 text-gray-400 mx-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path>
-                </svg>
-                <span className="text-sm text-gray-500">
-                  {isEditMode ? 'Edit' : 'Add New'}
-                </span>
-              </div>
-            </li>
-          </ol>
-        </nav>
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Link
+          to="/admin/products"
+          className="grid h-9 w-9 shrink-0 place-items-center border border-gray-200 text-text-muted transition-colors hover:bg-gray-50 hover:text-primary"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-primary">{isEdit ? "Edit product" : "Add product"}</h1>
+          <p className="text-sm text-text-muted">
+            {isEdit ? "Update the details of this product." : "Add a new item to your shop."}
+          </p>
+        </div>
+        {isEdit && (
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="ml-auto inline-flex items-center gap-2 border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          >
+            <Trash2 className="h-4 w-4" /> Delete
+          </button>
+        )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-5">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-primary mb-1.5">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
-                  placeholder="Enter product title"
-                  required
-                />
-              </div>
+      <form onSubmit={handleSubmit}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Left: fields */}
+          <div className="space-y-7 border border-gray-100 bg-white p-6 shadow-sm">
+            <div>
+              <label className={labelCls}>Title</label>
+              <input
+                value={form.title}
+                onChange={(e) => set("title", e.target.value)}
+                className={lineInput}
+                placeholder="e.g., Education Pack"
+                required
+              />
+            </div>
 
-              <div>
-                <label htmlFor="description" className="block text-sm font-medium text-primary mb-1.5">
-                  Description <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  rows={4}
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all resize-none"
-                  placeholder="Enter product description"
-                  required
-                />
-              </div>
+            <div>
+              <label className={labelCls}>Description</label>
+              <textarea
+                rows={4}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                className={cn(lineInput, "resize-none")}
+                placeholder="Describe the product…"
+                required
+              />
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="price" className="block text-sm font-medium text-primary mb-1.5">
-                    Price ($) <span className="text-red-500">*</span>
-                  </label>
+            <div className="grid grid-cols-1 gap-7 sm:grid-cols-2">
+              <div>
+                <label className={labelCls}>Price (USD)</label>
+                <div className="flex items-center border-b border-gray-200 transition-colors focus-within:border-accent">
+                  <span className="text-sm text-gray-400">$</span>
                   <input
                     type="number"
-                    id="price"
-                    name="price"
                     min="0"
                     step="0.01"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
+                    value={form.price}
+                    onChange={(e) => set("price", e.target.value)}
+                    className="w-full bg-transparent py-2.5 pl-1.5 text-sm text-gray-800 outline-none placeholder:text-gray-400"
                     placeholder="0.00"
                     required
                   />
                 </div>
-
-                <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-primary mb-1.5">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="category"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all"
-                    required
-                  >
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category.charAt(0).toUpperCase() + category.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleInputChange}
-                  className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
-                />
-                <label htmlFor="isActive" className="ml-2 block text-sm text-gray-700">
-                  Active (Visible to customers)
-                </label>
-              </div>
-            </div>
-
-            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-primary mb-1.5">
-                  Product Image {!isEditMode && <span className="text-red-500">*</span>}
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-xl hover:border-accent/40 transition-colors">
-                  <div className="flex justify-center px-6 pt-5 pb-6">
-                    <div className="space-y-1 text-center">
-                      {imagePreview ? (
-                        <div className="relative">
-                          <img
-                            src={imagePreview}
-                            alt="Preview"
-                            className="mx-auto h-48 w-auto object-cover rounded-xl"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setImagePreview('');
-                              setImageFile(null);
-                            }}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <svg
-                            className="mx-auto h-12 w-12 text-gray-400"
-                            stroke="currentColor"
-                            fill="none"
-                            viewBox="0 0 48 48"
-                            aria-hidden="true"
-                          >
-                            <path
-                              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <div className="flex text-sm text-gray-600">
-                            <label
-                              htmlFor="file-upload"
-                              className="relative cursor-pointer rounded-xl font-medium text-accent hover:text-accent/80 transition-colors"
-                            >
-                              <span>Upload a file</span>
-                              <input
-                                id="file-upload"
-                                name="file-upload"
-                                type="file"
-                                className="sr-only"
-                                accept="image/*"
-                                onChange={handleImageChange}
-                              />
-                            </label>
-                            <p className="pl-1">or drag and drop</p>
-                          </div>
-                          <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
-                        </>
-                      )}
+                <label className={labelCls}>Category</label>
+                <CustomSelect
+                  variant="line"
+                  className="w-full"
+                  value={form.category}
+                  onChange={(v) => set("category", v)}
+                  options={categories.map((c) => ({ value: c, label: cap(c) }))}
+                  placeholder="Select a category"
+                />
+              </div>
+            </div>
+
+            {/* Active toggle */}
+            <div className="flex items-center justify-between border border-gray-100 bg-gray-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-primary">Visible in shop</p>
+                <p className="text-xs text-text-muted">Active products are shown to donors and customers.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.isActive}
+                onClick={() => set("isActive", !form.isActive)}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
+                  form.isActive ? "bg-accent" : "bg-gray-300",
+                )}
+              >
+                <span
+                  className="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+                  style={{ transform: form.isActive ? "translateX(22px)" : "translateX(2px)" }}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Right: image + live preview */}
+          <div className="space-y-6">
+            <div className="border border-gray-100 bg-white p-5 shadow-sm">
+              <label className={labelCls}>Product image {!isEdit && <span className="text-accent">· required</span>}</label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileRef.current?.click()}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDrag(true);
+                }}
+                onDragLeave={() => setDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDrag(false);
+                  pickImage(e.dataTransfer.files?.[0]);
+                }}
+                className={cn(
+                  "group relative grid h-52 cursor-pointer place-items-center overflow-hidden border-2 border-dashed transition-colors",
+                  drag ? "border-accent bg-accent/5" : "border-gray-200 bg-gray-50 hover:border-accent/60",
+                )}
+              >
+                {imagePreview ? (
+                  <>
+                    <img src={imagePreview} alt="preview" className="h-full w-full object-contain p-2" />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImagePreview("");
+                        setImageFile(null);
+                      }}
+                      className="absolute right-2 top-2 grid h-7 w-7 place-items-center bg-black/50 text-white transition-colors hover:bg-black/70"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="absolute inset-0 hidden items-center justify-center gap-1.5 bg-black/40 text-white group-hover:flex">
+                      <UploadCloud className="h-4 w-4" /> <span className="text-xs font-medium">Replace</span>
                     </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 px-4 text-center">
+                    <div className="grid h-10 w-10 place-items-center rounded-full bg-white text-accent shadow-sm ring-1 ring-gray-100">
+                      <UploadCloud className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-medium text-primary">Click or drag &amp; drop</p>
+                    <p className="text-xs text-text-muted">PNG, JPG or WebP, up to 5MB</p>
                   </div>
+                )}
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  pickImage(e.target.files?.[0]);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              />
+            </div>
+
+            {/* Live shop preview */}
+            <div className="border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Shop preview</p>
+              <div className="overflow-hidden border border-gray-100">
+                <div className="aspect-[4/3] bg-gray-50">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full place-items-center text-gray-300">
+                      <Package className="h-8 w-8" />
+                    </div>
+                  )}
+                </div>
+                <div className="p-2.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent">{cap(form.category)}</span>
+                  <h3 className="line-clamp-1 text-[13px] font-semibold text-primary">{form.title || "Product title"}</h3>
+                  <p className="mt-1 text-sm font-bold text-primary">
+                    {form.price ? `$${Number(form.price).toFixed(2)}` : "$0.00"}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="mt-8 pt-5 border-t border-gray-100 flex gap-3 justify-end">
-            <Link
-              to="/admin/products"
-              className="py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        {/* Footer actions */}
+        <div className="mt-6 flex justify-end gap-3">
+          <Link
+            to="/admin/products"
+            className="inline-flex items-center border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            {saving ? (isEdit ? "Updating…" : "Creating…") : isEdit ? "Update product" : "Create product"}
+          </button>
+        </div>
+      </form>
+
+      {/* Delete confirmation */}
+      <Portal>
+      <AnimatePresence>
+        {deleteOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => !deleting && setDeleteOpen(false)}
+            />
+            <motion.div
+              className="relative w-full max-w-sm border border-gray-100 bg-white p-6 text-center shadow-2xl"
+              initial={{ scale: 0.96, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 16 }}
             >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center justify-center py-2.5 px-4 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {isEditMode ? 'Updating...' : 'Creating...'}
-                </>
-              ) : isEditMode ? (
-                'Update Product'
-              ) : (
-                'Create Product'
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
+              <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-red-50">
+                <Trash2 className="h-5 w-5 text-red-500" />
+              </div>
+              <h3 className="text-base font-semibold text-primary">Delete “{form.title || "this product"}”?</h3>
+              <p className="mt-1 text-sm text-text-muted">
+                This permanently removes the product. This can't be undone.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={deleting}
+                  className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="inline-flex flex-1 items-center justify-center gap-2 bg-red-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </Portal>
     </div>
   );
-};
-
-export default ProductForm;
+}

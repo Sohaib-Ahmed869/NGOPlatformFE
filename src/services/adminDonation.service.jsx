@@ -1,5 +1,18 @@
 import axios from "./axios";
 const API_URL = "/admin/orders";
+
+// ---------------------------------------------------------------------------
+// Default-load caches — instant first paint on revisit.
+// Only the DEFAULT (page 1, no filters) loads are cached; filtered / paginated
+// loads always fetch fresh and never read or write these.
+// ---------------------------------------------------------------------------
+let _donationsDefaultCache = null;    // default donations table list { donations, pagination }
+let _donationsInFlight = null;
+let _donationsBundleCache = null;     // donations screen initial bundle (raw responses)
+let _donationsBundleInFlight = null;
+let _installmentsCache = null;        // installments screen default load (raw getDonations resp)
+let _installmentsInFlight = null;
+
 class AdminDonationService {
   // Get dashboard statistics
   async getDashboardStats() {
@@ -174,6 +187,122 @@ async getAllDonations(params = {}) {
       console.error(`Error fetching donations for user ${userId}:`, error);
       throw error;
     }
+  }
+
+  // ---- Donations list (table) default cache ------------------------------
+  // Sync peek used to seed the screen instantly on revisit (null if not loaded).
+  getCachedDonations() {
+    return _donationsDefaultCache;
+  }
+
+  // "Default" for the donations table = page 1, no search, status "All",
+  // type "All", default sort (createdAt / desc), default page size.
+  _isDefaultDonationsParams(params = {}) {
+    const page = params.page == null ? 1 : Number(params.page);
+    const search = params.search ?? "";
+    const status = params.status;
+    const type = params.type;
+    const sortBy = params.sortBy ?? "createdAt";
+    const sortOrder = params.sortOrder ?? "desc";
+    const limit = params.limit;
+    return (
+      page === 1 &&
+      !search &&
+      (status == null || status === "" || status === "All") &&
+      (type == null || type === "" || type === "All") &&
+      sortBy === "createdAt" &&
+      sortOrder === "desc" &&
+      (limit == null || Number(limit) === 10)
+    );
+  }
+
+  // Cached wrapper around getDonations: caches ONLY the default load; any
+  // filtered / paginated params always fetch fresh and bypass the cache.
+  async getDonationsCached(params = {}, { force = false } = {}) {
+    const isDefault = this._isDefaultDonationsParams(params);
+    if (isDefault && _donationsDefaultCache && !force) return _donationsDefaultCache;
+    if (isDefault && _donationsInFlight && !force) return _donationsInFlight;
+    const p = this.getDonations(params);
+    if (isDefault) {
+      _donationsInFlight = p
+        .then((r) => { _donationsDefaultCache = r; _donationsInFlight = null; return r; })
+        .catch((e) => { _donationsInFlight = null; throw e; });
+      return _donationsInFlight;
+    }
+    return p;
+  }
+
+  // ---- Donations screen initial bundle cache -----------------------------
+  // Sync peek of the full first-paint payload (null if not loaded).
+  getCachedDonationsBundle() {
+    return _donationsBundleCache;
+  }
+
+  // Fetches every call the donations screen needs for its initial paint and
+  // caches the raw responses so a revisit can render instantly without a loader.
+  async getDonationsBundle({ sortBy = "createdAt", sortOrder = "desc" } = {}, { force = false } = {}) {
+    if (_donationsBundleCache && !force) return _donationsBundleCache;
+    if (_donationsBundleInFlight && !force) return _donationsBundleInFlight;
+    const work = (async () => {
+      const [stats, topDonors, donorStatsRes, listResp, allResp, countsResp] = await Promise.all([
+        this.getDashboardStats(),
+        this.getTopDonors(),
+        axios.get("/admin/donors/dashboard/stats"),
+        this.getDonations({ page: 1, limit: 10, sortBy, sortOrder }),
+        this.getAllDonations({ sortBy, sortOrder }),
+        this.getDonations({ page: 1, limit: 10000, sortBy, sortOrder }),
+      ]);
+      // Seed the table default cache so the first table render is instant too.
+      _donationsDefaultCache = listResp;
+      return {
+        stats,
+        topDonors,
+        donorStats: donorStatsRes?.data?.data?.stats || null,
+        list: listResp,
+        allDonations: allResp,
+        countsResponse: countsResp,
+      };
+    })();
+    _donationsBundleInFlight = work
+      .then((r) => { _donationsBundleCache = r; _donationsBundleInFlight = null; return r; })
+      .catch((e) => { _donationsBundleInFlight = null; throw e; });
+    return _donationsBundleInFlight;
+  }
+
+  // Drop every cached donations / installments default so the next default load
+  // refetches. Call after any mutation (status update, donor update, …).
+  invalidateDonationsCache() {
+    _donationsDefaultCache = null;
+    _donationsInFlight = null;
+    _donationsBundleCache = null;
+    _donationsBundleInFlight = null;
+    _installmentsCache = null;
+    _installmentsInFlight = null;
+  }
+
+  // ---- Installments screen default cache ---------------------------------
+  // Sync peek used to seed the installments screen instantly (null if unloaded).
+  getCachedInstallments() {
+    return _installmentsCache;
+  }
+
+  // The installments screen always loads the same default page (page 1, no
+  // search, status "all") and filters client-side; cache that single load.
+  async getInstallmentsCached(params = {}, { force = false } = {}) {
+    const isDefault =
+      (params.page == null || Number(params.page) === 1) &&
+      !params.search &&
+      (params.status == null || params.status === "" || params.status === "all");
+    if (isDefault && _installmentsCache && !force) return _installmentsCache;
+    if (isDefault && _installmentsInFlight && !force) return _installmentsInFlight;
+    const p = this.getDonations(params);
+    if (isDefault) {
+      _installmentsInFlight = p
+        .then((r) => { _installmentsCache = r; _installmentsInFlight = null; return r; })
+        .catch((e) => { _installmentsInFlight = null; throw e; });
+      return _installmentsInFlight;
+    }
+    return p;
   }
 }
 

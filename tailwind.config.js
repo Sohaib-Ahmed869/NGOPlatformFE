@@ -3,6 +3,10 @@ import typography from '@tailwindcss/typography';
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  // Dark variant is scoped to the admin shell only (the public site / SaaS /
+  // super-admin are unaffected). `dark:` utilities apply inside any element
+  // carrying data-admin-theme="dark".
+  darkMode: ["selector", '[data-admin-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {

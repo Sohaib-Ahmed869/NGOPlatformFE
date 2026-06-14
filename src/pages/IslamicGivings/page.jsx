@@ -4,8 +4,11 @@ import NewsletterSection from "../Home/Newsletter/newsletter";
 import { useNavigate } from "react-router-dom";
 import { staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 const IslamicGiving = () => {
   const navigate = useNavigate();
+  const { content } = usePageContent("giving");
+  const hero = content?.hero || {};
   const givingOptions = [
     {
       icon: (
@@ -47,12 +50,12 @@ const IslamicGiving = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Islamic Giving</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Fulfill your charitable duties</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Islamic Giving"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Fulfill your charitable duties"}</p>
         </div>
       </div>
       <div className="bg-background">

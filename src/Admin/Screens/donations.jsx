@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import Loader from "../../components/Loader";
+import { TabLoader } from "../../components/TabLoader";
+import { withMinDelay } from "../../utils/minDelay";
 import { useTenant } from "../../context/TenantContext";
+import { CustomSelect } from "../../components/CustomSelect";
 import {
   TrendingUp,
   Search,
@@ -53,42 +55,134 @@ function getChartColors() {
   return [a, p, al, "#8B7E6A"];
 }
 
+const DEFAULT_STATS = {
+  totalAmount: 0,
+  averageDonation: 0,
+  recurringDonations: 0,
+  successRate: 0,
+  singleCount: 0,
+  recurringCount: 0,
+  installmentsCount: 0,
+  totalDonationsCount: 0,
+};
+
+const DEFAULT_DONOR_STATS = {
+  totalDonors: 0,
+  totalAmount: 0,
+  averageDonation: 0,
+  recurringDonations: 0,
+};
+
+const DEFAULT_PAGINATION = { total: 0, pages: 0, currentPage: 1 };
+
+// Map a raw donation record to the shape the table renders.
+const mapDonationRow = (donation) => ({
+  id: donation._id,
+  donationId: donation.donationId,
+  donor: donation.donorDetails?.name || "Anonymous",
+  email: donation.donorDetails?.email || "-",
+  amount: donation.totalAmount,
+  cause: donation.items && donation.items.length > 0
+    ? donation.items.length === 1
+      ? donation.items[0].title
+      : "Multiple Items"
+    : "-",
+  type: donation.paymentType,
+  paymentMethod: donation.paymentMethod || "-",
+  date: donation.createdAt,
+  status: donation.paymentStatus,
+  recurringDetails: donation.recurringDetails,
+  installmentDetails: donation.installmentDetails,
+  adminCostContribution: donation.adminCostContribution,
+  items: donation.items || [],
+  receiptUrl: donation.receiptUrl || null,
+});
+
+// Derive the donation-type counts (single / recurring / installments) from a
+// full donations response. Pure — same logic the dashboard used inline.
+function computeDonationTypeCounts(response) {
+  try {
+    const mapped = (response?.donations || []).map((donation) => ({
+      type: donation.paymentType,
+      status: donation.paymentStatus,
+      recurringDetails: donation.recurringDetails,
+      installmentDetails: donation.installmentDetails,
+    }));
+
+    const currentDate = new Date();
+
+    const singleCount = mapped.filter(
+      (d) => !d.installmentDetails && d.type !== "recurring"
+    ).length;
+    const recurringCount = mapped.filter((d) => d.type === "recurring").length;
+    const installmentsCount = mapped.filter((d) => d.installmentDetails).length;
+    const totalDonationsCount = mapped.length;
+
+    const activeDonations = mapped.filter((d) => d.status !== "failed");
+    const activeSingleCount = activeDonations.filter((d) => d.type === "single").length;
+    const activeRecurringCount = activeDonations.filter(
+      (d) =>
+        d.type === "recurring" &&
+        (!d.recurringDetails?.endDate || new Date(d.recurringDetails.endDate) >= currentDate)
+    ).length;
+    const activeInstallmentsCount = activeDonations.filter((d) => d.type === "installment").length;
+
+    return {
+      singleCount,
+      recurringCount,
+      installmentsCount,
+      totalDonationsCount,
+      activeSingleCount,
+      activeRecurringCount,
+      activeInstallmentsCount,
+    };
+  } catch (error) {
+    console.error("Error computing donation type counts:", error);
+    return { singleCount: 0, recurringCount: 0, installmentsCount: 0, totalDonationsCount: 0 };
+  }
+}
+
+// Turn a cached initial bundle into the screen's seed state (no loader flash).
+function buildDonationsSeed(bundle) {
+  const typeCounts = computeDonationTypeCounts(bundle.countsResponse);
+  return {
+    stats: { ...(bundle.stats || DEFAULT_STATS), ...typeCounts },
+    topDonors: bundle.topDonors || [],
+    donorStats: bundle.donorStats || DEFAULT_DONOR_STATS,
+    allDonations: bundle.allDonations?.donations || [],
+    donations: (bundle.list?.donations || []).map(mapDonationRow),
+    pagination: bundle.list?.pagination || DEFAULT_PAGINATION,
+  };
+}
+
 const AdminDonationsList = () => {
   const navigate = useNavigate();
   const { organisation } = useTenant();
   const orgInfo = { name: organisation?.name, email: organisation?.contactEmail, phone: organisation?.contactPhone, website: organisation?.website };
-  const [loading, setLoading] = useState(true);
-  const [exportLoading, setExportLoading] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
 
-  const [stats, setStats] = useState({
-    totalAmount: 0,
-    averageDonation: 0,
-    recurringDonations: 0,
-    successRate: 0,
-    singleCount: 0,
-    recurringCount: 0,
-    installmentsCount: 0,
-    totalDonationsCount: 0,
-  });
+  // If the initial bundle is already cached (a previous visit), seed every
+  // piece of state from it so the screen paints instantly with no loader.
+  const seed = useMemo(() => {
+    const cachedBundle = AdminDonationService.getCachedDonationsBundle();
+    return cachedBundle ? buildDonationsSeed(cachedBundle) : null;
+  }, []);
+  // The table is already seeded from cache — skip its first auto-fetch.
+  const didSeedTableRef = useRef(Boolean(seed));
+
+  const [loading, setLoading] = useState(!seed);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(!seed);
+
+  const [stats, setStats] = useState(seed ? seed.stats : { ...DEFAULT_STATS });
 
   // Add donor stats state to match dashboard component
-  const [donorStats, setDonorStats] = useState({
-    totalDonors: 0,
-    totalAmount: 0,
-    averageDonation: 0,
-    recurringDonations: 0
-  });
+  const [donorStats, setDonorStats] = useState(seed ? seed.donorStats : { ...DEFAULT_DONOR_STATS });
 
-  const [topDonors, setTopDonors] = useState([]);
-  const [donations, setDonations] = useState([]);
-  const [allDonations, setAllDonations] = useState([]);
+  const [topDonors, setTopDonors] = useState(seed ? seed.topDonors : []);
+  const [donations, setDonations] = useState(seed ? seed.donations : []);
+  const [allDonations, setAllDonations] = useState(seed ? seed.allDonations : []);
 
-  const [pagination, setPagination] = useState({
-    total: 0,
-    pages: 0,
-    currentPage: 1,
-  });
+  const [pagination, setPagination] = useState(seed ? seed.pagination : { ...DEFAULT_PAGINATION });
 
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,55 +198,53 @@ const AdminDonationsList = () => {
   const [selectedDonation, setSelectedDonation] = useState(null);
 
   useEffect(() => {
-    if (initialLoad) {
-      Promise.all([fetchDashboardData(), fetchAllDonations()]).then(() => {
-        setInitialLoad(false);
-      });
-    }
+    // Only hit the API when the initial bundle isn't already cached.
+    if (!AdminDonationService.getCachedDonationsBundle()) fetchInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   useEffect(() => {
-    if (!initialLoad) {
-      fetchDonations();
+    if (initialLoad) return;
+    // The default table list was just seeded from cache — don't refetch it.
+    if (didSeedTableRef.current) {
+      didSeedTableRef.current = false;
+      return;
     }
+    fetchDonations();
   }, [currentPage, searchTerm, selectedStatus, selectedType, sortConfig, initialLoad]);
   
-  const fetchDashboardData = async () => {
+  // First (uncached) load: fetch the whole initial bundle and seed the screen.
+  const fetchInitial = async () => {
     try {
       setLoading(true);
-      const [statsData, topDonorsData, donorStatsData] = await Promise.all([
-        AdminDonationService.getDashboardStats(),
-        AdminDonationService.getTopDonors(),
-        axiosInstance.get("/admin/donors/dashboard/stats")
-      ]);
-
-      setStats(statsData);
-      setTopDonors(topDonorsData);
-      setDonorStats(donorStatsData.data.data.stats || {
-        totalDonors: 0,
-        totalAmount: 0,
-        averageDonation: 0,
-        recurringDonations: 0
-      });
-      
-      // Calculate donation type counts from all donations (excluding failed status)
-      const donationTypeCounts = await fetchDonationTypeCounts();
-      setStats(prevStats => ({
-        ...prevStats,
-        ...donationTypeCounts
-      }));
+      const bundle = await withMinDelay(
+        AdminDonationService.getDonationsBundle({
+          sortBy: sortConfig.key,
+          sortOrder: sortConfig.direction,
+        })
+      );
+      const s = buildDonationsSeed(bundle);
+      setStats(s.stats);
+      setTopDonors(s.topDonors);
+      setDonorStats(s.donorStats);
+      setAllDonations(s.allDonations);
+      setDonations(s.donations);
+      setPagination(s.pagination);
+      // The default table list is already seeded — skip its first auto-fetch.
+      didSeedTableRef.current = true;
     } catch (error) {
       toast.error("Failed to load dashboard data");
       console.error("Dashboard data error:", error);
     } finally {
       setLoading(false);
+      setInitialLoad(false);
     }
   };
 
   const fetchDonations = async () => {
     try {
       setLoading(true);
-      const response = await AdminDonationService.getDonations({
+      const response = await AdminDonationService.getDonationsCached({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm,
@@ -161,30 +253,10 @@ const AdminDonationsList = () => {
         sortBy: sortConfig.key,
         sortOrder: sortConfig.direction,
       });
-  
+
       // Map the raw donations data to the format needed for display
-      const mappedDonations = response.donations.map(donation => ({
-        id: donation._id,
-        donationId: donation.donationId,
-        donor: donation.donorDetails?.name || "Anonymous",
-        email: donation.donorDetails?.email || "-",
-        amount: donation.totalAmount,
-        cause: donation.items && donation.items.length > 0 
-          ? donation.items.length === 1 
-            ? donation.items[0].title 
-            : "Multiple Items" 
-          : "-",
-        type: donation.paymentType,
-        paymentMethod: donation.paymentMethod || "-",
-        date: donation.createdAt,
-        status: donation.paymentStatus,
-        recurringDetails: donation.recurringDetails,
-        installmentDetails: donation.installmentDetails,
-        adminCostContribution: donation.adminCostContribution, 
-        items: donation.items || [],
-        receiptUrl: donation.receiptUrl || null
-      }));
-  
+      const mappedDonations = response.donations.map(mapDonationRow);
+
       setDonations(mappedDonations);
       setPagination(response.pagination);
     } catch (error) {
@@ -192,109 +264,6 @@ const AdminDonationsList = () => {
       console.error("Donations fetch error:", error);
     } finally {
       setLoading(false);
-    }
-  };
-  
-  const fetchAllDonations = async () => {
-    try {
-      const response = await AdminDonationService.getAllDonations({
-        sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction,
-      });
-      
-      // Store the complete donation objects for export
-      setAllDonations(response.donations);
-    } catch (error) {
-      toast.error("Failed to load all donations for export");
-      console.error("All Donations fetch error:", error);
-    }
-  };
-  
-  // Function to calculate donation type counts using the same data source as the table
-  const fetchDonationTypeCounts = async () => {
-    try {
-      // Use the same data source as the table view
-      const response = await AdminDonationService.getDonations({
-        page: 1,
-        limit: 10000, // Large limit to get all donations
-        sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction
-      });
-
-      // Map the donations to match the table format
-      const mappedDonations = response.donations.map(donation => ({
-        id: donation._id,
-        donationId: donation.donationId,
-        donor: donation.donorDetails?.name || "Anonymous",
-        email: donation.donorDetails?.email || "-",
-        amount: donation.totalAmount,
-        cause: donation.items && donation.items.length > 0 
-          ? donation.items.length === 1 
-            ? donation.items[0].title 
-            : "Multiple Items" 
-          : "-",
-        type: donation.paymentType,
-        date: donation.createdAt,
-        status: donation.paymentStatus,
-        recurringDetails: donation.recurringDetails,
-        installmentDetails: donation.installmentDetails,
-        adminCostContribution: donation.adminCostContribution, 
-        items: donation.items || [],
-        receiptUrl: donation.receiptUrl || null
-      }));
-
-      // Get current date for filtering recurring donations
-      const currentDate = new Date();
-
-      // Count all donations by type using the mapped data
-      const singleCount = mappedDonations.filter(
-        donation => !donation.installmentDetails && donation.type !== "recurring"
-      ).length;
-
-      const recurringCount = mappedDonations.filter(
-        donation => donation.type === "recurring"
-      ).length;
-
-      const installmentsCount = mappedDonations.filter(
-        donation => donation.installmentDetails
-      ).length;
-
-      // Calculate total count using the same data as the table
-      const totalDonationsCount = mappedDonations.length;
-
-      // Calculate active donations (excluding failed status)
-      const activeDonations = mappedDonations.filter(donation => donation.status !== "failed");
-
-      const activeSingleCount = activeDonations.filter(
-        donation => donation.type === "single"
-      ).length;
-
-      const activeRecurringCount = activeDonations.filter(
-        donation => donation.type === "recurring" && 
-        (!donation.recurringDetails?.endDate || new Date(donation.recurringDetails.endDate) >= currentDate)
-      ).length;
-
-      const activeInstallmentsCount = activeDonations.filter(
-        donation => donation.type === "installment"
-      ).length;
-
-      return {
-        singleCount,
-        recurringCount,
-        installmentsCount,
-        totalDonationsCount,
-        activeSingleCount,
-        activeRecurringCount,
-        activeInstallmentsCount
-      };
-    } catch (error) {
-      console.error("Error fetching donation type counts:", error);
-      return {
-        singleCount: 0,
-        recurringCount: 0,
-        installmentsCount: 0,
-        totalDonationsCount: 0
-      };
     }
   };
 
@@ -525,7 +494,8 @@ const AdminDonationsList = () => {
           closeFullDetailModal();
         }
         
-        // Refresh donations after status update
+        // Invalidate cached defaults so a return to defaults is fresh, then refresh.
+        AdminDonationService.invalidateDonationsCache();
         fetchDonations();
       } else {
         toast.error("Failed to update status: " + (response?.message || "Unknown error"));
@@ -612,6 +582,7 @@ const AdminDonationsList = () => {
       if (response && response.donation) {
         setFullDonationDetails(response.donation);
       }
+      AdminDonationService.invalidateDonationsCache();
       fetchDonations();
     } catch (error) {
       console.error("Add donor update error:", error);
@@ -635,6 +606,7 @@ const AdminDonationsList = () => {
         `Cancellation request ${action === "approve" ? "approved" : "rejected"} successfully`
       );
       setShowCancelRequestDialog(false);
+      AdminDonationService.invalidateDonationsCache();
       fetchDonations();
     } catch (error) {
       console.error("Process cancellation error:", error);
@@ -646,7 +618,9 @@ const AdminDonationsList = () => {
 
   if (loading && initialLoad) {
     return (
-      <Loader />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <TabLoader />
+      </div>
     );
   }
 
@@ -790,25 +764,15 @@ const AdminDonationsList = () => {
                 placeholder="Search donations..."
                 className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-52" />
             </div>
-            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
-              <option value="All">All Status</option>
-              <option value="completed">Completed</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="failed">Failed</option>
-              <option value="ended">Ended</option>
-            </select>
-            <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
-              <option value="All">All Types</option>
-              <option value="one-time">One Time</option>
-              <option value="recurring">Recurring</option>
-              <option value="installments">Installments</option>
-            </select>
+            <CustomSelect value={selectedStatus} onChange={(value) => setSelectedStatus(value)}
+              options={[{value:"All",label:"All Status"},{value:"completed",label:"Completed"},{value:"pending",label:"Pending"},{value:"processing",label:"Processing"},{value:"failed",label:"Failed"},{value:"ended",label:"Ended"}]}
+              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
+            <CustomSelect value={selectedType} onChange={(value) => setSelectedType(value)}
+              options={[{value:"All",label:"All Types"},{value:"one-time",label:"One Time"},{value:"recurring",label:"Recurring"},{value:"installments",label:"Installments"}]}
+              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
           </div>
           <button onClick={handleExportDonations} disabled={exportLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 disabled:opacity-50">
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 disabled:opacity-50">
             {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Export
           </button>
@@ -883,7 +847,7 @@ const AdminDonationsList = () => {
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
+                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
               {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
                 let pg;
                 if (pagination.pages <= 5) pg = i + 1;
@@ -892,11 +856,11 @@ const AdminDonationsList = () => {
                 else pg = currentPage - 2 + i;
                 return (
                   <button key={i} onClick={() => setCurrentPage(pg)}
-                    className={`w-8 h-8 rounded-lg text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
+                    className={`w-8 h-8 text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
                 );
               })}
               <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === pagination.pages}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
+                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
         )}
@@ -945,19 +909,19 @@ const AdminDonationsList = () => {
           <div className="flex justify-end space-x-3">
             <button
               onClick={() => setShowCancelRequestDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
             >
               Cancel
             </button>
             <button
               onClick={() => handleProcessCancellationRequest("reject")}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Reject
             </button>
             <button
               onClick={() => handleProcessCancellationRequest("approve")}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Approve
             </button>

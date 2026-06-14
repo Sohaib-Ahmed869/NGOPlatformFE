@@ -4,6 +4,7 @@ import NewsletterSection from "../Home/Newsletter/newsletter";
 import { useNavigate } from "react-router-dom";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 const ICON_EDUCATION = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=400&fit=crop&q=80"; // education,school
 const ICON_FOOD = "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=400&h=400&fit=crop&q=80"; // food,hunger
@@ -13,7 +14,9 @@ const ICON_CLEAN_WATER = "https://images.unsplash.com/photo-1538300342682-cf57af
 const ICON_WOMEN = "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&h=400&fit=crop&q=80"; // women,empowerment
 
 const InitiativesSection = () => {
-  const initiatives = [
+  const { content } = usePageContent("initiatives");
+  const hero = content?.hero || {};
+  const defaultInitiatives = [
     {
       icon: ICON_EDUCATION,
       title: "Education",
@@ -57,6 +60,7 @@ const InitiativesSection = () => {
         "Empowering women through skills training, microfinance support, and educational programs to build self-reliant communities.",
     },
   ];
+  const initiatives = content?.cards?.length ? content.cards : defaultInitiatives;
 
   const navigate = useNavigate();
 
@@ -65,12 +69,12 @@ const InitiativesSection = () => {
       <div className="">
         <div className="relative py-36 lg:py-44 overflow-hidden">
           <div className="absolute inset-0">
-            <img src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1600&q=80" alt="" className="w-full h-full object-cover" />
+            <img src={hero.image ?? "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1600&q=80"} alt="" className="w-full h-full object-cover" />
             <HeroOverlay />
           </div>
           <div className="relative z-10 text-center px-6">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Our Initiatives</h1>
-            <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Programs that drive real impact</p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Our Initiatives"}</h1>
+            <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Programs that drive real impact"}</p>
           </div>
         </div>
 

@@ -14,9 +14,10 @@ import {
   Area,
 } from "recharts"
 import { DollarSign, TrendingUp, Users, Calendar, ArrowUp, ArrowDown, Clock, RefreshCcw } from "lucide-react"
-import axiosInstance from "../../services/axios"
-import Loader from "../../components/Loader"
 import KpiCard, { DEFAULT_SPARKS } from "../../components/KpiCard"
+import { TabLoader } from "../../components/TabLoader"
+import { withMinDelay } from "../../utils/minDelay"
+import dashboardService from "../../services/dashboard.service"
 
 // Chart colors read from CSS variables at runtime
 function getChartColors() {
@@ -62,9 +63,11 @@ const DonutChart = ({ segments, size = 160, label }) => {
 
 
 const AdminDashboard = () => {
-  const [isLoading, setIsLoading] = useState(true)
+  // Start instantly from cache when the dashboard was already loaded this session.
+  const cached = dashboardService.getCached("all")
+  const [isLoading, setIsLoading] = useState(!cached)
   const [error, setError] = useState(null)
-  const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, setDashboardData] = useState(cached ? cached.dashboardData : {
     orderStats: {
       totalAmount: 0,
       totalAmountReceived: 0,
@@ -89,7 +92,7 @@ const AdminDashboard = () => {
     recentActivity: [],
   })
 
-  const [donorStats, setDonorStats] = useState({
+  const [donorStats, setDonorStats] = useState(cached ? cached.donorStats : {
     totalDonors: 0,
     totalAmount: 0,
     averageDonation: 0,
@@ -97,77 +100,34 @@ const AdminDashboard = () => {
   })
   const [dateFilter, setDateFilter] = useState("all")
 
-  const getDateRange = (preset) => {
-    const now = new Date();
-    const params = {};
-    if (preset === "7d") {
-      params.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
-    } else if (preset === "15d") {
-      params.startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 15).toISOString();
-    } else if (preset === "30d") {
-      params.startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString();
-    } else if (preset === "90d") {
-      params.startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()).toISOString();
-    }
-    return params;
-  };
-
-  // Fetch all dashboard data
+  // Re-load when the date filter changes. A filter already in the cache applies
+  // instantly (no loader); an uncached one fetches through the service and shows
+  // the brand loader.
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setIsLoading(true)
-      try {
-        const dateParams = getDateRange(dateFilter);
-        const [orderStats, subscriptionStats, topDonors, donorStats] = await Promise.all([
-          axiosInstance.get("/admin/orders/dashboard/stats", { params: dateParams }),
-          axiosInstance.get("/admin/subscriptions/dashboard/subscription-stats"),
-          axiosInstance.get("/admin/orders/dashboard/top-donors"),
-          axiosInstance.get("/admin/donors/dashboard/stats"), // Added donor stats endpoint
-        ])
-
-        console.log("Order Stats Response:", orderStats.data.stats)
-
-        const s = orderStats.data.stats;
-        setDashboardData({
-          orderStats: {
-            totalAmount: s.totalAmount || s.totalDonated || 0,
-            totalAmountReceived: s.totalAmountReceived || s.paidDonated || s.paidAmount || 0,
-            paidAmount: s.paidAmount || s.paidDonated || 0,
-            pendingAmount: s.pendingAmount || 0,
-            averageDonation: s.averageDonation || 0,
-            recurringDonations: s.recurringDonations || 0,
-            oneTimeDonations: s.oneTimeDonations || 0,
-            installmentDonations: s.installmentDonations || 0,
-            activeRecurring: s.activeRecurring || 0,
-            monthlyRecurringRevenue: s.monthlyRecurringRevenue || 0,
-            successRate: s.successRate || 0,
-            totalDonations: s.totalDonations || 0,
-            monthlyTrend: s.monthlyTrend || [],
-            recentDonations: s.recentDonations || [],
-          },
-          subscriptionStats: subscriptionStats.data.data.stats,
-          topDonors: topDonors.data.topDonors,
-        })
-
-        // Set donor stats separately
-        setDonorStats(
-          donorStats.data.data.stats || {
-            totalDonors: 0,
-            totalAmount: 0,
-            averageDonation: 0,
-            recurringDonations: 0,
-          },
-        )
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error)
-        setError("Failed to load dashboard data")
-      } finally {
-        setIsLoading(false)
-      }
+    const cachedForFilter = dashboardService.getCached(dateFilter)
+    if (cachedForFilter) {
+      setDashboardData(cachedForFilter.dashboardData)
+      setDonorStats(cachedForFilter.donorStats)
+      setIsLoading(false)
+      return
     }
-
-    fetchDashboardData()
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter])
+
+  async function load({ force = false } = {}) {
+    try {
+      setIsLoading(true)
+      const d = await withMinDelay(dashboardService.load({ filter: dateFilter, force }))
+      setDashboardData(d.dashboardData)
+      setDonorStats(d.donorStats)
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error)
+      setError("Failed to load dashboard data")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (error) {
     return (
@@ -177,7 +137,11 @@ const AdminDashboard = () => {
     )
   }
 
-  if (isLoading) return <Loader />
+  if (isLoading) return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <TabLoader />
+    </div>
+  )
 
   const { orderStats, subscriptionStats, topDonors } = dashboardData
 
@@ -324,7 +288,7 @@ const AdminDashboard = () => {
             { key: "7d", label: "This Week" },
           ].map(({ key, label }) => (
             <button key={key} onClick={() => setDateFilter(key)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-medium transition-all ${
                 dateFilter === key
                   ? "bg-accent text-white shadow-sm"
                   : "text-text-muted hover:text-primary hover:bg-gray-50"

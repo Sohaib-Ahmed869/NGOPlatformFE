@@ -17,6 +17,7 @@ import { useCart } from "../../Components/cart";
 import { useNavigate } from "react-router-dom";
 import { Info } from "lucide-react"; // Assuming you're using lucide-react
 import AutoPlayIframe from "../../Components/AutoPlayIframe";
+import usePageContent from "../../../hooks/usePageContent";
 
 const ZakatBanner = () => {
   const navigate = useNavigate();
@@ -238,6 +239,9 @@ const RamadanDonations = () => {
   const { addItem } = useCart();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState(null);
+  const { content } = usePageContent("ramadan");
+  const hero = content?.hero || {};
+  const intro = content?.intro || {};
 
   // Scroll to top when the component mounts
   useEffect(() => {
@@ -321,9 +325,9 @@ const RamadanDonations = () => {
       {/* Hero Header */}
       <div>
         <div className="w-screen overflow-hidden">
-          <div className="relative h-[350px] bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to right, rgba(27, 67, 50, 0.7), rgba(45, 106, 79, 0.7)), url(${videoPoster})` }}>
+          <div className="relative h-[350px] bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to right, rgba(27, 67, 50, 0.7), rgba(45, 106, 79, 0.7)), url(${hero.image ?? videoPoster})` }}>
             <div className="absolute inset-0 flex items-center justify-center">
-              <h1 className="text-4xl md:text-5xl font-bold text-white text-center px-6">Ramadan Giving</h1>
+              <h1 className="text-4xl md:text-5xl font-bold text-white text-center px-6">{hero.title ?? "Ramadan Giving"}</h1>
             </div>
           </div>
         </div>
@@ -331,13 +335,12 @@ const RamadanDonations = () => {
         {/* Intro Text */}
         <div className="max-w-5xl mx-auto px-4 py-8 text-center">
           <p className="text-lg text-gray-700 font-medium mb-1 text-justify">
-            Automate your daily sadaqah for the last 10 nights of Ramadan and
-            never miss Laylatul Qadr!
+            {intro.line1 ??
+              "Automate your daily sadaqah for the last 10 nights of Ramadan and never miss Laylatul Qadr!"}
           </p>
           <p className="text-lg text-gray-700 font-medium text-justify">
-            During the last ten nights of Ramadan, many of us will dedicate more
-            time to Dhikr, Salah and offering Sadaqah. We all want to do the
-            best we can during these sacred nights.
+            {intro.line2 ??
+              "During the last ten nights of Ramadan, many of us will dedicate more time to Dhikr, Salah and offering Sadaqah. We all want to do the best we can during these sacred nights."}
           </p>
         </div>
       </div>

@@ -14,7 +14,53 @@ const handleApiError = (error) => {
   return error.message;
 };
 
+// The admin subscriptions table is paginated/filtered server-side, so only the
+// DEFAULT (param-less) mount load is cached — filtered/searched/sorted/paged
+// views fetch fresh and never overwrite the default cache. This lets the screen
+// render instantly on revisit without re-showing the page loader.
+let _listCache = null; // res.data of the default admin list ({ status, data: { subscriptions, pagination } })
+let _listInFlight = null;
+
+// True when the params match the table's initial mount state (page 1, no
+// search/filters, default sort) — the only view that is safe to cache.
+const isDefaultListParams = (params = {}) =>
+  (params.page ?? 1) === 1 &&
+  !params.search &&
+  !params.frequency &&
+  !params.status &&
+  (params.sortBy ?? "startDate") === "startDate" &&
+  (params.sortOrder ?? "desc") === "desc";
+
 const SubscriptionService = {
+  // Sync peek at the cached default admin list (null until the first load).
+  getCachedAdminSubscriptions: () => _listCache,
+
+  // Cached admin subscriptions list. Caches only the default mount load; any
+  // filter/search/sort/page params bypass the cache (and never overwrite it).
+  // Returns res.data (the { status, data: { subscriptions, pagination } } payload).
+  getAdminSubscriptions: (params = {}, { force = false } = {}) => {
+    const isDefault = isDefaultListParams(params);
+    if (isDefault && _listCache && !force) return Promise.resolve(_listCache);
+    if (isDefault && _listInFlight && !force) return _listInFlight;
+
+    const req = axios
+      .get("/admin/subscriptions", { params })
+      .then((res) => {
+        if (isDefault) {
+          _listCache = res.data;
+          _listInFlight = null;
+        }
+        return res.data;
+      })
+      .catch((error) => {
+        if (isDefault) _listInFlight = null;
+        throw handleApiError(error);
+      });
+
+    if (isDefault && !force) _listInFlight = req;
+    return req;
+  },
+
   getActiveSubscriptions: async () => {
     try {
       const response = await axios.get("/subscriptions/active");

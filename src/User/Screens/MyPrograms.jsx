@@ -101,7 +101,7 @@ export default function MyPrograms() {
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <Link to={`/programs/${program._id}`}
+                      <Link to={`/programs/${program._id}`} state={{ program }}
                         className="text-base font-semibold text-primary hover:text-accent transition-colors">
                         {program.title}
                       </Link>

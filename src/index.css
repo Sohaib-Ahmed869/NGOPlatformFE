@@ -25,3 +25,22 @@
     @apply font-body;
   }
 }
+
+@layer utilities {
+  /* Hide scrollbars while keeping scroll behaviour — used by the admin sidebar
+     nav (this project has no tailwind-scrollbar plugin). */
+  .scrollbar-none {
+    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+}
+
+/* @mention chips, in the rich-text editor and in rendered message bodies. */
+.mention {
+  color: var(--tenant-accent, #c9a84c);
+  font-weight: 600;
+  white-space: nowrap;
+}

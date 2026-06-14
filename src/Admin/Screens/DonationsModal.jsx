@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Portal from "../../components/Portal";
 import { X, Download, FileText, Printer, Eye, Check, AlertCircle, Calendar, CreditCard, MessageSquarePlus, Image as ImageIcon, Send, Loader2, CheckCircle2, Bell } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -174,6 +175,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
@@ -187,7 +189,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                 <div className="flex space-x-2">
                   <button
                     onClick={onDownloadReceipt}
-                    className="flex items-center text-accent hover:text-blue-800 px-3 py-1 rounded-lg border border-blue-200 hover:bg-background"
+                    className="flex items-center text-accent hover:text-blue-800 px-3 py-1 border border-blue-200 hover:bg-background"
                     title="Download tax receipt as PDF"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -195,7 +197,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                   </button>
                   <button
                     onClick={onPrintReceipt}
-                    className="flex items-center text-accent hover:text-primary px-3 py-1 rounded-lg border border-accent/20 hover:bg-background"
+                    className="flex items-center text-accent hover:text-primary px-3 py-1 border border-accent/20 hover:bg-background"
                     title="Print tax receipt"
                   >
                     <Printer className="w-4 h-4 mr-2" />
@@ -668,7 +670,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                   <button
                     type="button"
                     onClick={() => setUpdateType("follow-up")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border transition-colors ${
                       updateType === "follow-up"
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
@@ -680,7 +682,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                   <button
                     type="button"
                     onClick={() => setUpdateType("close-off")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border transition-colors ${
                       updateType === "close-off"
                         ? "bg-green-600 text-white border-green-600"
                         : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
@@ -749,7 +751,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                     type="button"
                     onClick={handleSubmitUpdate}
                     disabled={submittingUpdate}
-                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent-light disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent-light disabled:opacity-50"
                   >
                     {submittingUpdate ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -804,14 +806,14 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
                 <div className="mt-4 flex space-x-4">
                   <button
                     onClick={handleApprove}
-                    className="px-4 py-2 bg-accent text-white rounded hover:bg-accent-light flex items-center"
+                    className="px-4 py-2 bg-accent text-white hover:bg-accent-light flex items-center"
                   >
                     <Check className="w-4 h-4 mr-2" />
                     Approve Donation
                   </button>
                   <button
                     onClick={handleCancel}
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center"
+                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 flex items-center"
                   >
                     <X className="w-4 h-4 mr-2" />
                     Cancel Donation
@@ -823,6 +825,7 @@ const DonationDetailsModal = ({ donation, onClose, onDownloadReceipt, onUpdateSt
         </div>
       </div>
     </div>
+    </Portal>
   );
 };
 

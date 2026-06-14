@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { loadStripe } from "@stripe/stripe-js";
+import useTenantStripe from "../../hooks/useTenantStripe";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { ArrowLeft, Heart, Check, Info, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -10,7 +10,7 @@ import { toast } from "react-hot-toast";
 import visa from "../../assets/visa.png";
 import mastercard from "../../assets/mastercard.png";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+// stripePromise is created per-tenant inside the component (see useTenantStripe).
 
 // ── Stripe Card Form ────────────────────────────────────
 const StripeCardForm = ({ onPaymentMethodCreated }) => {
@@ -69,6 +69,7 @@ function ProgramCheckoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const stripePromise = useTenantStripe();
 
   const programData = location.state?.program;
   const donationAmount = location.state?.amount;

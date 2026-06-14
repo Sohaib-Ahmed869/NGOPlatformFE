@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 // Unsplash image constants
 const heroBg = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=1200&q=80";
@@ -31,6 +32,10 @@ const WaterInitiatives = () => {
   const { addItem } = useCart();
   const [adminProducts, setAdminProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { content } = usePageContent("water");
+  const hero = content?.hero || {};
+  const mission = content?.mission || {};
+  const donateBanner = content?.donateBanner || {};
 
   useEffect(() => {
     const fetchWaterProducts = async () => {
@@ -48,7 +53,7 @@ const WaterInitiatives = () => {
     fetchWaterProducts();
   }, []);
 
-  const focusAreas = [
+  const defaultFocusAreas = [
     {
       image: pipelineImg,
       title: "Water Pipelines",
@@ -68,18 +73,19 @@ const WaterInitiatives = () => {
         "Our clean water initiatives, from R.O plants in Balochistan to handpumps in Sindh, are transforming lives by providing access to something as fundamental as clean water.",
     },
   ];
+  const focusAreas = content?.focusAreas?.length ? content.focusAreas : defaultFocusAreas;
 
   return (
     <motion.div className="bg-background" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Hero Section */}
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1519455953755-af066f52f1a6?auto=format&fit=crop&w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1519455953755-af066f52f1a6?auto=format&fit=crop&w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Clean Water</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Access to safe water for all</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Clean Water"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Access to safe water for all"}</p>
         </div>
       </div>
 
@@ -141,24 +147,21 @@ const WaterInitiatives = () => {
           </div>
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-justify text-text-dark">
-              We aim to help procure and provide water facilities to people in need.
+              {mission.heading ?? "We aim to help procure and provide water facilities to people in need."}
             </h2>
             <p className="text-text-muted text-justify">
-              Millions of people in Pakistan have limited or no access to water,
-              making life difficult for them. Furthermore, a lack of access to
-              clean water leads to many health-related issues. For HopeGive, it is
-              one of our goals to help procure and provide clean water
-              facilities to people in need.
+              {mission.text ??
+                "Millions of people in Pakistan have limited or no access to water, making life difficult for them. Furthermore, a lack of access to clean water leads to many health-related issues. For HopeGive, it is one of our goals to help procure and provide clean water facilities to people in need."}
             </p>
           </div>
         </motion.div>
       </motion.div>
 
-      <QuickDonate image="https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=800&q=80" title="Provide Clean Water" />
+      <QuickDonate image={donateBanner.image ?? "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=800&q=80"} title={donateBanner.title ?? "Provide Clean Water"} />
 
       {/* Focus Areas */}
       <div className="max-w-7xl mx-auto px-6 py-20">
-        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>Our Focus Areas</motion.h2>
+        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>{content?.focusHeading ?? "Our Focus Areas"}</motion.h2>
         <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-8" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
           {focusAreas.map((area, index) => (
             <motion.div key={index} variants={staggerItem} className="bg-surface rounded-2xl shadow-md overflow-hidden">

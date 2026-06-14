@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import NewsletterSection from "../Home/Newsletter/newsletter";
 import { fadeInUp, sectionReveal, staggerContainer, staggerItem, slideInLeft, slideInRight } from "../../utils/animations";
+import usePageContent from "../../hooks/usePageContent";
 
 // Hero
 const image1 = "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1600&h=900&fit=crop&q=80"; // volunteer,team
@@ -20,6 +21,8 @@ const image10 = "https://images.unsplash.com/photo-1603321544554-f416a9a11fcb?w=
 const image11 = "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop&q=80"; // community,gathering
 
 const AboutUsPage = () => {
+  const { content } = usePageContent("team");
+  const hero = content?.hero || {};
   const leadershipTeam = [
     {
       name: "Sarah Mitchell",
@@ -93,13 +96,13 @@ const AboutUsPage = () => {
       {/* Hero Section */}
       <div
         className="relative h-96 bg-cover bg-center"
-        style={{ backgroundImage: `url(${image1})` }}
+        style={{ backgroundImage: `url(${hero.image ?? image1})` }}
       >
         <div className="absolute inset-0" style={{ background: `linear-gradient(to right, var(--tenant-sidebar-top, #4A3F30), var(--tenant-sidebar-bottom, #3D3226))`, opacity: 0.75 }} />
         <div className="absolute inset-0">
           <motion.div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center text-white" {...fadeInUp}>
-            <span className="text-sm font-body mb-2">About Us</span>
-            <h1 className="text-4xl font-heading font-bold mb-4">Our Mission and Values</h1>
+            <span className="text-sm font-body mb-2">{hero.label ?? "About Us"}</span>
+            <h1 className="text-4xl font-heading font-bold mb-4">{hero.title ?? "Our Mission and Values"}</h1>
           </motion.div>
         </div>
       </div>

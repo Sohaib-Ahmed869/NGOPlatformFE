@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { sectionReveal, staggerContainer, staggerItem } from "../../utils/animations";
 import HeroOverlay from "../../components/HeroOverlay";
+import usePageContent from "../../hooks/usePageContent";
 
 // Unsplash image constants
 const heroBg = "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1200&q=80";
@@ -32,6 +33,10 @@ const EmergenciesInitiatives = () => {
   const { addItem } = useCart();
   const [adminProducts, setAdminProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { content } = usePageContent("emergencies");
+  const hero = content?.hero || {};
+  const mission = content?.mission || {};
+  const donateBanner = content?.donateBanner || {};
 
   useEffect(() => {
     const fetchEmergencyProducts = async () => {
@@ -50,7 +55,7 @@ const EmergenciesInitiatives = () => {
   }, []);
 
 
-  const focusAreas = [
+  const defaultFocusAreas = [
     {
       image: beirut,
       title: "Beirut Crisis Appeal",
@@ -76,18 +81,19 @@ const EmergenciesInitiatives = () => {
         "Our brothers and sisters in Turkey and Syria were struck by an earthquake which caused many buildings to collapse, resulting in millions of dollars worth of damage. Thousands were injured, and hundreds lost their lives. We worked alongside our implementation partners to deliver emergency relief in Turkey and Syria during this time of crisis.",
     },
   ];
+  const focusAreas = content?.focusAreas?.length ? content.focusAreas : defaultFocusAreas;
 
   return (
     <motion.div className="bg-background" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* Hero Section */}
       <div className="relative py-36 lg:py-44 overflow-hidden">
         <div className="absolute inset-0">
-          <img src="https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?auto=format&fit=crop&w=1600&q=80" alt="" className="w-full h-full object-cover" />
+          <img src={hero.image ?? "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?auto=format&fit=crop&w=1600&q=80"} alt="" className="w-full h-full object-cover" />
           <HeroOverlay />
         </div>
         <div className="relative z-10 text-center px-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">Emergency Relief</h1>
-          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">Rapid response when it matters most</p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold text-[#F5EDE0]">{hero.title ?? "Emergency Relief"}</h1>
+          <p className="mt-4 text-[#EDE4D3]/60 font-body max-w-2xl mx-auto">{hero.subtitle ?? "Rapid response when it matters most"}</p>
         </div>
       </div>
 
@@ -150,26 +156,21 @@ const EmergenciesInitiatives = () => {
           </div>
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-justify text-text-dark">
-              We aim to provide immediate healthy food to the underprivileged.
+              {mission.heading ?? "We aim to provide immediate healthy food to the underprivileged."}
             </h2>
             <p className="text-text-muted text-justify">
-              In Chakwal, Punjab, essential rations were distributed to
-              underserved families for a month, providing food security. We are
-              also in the process of construction of fifteen homes for
-              underprivileged widows in Hoshab, Balochistan, also advanced with
-              support from Australian donors. These efforts highlight HopeGive's
-              commitment to rebuilding lives and fostering resilience in
-              communities facing hardship.
+              {mission.text ??
+                "In Chakwal, Punjab, essential rations were distributed to underserved families for a month, providing food security. We are also in the process of construction of fifteen homes for underprivileged widows in Hoshab, Balochistan, also advanced with support from Australian donors. These efforts highlight HopeGive's commitment to rebuilding lives and fostering resilience in communities facing hardship."}
             </p>
           </div>
         </motion.div>
       </motion.div>
 
-      <QuickDonate image="https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=800&q=80" title="Support Emergency Relief" />
+      <QuickDonate image={donateBanner.image ?? "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=800&q=80"} title={donateBanner.title ?? "Support Emergency Relief"} />
 
       {/* Focus Areas */}
       <div className="max-w-7xl mx-auto px-6 py-20">
-        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>Our Previous Projects</motion.h2>
+        <motion.h2 className="text-3xl font-bold mb-12 text-text-dark" {...sectionReveal}>{content?.focusHeading ?? "Our Previous Projects"}</motion.h2>
 
         <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-8" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
           {focusAreas.map((area, index) => (
