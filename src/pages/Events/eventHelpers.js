@@ -44,6 +44,85 @@ export const monthKeyOf = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`;
 };
 
+/* ── Audience (per-tenant, configured in Organisation Settings) ──────────── */
+
+// Neutral fallback for events with no audience or one that no longer exists.
+export const DEFAULT_AUDIENCE = { key: "", label: "All welcome", color: "#9CA3AF" };
+
+// Convert a #rrggbb hex to an rgba() string (used for the soft event tints).
+export const hexToRgba = (hex, alpha = 1) => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
+  if (!m) return `rgba(156, 163, 175, ${alpha})`;
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => parseInt(h, 16));
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+// Resolve an event's audience to its {key,label,color}. Returns null when the
+// event has no audience (so callers can choose to render nothing).
+export const resolveAudience = (event, audiences = []) => {
+  if (!event?.audience) return null;
+  return audiences.find((a) => a.key === event.audience) || null;
+};
+
+/* ── Week-view calendar helpers (Monday-start weeks) ─────────────────────── */
+
+export const startOfDay = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+// Monday 00:00 of the week containing `d`.
+export const startOfWeek = (d) => {
+  const x = startOfDay(d);
+  const day = (x.getDay() + 6) % 7; // 0 = Monday … 6 = Sunday
+  x.setDate(x.getDate() - day);
+  return x;
+};
+
+export const addDays = (d, n) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+
+export const isSameDay = (a, b) =>
+  new Date(a).toDateString() === new Date(b).toDateString();
+
+export const weekDays = (weekStart) =>
+  Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+// "15 – 21 Jun 2026" / "29 Jun – 5 Jul 2026" for the week header.
+export const weekRangeLabel = (weekStart) => {
+  const end = addDays(weekStart, 6);
+  const sameMonth = weekStart.getMonth() === end.getMonth();
+  const sameYear = weekStart.getFullYear() === end.getFullYear();
+  if (sameMonth && sameYear) {
+    return `${weekStart.getDate()} – ${D(end, { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  if (sameYear) {
+    return `${D(weekStart, { day: "numeric", month: "short" })} – ${D(end, { day: "numeric", month: "short", year: "numeric" })}`;
+  }
+  return `${D(weekStart, { day: "numeric", month: "short", year: "numeric" })} – ${D(end, { day: "numeric", month: "short", year: "numeric" })}`;
+};
+
+// Does an event (start → endDate, else start) overlap the given calendar day?
+export const eventOnDay = (event, day) => {
+  const start = startOfDay(event.date);
+  const end = startOfDay(event.endDate || event.date);
+  const d = startOfDay(day);
+  return d >= start && d <= end;
+};
+
+// Free-text match across an event's title, description and location.
+export const matchesQuery = (event, q) => {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  return [event.title, event.description, locationOf(event), typeLabel(event)]
+    .filter(Boolean)
+    .some((s) => s.toLowerCase().includes(needle));
+};
+
 // Strip markdown / decoration so the card preview reads cleanly.
 export const plainPreview = (desc) =>
   (desc || "")

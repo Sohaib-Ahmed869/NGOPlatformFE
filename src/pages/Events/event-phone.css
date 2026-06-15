@@ -1,0 +1,49 @@
+/* react-phone-input-2 restyled to match EventRegister's boxed/rounded fields
+   (rounded-xl, gray-200 border, white bg, accent focus ring) — scoped to
+   .event-phone so it never leaks into the underline-styled forms elsewhere. */
+.event-phone .react-tel-input {
+  font-family: inherit;
+}
+.event-phone .react-tel-input .form-control {
+  width: 100%;
+  height: 46px;
+  background: #fff;
+  border: 1px solid #e5e7eb; /* gray-200 */
+  border-radius: 0.75rem; /* rounded-xl */
+  padding-left: 52px;
+  font-size: 14px;
+  color: #1f2937; /* gray-800 */
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.event-phone .react-tel-input .form-control:focus {
+  outline: none;
+  border-color: var(--tenant-accent, #c9a84c);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tenant-accent, #c9a84c) 15%, transparent);
+}
+.event-phone .react-tel-input .form-control:disabled {
+  background: #f9fafb; /* gray-50 */
+  cursor: not-allowed;
+}
+
+/* Flag dropdown — round only the left edge so it sits flush in the field. */
+.event-phone .react-tel-input .flag-dropdown,
+.event-phone .react-tel-input .flag-dropdown.open {
+  background: transparent;
+  border: 0;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+.event-phone .react-tel-input .selected-flag,
+.event-phone .react-tel-input .selected-flag:hover,
+.event-phone .react-tel-input .selected-flag:focus,
+.event-phone .react-tel-input .flag-dropdown.open .selected-flag {
+  background: transparent;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+/* Country dropdown */
+.event-phone .react-tel-input .country-list {
+  border: 1px solid #f3f4f6;
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  margin-top: 6px;
+}

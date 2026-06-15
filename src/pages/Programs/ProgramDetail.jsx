@@ -126,7 +126,7 @@ export default function ProgramDetail() {
       <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
 
       {/* ── HERO — dark cover banner with parallax ────────────────────── */}
-      <div ref={heroRef} className="relative overflow-hidden py-32 lg:py-40">
+      <div ref={heroRef} data-hero className="relative overflow-hidden py-32 lg:py-40">
         {coverUrl ? (
           <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
             <img src={coverUrl} alt="" className="h-full w-full object-cover" />

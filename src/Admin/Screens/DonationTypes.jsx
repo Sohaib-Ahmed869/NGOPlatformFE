@@ -74,7 +74,10 @@ const DonationTypes = () => {
   useEffect(() => { typesRef.current = donationTypes; });
 
   useEffect(() => {
-    if (!donationTypeService.getCached()) fetchDonationTypes();
+    // Show the cached list instantly (if any) and always revalidate in the
+    // background, so edits made elsewhere surface on revisit. The loader only
+    // appears on a genuine cold open.
+    fetchDonationTypes({ background: !!donationTypeService.getCached() });
   }, []);
 
   // Live reorder (on drag) — persists on drop.
@@ -90,15 +93,19 @@ const DonationTypes = () => {
     }
   };
 
-  const fetchDonationTypes = async ({ force = false } = {}) => {
+  const fetchDonationTypes = async ({ force = false, background = false } = {}) => {
     try {
-      setLoading(true);
-      const data = await withMinDelay(donationTypeService.list({ force }));
+      if (!background) setLoading(true);
+      // force/background always hit the network; a plain cold load uses the
+      // cache-first path (which fetches when nothing's cached yet).
+      const data = await withMinDelay(
+        force || background ? donationTypeService.refresh() : donationTypeService.list(),
+      );
       setDonationTypes(data);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Error fetching donation types");
+      if (!background) toast.error(error.response?.data?.message || "Error fetching donation types");
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 

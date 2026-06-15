@@ -137,11 +137,11 @@ export default function RegistrationFlow() {
   const inp = "w-full px-5 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm text-[#102A23] placeholder-gray-400 focus:ring-2 focus:ring-[#047857]/30 focus:border-[#047857]/40 outline-none transition-all";
 
   return (
-    <div className="saas-page min-h-screen flex bg-[#F3F8F5] relative" style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}>
+    <div className="saas-page min-h-screen flex bg-[#F3F8F5] relative" style={{ fontFamily: "'Times New Roman', Tinos, Times, serif" }}>
       {/* Ambient grid */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px)", backgroundSize: "64px 64px", maskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)", WebkitMaskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)" }} />
       {/* Font override for headings */}
-      <style>{`.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Outfit',system-ui,sans-serif!important}`}</style>
+      <style>{`.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Times New Roman',Tinos,Times,serif!important}`}</style>
 
       {/* ═══ LEFT RAIL — vertical stepper ═══ */}
  {}     <div className="hidden lg:flex flex-col w-[280px] shrink-0 border-r border-[#E0DAF0] bg-gradient-to-b from-[#F3F8F5] to-[#E7F2EC] px-6 py-8">

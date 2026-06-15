@@ -1,71 +1,69 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Check, Upload, File, X, FileCheck, AlertCircle, Eye, Trash2,
-  Heart, Copy, ArrowRight,
+  Upload, File, X, FileCheck, AlertCircle, Eye, Trash2,
+  Heart, Copy, ArrowRight, Landmark, Mail, ShieldCheck, Receipt, Loader2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTenant } from "../../context/TenantContext";
 import { OrderService } from "../../services/order.service";
+import Celebration from "../../components/Celebration";
 import { toast } from "react-hot-toast";
 
 // ── Animated Checkmark ──────────────────────────────────
 const AnimatedCheck = () => (
-  <div className="relative w-24 h-24 mx-auto mb-6">
-    {/* Pulsing glow */}
+  <div className="relative mx-auto mb-6 h-24 w-24">
     <motion.div
-      className="absolute inset-0 rounded-full bg-accent/20"
+      className="absolute inset-0 rounded-full bg-white/25"
       initial={{ scale: 0 }}
       animate={{ scale: [0, 1.4, 1] }}
       transition={{ duration: 0.8, ease: "easeOut" }}
     />
-    {/* Circle */}
     <motion.div
-      className="absolute inset-0 rounded-full bg-gradient-to-br from-accent to-accent-light flex items-center justify-center"
+      className="absolute inset-0 flex items-center justify-center rounded-full bg-white text-accent shadow-lg"
       initial={{ scale: 0, rotate: -90 }}
       animate={{ scale: 1, rotate: 0 }}
       transition={{ delay: 0.2, duration: 0.5, type: "spring", stiffness: 200 }}
     >
-      {/* SVG tick with draw animation */}
-      <motion.svg
-        viewBox="0 0 24 24"
-        className="w-12 h-12 text-white"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <motion.path
-          d="M5 13l4 4L19 7"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ delay: 0.6, duration: 0.4, ease: "easeOut" }}
-        />
+      <motion.svg viewBox="0 0 24 24" className="h-12 w-12" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+        <motion.path d="M5 13l4 4L19 7" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.6, duration: 0.4, ease: "easeOut" }} />
       </motion.svg>
     </motion.div>
-    {/* Confetti dots */}
     {[...Array(6)].map((_, i) => {
       const angle = (i / 6) * Math.PI * 2;
       return (
         <motion.div
           key={i}
-          className="absolute w-2 h-2 rounded-full bg-accent"
+          className="absolute h-2 w-2 rounded-full bg-white"
           style={{ left: "50%", top: "50%", marginLeft: -4, marginTop: -4 }}
           initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-          animate={{
-            x: Math.cos(angle) * 60,
-            y: Math.sin(angle) * 60,
-            opacity: 0,
-            scale: 0,
-          }}
+          animate={{ x: Math.cos(angle) * 60, y: Math.sin(angle) * 60, opacity: 0, scale: 0 }}
           transition={{ delay: 0.7, duration: 0.6, ease: "easeOut" }}
         />
       );
     })}
   </div>
 );
+
+/* A labelled value row with an optional copy button. */
+function CopyField({ label, value, mono }) {
+  const copy = () => {
+    navigator.clipboard.writeText(value || "");
+    toast.success(`${label} copied`);
+  };
+  return (
+    <div className="flex items-center justify-between gap-3 border border-gray-100 px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+        <p className={`mt-0.5 truncate text-sm font-medium text-primary ${mono ? "font-mono" : ""}`}>{value}</p>
+      </div>
+      <button onClick={copy} title={`Copy ${label}`} className="grid h-8 w-8 shrink-0 place-items-center text-gray-400 transition-colors hover:bg-accent/10 hover:text-accent">
+        <Copy className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 const OrderConfirmation = () => {
   const location = useLocation();
@@ -157,200 +155,244 @@ const OrderConfirmation = () => {
 
   if (!orderDetails) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-text-muted mb-4">No order details found</p>
-          <button onClick={() => navigate("/")} className="px-4 py-2 bg-accent text-white rounded-xl text-sm">Go Home</button>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="border border-gray-100 bg-white p-10 text-center shadow-sm">
+          <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-gray-100 text-gray-400">
+            <Receipt className="h-6 w-6" />
+          </span>
+          <p className="font-semibold text-primary">No order details found</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-text-muted">This confirmation link has expired or was opened directly.</p>
+          <button onClick={() => navigate("/")} className="mt-5 inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
+            Go home
+          </button>
         </div>
       </div>
     );
   }
 
   const isBankTransfer = paymentMethod === "bank";
+  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const orgName = organisation?.name || "us";
 
   return (
-    <div className="min-h-screen bg-background py-24 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Main Card */}
+    <div className="min-h-screen bg-background px-4 pb-20 pt-24 lg:pt-28">
+      {!isBankTransfer && <Celebration />}
+
+      <div className="mx-auto max-w-2xl space-y-6">
+        {/* ── Success card ───────────────────────────────────────────── */}
         <motion.div
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+          className="overflow-hidden border border-gray-100 bg-white shadow-xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-8 md:p-10">
-            {/* Animated checkmark */}
-            <AnimatedCheck />
-
-            {/* Heading */}
-            <motion.div className="text-center mb-8"
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-              <h1 className="text-2xl md:text-3xl font-heading font-bold text-primary mb-2">
-                Thank You for Your Generosity!
-              </h1>
-              <p className="text-text-muted font-body">
-                Your donation has been {isBankTransfer ? "registered" : "processed"} successfully.
-              </p>
-            </motion.div>
-
-            {/* Donation Details */}
-            <motion.div
-              className="bg-background rounded-xl p-5 mb-6"
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-widest text-text-muted font-semibold">Donation Summary</span>
-                <span className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${
-                  isBankTransfer ? "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200" : "bg-green-50 text-green-700 ring-1 ring-green-200"
-                }`}>
-                  {isBankTransfer ? "Pending Transfer" : "Completed"}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted">Donation ID</span>
-                  <button onClick={copyDonationId}
-                    className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-accent transition-colors">
-                    {orderDetails.donationId}
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted">Amount</span>
-                  <span className="text-xl font-bold text-accent">${orderDetails.totalAmount.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-text-muted">Payment</span>
-                  <span className="text-sm font-medium text-primary capitalize">{paymentMethod}</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Bank transfer section */}
-            {isBankTransfer && (
-              <motion.div
-                className="mb-6"
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          {/* Gradient success header */}
+          <div
+            className="relative overflow-hidden px-6 py-10 text-center text-white"
+            style={{ background: "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-accent, #C9A84C))" }}
+          >
+            <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+            <span aria-hidden className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+            <div className="relative">
+              <AnimatedCheck />
+              <motion.h1
+                className="font-heading text-2xl font-bold md:text-3xl"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
               >
-                <div className="border border-accent/20 rounded-xl p-5 bg-accent/5 mb-5">
-                  <h3 className="font-semibold text-primary text-sm mb-3">Bank Transfer Details</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: "Bank", value: organisation?.bankDetails?.bankName || "Contact us" },
-                      { label: "BSB", value: organisation?.bankDetails?.bsb || "N/A" },
-                      { label: "Account", value: organisation?.bankDetails?.accountNumber || "N/A" },
-                      { label: "Reference", value: orderDetails.donationId },
-                    ].map(({ label, value }) => (
-                      <div key={label}>
-                        <p className="text-[11px] text-text-muted">{label}</p>
-                        <p className="text-sm font-medium text-primary">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                Thank you for your generosity!
+              </motion.h1>
+              <motion.p
+                className="mx-auto mt-2 max-w-md text-sm text-white/80"
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+              >
+                Your donation has been {isBankTransfer ? "registered" : "processed"} successfully.
+              </motion.p>
+            </div>
+          </div>
 
-                {/* Receipt upload */}
-                <div>
-                  <h4 className="text-sm font-semibold text-primary mb-2">Upload Payment Proof</h4>
-                  <p className="text-xs text-text-muted mb-3">
-                    {uploadSuccess ? "Receipt uploaded successfully." : "Upload a screenshot of your bank transfer."}
-                  </p>
+          {/* Body */}
+          <div className="p-6 sm:p-8">
+            {/* Amount + status */}
+            <div className="border-b border-gray-100 pb-6 text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Your donation</p>
+              <p className="mt-1 font-heading text-4xl font-bold text-primary">${orderDetails.totalAmount.toFixed(2)}</p>
+              <span
+                className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold ${
+                  isBankTransfer ? "bg-yellow-50 text-yellow-700" : "bg-green-50 text-green-700"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${isBankTransfer ? "bg-yellow-500" : "bg-green-500"}`} />
+                {isBankTransfer ? "Pending transfer" : "Completed"}
+              </span>
+            </div>
 
-                  {uploadSuccess && uploadedReceipt ? (
-                    <div className="border border-gray-200 rounded-xl p-4 bg-background">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                            <FileCheck className="w-5 h-5 text-accent" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-primary">{uploadedReceipt.fileName || "Receipt"}</p>
-                            <p className="text-[11px] text-text-muted">
-                              {uploadedReceipt.uploadDate ? new Date(uploadedReceipt.uploadDate).toLocaleString() : "Uploaded"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={handleViewReceipt}
-                            className="px-3 py-1.5 bg-accent/10 text-accent rounded-lg text-xs font-medium hover:bg-accent/20 flex items-center gap-1">
-                            <Eye className="w-3.5 h-3.5" /> View
-                          </button>
-                          <button onClick={handleDeleteReceipt} disabled={deleting}
-                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 flex items-center gap-1">
-                            <Trash2 className="w-3.5 h-3.5" /> Delete
-                          </button>
-                        </div>
-                      </div>
-                      {deleteError && (
-                        <div className="mt-3 bg-red-50 text-red-600 p-3 rounded-lg text-xs flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4" /> {deleteError}
-                        </div>
-                      )}
-                    </div>
-                  ) : !receiptFile ? (
-                    <div
-                      className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
-                        dragActive ? "border-accent bg-accent/5" : "border-gray-300 hover:border-accent/40"
-                      }`}
-                      onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-                      onClick={() => document.getElementById("file-upload").click()}>
-                      <input type="file" id="file-upload" className="hidden" onChange={handleFileChange} accept="image/*" />
-                      <Upload className="w-8 h-8 text-text-muted mx-auto mb-2" />
-                      <p className="text-sm text-primary font-medium">Drag & drop or <span className="text-accent">browse</span></p>
-                      <p className="text-[11px] text-text-muted mt-1">JPG, PNG, GIF — max 5MB</p>
-                    </div>
-                  ) : (
-                    <div className="border border-gray-200 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                            <File className="w-5 h-5 text-accent" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-primary">{receiptFile.name}</p>
-                            <p className="text-[11px] text-text-muted">{(receiptFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                          </div>
-                        </div>
-                        <button onClick={removeFile} className="text-text-muted hover:text-red-500 transition-colors">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <button onClick={handleReceiptUpload} disabled={uploading}
-                        className="w-full py-2.5 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent/90 disabled:opacity-50 flex items-center justify-center gap-2">
-                        {uploading ? "Uploading..." : <><Upload className="w-4 h-4" /> Upload Receipt</>}
-                      </button>
-                    </div>
-                  )}
+            {/* Details */}
+            <div className="mt-6 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Donation ID</span>
+                <button onClick={copyDonationId} className="flex items-center gap-1.5 font-mono text-xs font-medium text-primary transition-colors hover:text-accent">
+                  {orderDetails.donationId}
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Payment method</span>
+                <span className="font-medium capitalize text-primary">{paymentMethod}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Date</span>
+                <span className="font-medium text-primary">{today}</span>
+              </div>
+            </div>
 
-                  {uploadError && (
-                    <div className="mt-3 bg-red-50 text-red-600 p-3 rounded-lg text-xs flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" /> {uploadError}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+            {/* Reassurance (card payments) */}
+            {!isBankTransfer && (
+              <div className="mt-6 flex items-start gap-2.5 border border-accent/20 bg-accent/5 px-4 py-3">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <p className="text-sm text-gray-600">
+                  A receipt is on its way to your inbox. You can track this gift anytime from your dashboard.
+                </p>
+              </div>
             )}
 
-            {/* Action Buttons */}
+            {/* Action buttons */}
             <motion.div
-              className="flex flex-col sm:flex-row gap-3"
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+              className="mt-7 flex flex-col gap-3 sm:flex-row"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
             >
               <button
                 onClick={() => navigate(user ? "/user/dashboard" : "/login")}
-                className="flex-1 py-3 bg-accent text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-accent/90 transition-all hover:shadow-md">
-                <Heart className="w-4 h-4" />
-                {user ? "View My Donations" : "Log In to Track"}
+                className="flex flex-1 items-center justify-center gap-2 bg-accent py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+              >
+                <Heart className="h-4 w-4" />
+                {user ? "View my donations" : "Log in to track"}
               </button>
               <button
                 onClick={() => navigate("/donate")}
-                className="flex-1 py-3 border border-gray-200 text-primary rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all">
-                Make Another Donation
-                <ArrowRight className="w-4 h-4" />
+                className="flex flex-1 items-center justify-center gap-2 border border-gray-200 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+              >
+                Make another donation
+                <ArrowRight className="h-4 w-4" />
               </button>
             </motion.div>
           </div>
+        </motion.div>
+
+        {/* ── Bank transfer card ─────────────────────────────────────── */}
+        {isBankTransfer && (
+          <motion.div
+            className="border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          >
+            <div className="mb-5 flex items-center gap-3 border-b border-gray-100 pb-5">
+              <span className="grid h-11 w-11 shrink-0 place-items-center bg-accent/10 text-accent">
+                <Landmark className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-heading text-lg font-bold text-primary">Complete your bank transfer</h3>
+                <p className="mt-0.5 text-sm text-text-muted">Use these details and include the reference below.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <CopyField label="Bank" value={organisation?.bankDetails?.bankName || "Contact us"} />
+              <CopyField label="BSB" value={organisation?.bankDetails?.bsb || "N/A"} mono />
+              <CopyField label="Account number" value={organisation?.bankDetails?.accountNumber || "N/A"} mono />
+              <CopyField label="Reference" value={orderDetails.donationId} mono />
+            </div>
+
+            {/* Receipt upload */}
+            <div className="mt-7 border-t border-gray-100 pt-6">
+              <h4 className="font-heading text-base font-bold text-primary">Upload payment proof</h4>
+              <p className="mt-0.5 text-sm text-text-muted">
+                {uploadSuccess ? "Your receipt has been uploaded." : "Upload a screenshot of your transfer so we can confirm it faster."}
+              </p>
+
+              <div className="mt-4">
+                {uploadSuccess && uploadedReceipt ? (
+                  <div className="border border-gray-100 bg-background/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center bg-accent/10 text-accent">
+                          <FileCheck className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-primary">{uploadedReceipt.fileName || "Receipt"}</p>
+                          <p className="text-[11px] text-text-muted">
+                            {uploadedReceipt.uploadDate ? new Date(uploadedReceipt.uploadDate).toLocaleString() : "Uploaded"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button onClick={handleViewReceipt} className="inline-flex items-center gap-1 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/20">
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </button>
+                        <button onClick={handleDeleteReceipt} disabled={deleting} className="inline-flex items-center gap-1 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50">
+                          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
+                        </button>
+                      </div>
+                    </div>
+                    {deleteError && (
+                      <div className="mt-3 flex items-center gap-2 bg-red-50 p-3 text-xs text-red-600">
+                        <AlertCircle className="h-4 w-4" /> {deleteError}
+                      </div>
+                    )}
+                  </div>
+                ) : !receiptFile ? (
+                  <div
+                    className={`cursor-pointer border-2 border-dashed p-8 text-center transition-colors ${
+                      dragActive ? "border-accent bg-accent/5" : "border-gray-200 hover:border-accent/40"
+                    }`}
+                    onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+                    onClick={() => document.getElementById("file-upload").click()}
+                  >
+                    <input type="file" id="file-upload" className="hidden" onChange={handleFileChange} accept="image/*" />
+                    <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+                      <Upload className="h-6 w-6" />
+                    </span>
+                    <p className="text-sm font-medium text-primary">Drag &amp; drop or <span className="text-accent">browse</span></p>
+                    <p className="mt-1 text-[11px] text-text-muted">JPG, PNG or GIF — max 5MB</p>
+                  </div>
+                ) : (
+                  <div className="border border-gray-100 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center bg-accent/10 text-accent">
+                          <File className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-primary">{receiptFile.name}</p>
+                          <p className="text-[11px] text-text-muted">{(receiptFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                        </div>
+                      </div>
+                      <button onClick={removeFile} className="grid h-8 w-8 shrink-0 place-items-center text-text-muted transition-colors hover:text-red-500">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <button onClick={handleReceiptUpload} disabled={uploading} className="flex w-full items-center justify-center gap-2 bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
+                      {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {uploading ? "Uploading…" : "Upload receipt"}
+                    </button>
+                  </div>
+                )}
+
+                {uploadError && (
+                  <div className="mt-3 flex items-center gap-2 bg-red-50 p-3 text-xs text-red-600">
+                    <AlertCircle className="h-4 w-4" /> {uploadError}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Trust footer */}
+        <motion.div
+          className="flex items-center justify-center gap-2 text-center text-xs text-text-muted"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
+        >
+          <ShieldCheck className="h-4 w-4 text-accent" />
+          Securely processed · 100% of your gift supports {orgName}.
         </motion.div>
       </div>
     </div>

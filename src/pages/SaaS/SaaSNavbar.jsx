@@ -56,7 +56,7 @@ export default function SaaSNavbar() {
     <>
       <nav
         className="fixed top-4 left-0 right-0 z-50 flex justify-center pointer-events-none"
-        style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
+        style={{ fontFamily: "'Times New Roman', Tinos, Times, serif" }}
       >
         <motion.div
           initial={{ y: -80, opacity: 0 }}
@@ -138,7 +138,7 @@ export default function SaaSNavbar() {
             transition={{ duration: 0.25 }}
             className="fixed top-16 left-4 right-4 z-50 overflow-hidden rounded-xl border"
             style={{
-              fontFamily: "'Outfit', system-ui, sans-serif",
+              fontFamily: "'Times New Roman', Tinos, Times, serif",
               background: "rgba(255,255,255,.95)",
               backdropFilter: "blur(20px)",
               borderColor: V.line,

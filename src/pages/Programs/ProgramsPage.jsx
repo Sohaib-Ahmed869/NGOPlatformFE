@@ -177,7 +177,7 @@ export default function ProgramsPage() {
       <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
 
       {/* ── HERO — parallax bg + scroll-reactive content ──────────────── */}
-      <div ref={heroRef} className="relative overflow-hidden py-36 lg:py-44">
+      <div ref={heroRef} data-hero className="relative overflow-hidden py-36 lg:py-44">
         <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
           <img
             src={hero.image ?? "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1600&q=80"}

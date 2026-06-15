@@ -30,7 +30,10 @@ const settingsService = {
 
   updateSettings: async (data) => {
     const res = await axiosInstance.put("/settings", data);
-    if (_cache) _cache = { ..._cache, ...data }; // keep cache fresh, no re-fetch
+    // Refresh the cache from the SERVER's normalized response (not the request
+    // payload) so derived values — e.g. slugged eventAudiences[].key — are kept.
+    const next = res?.data?.settings || data;
+    if (_cache) _cache = { ..._cache, ...next };
     return res;
   },
 };

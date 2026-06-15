@@ -27,6 +27,7 @@ import {
   ArrowRight,
   Send,
   Wallet,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import settingsService from "../../services/settings.service";
@@ -34,6 +35,7 @@ import paymentService from "../../services/payment.service";
 import EmailSettings from "./EmailSettings";
 import MailchimpSettings from "./MailchimpSettings";
 import PaypalSettings from "./PaypalSettings";
+import EventSettings from "./EventSettings";
 import { useTenant } from "../../context/TenantContext";
 import { TabLoader } from "../../components/TabLoader";
 import { SOCIAL_META, SOCIAL_ICON_PATHS } from "../../config/socialIcons";
@@ -98,6 +100,7 @@ const TABS = [
   { id: "bank", label: "Bank Transfer", desc: "Donor bank details", icon: Landmark },
   { id: "email", label: "Email", desc: "Send from your own SMTP", icon: Mail },
   { id: "mailchimp", label: "Mailchimp", desc: "Newsletter audience", icon: Send },
+  { id: "events", label: "Events", desc: "Audience labels & colours", icon: CalendarDays },
 ];
 
 // Sub-sections inside the Contact tab (segmented switch).
@@ -237,7 +240,10 @@ export default function OrganisationSettings() {
 
   const [loading, setLoading] = useState(!cachedSettings);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") === "payments" ? "payments" : "contact");
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = searchParams.get("tab");
+    return TABS.some((x) => x.id === t) ? t : "contact";
+  });
   const [contactSub, setContactSub] = useState("info");
 
   const [form, setForm] = useState(cachedSettings ? toForm(cachedSettings) : EMPTY_FORM);
@@ -822,6 +828,9 @@ export default function OrganisationSettings() {
 
               {/* ── MAILCHIMP (newsletter audience) ── */}
               {activeTab === "mailchimp" && <MailchimpSettings />}
+
+              {/* ── EVENTS (public calendar audiences) ── */}
+              {activeTab === "events" && <EventSettings />}
             </motion.div>
           </AnimatePresence>
         </div>

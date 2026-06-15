@@ -7,12 +7,12 @@ const V = {
 };
 
 const css = `
-.sa-page h1,.sa-page h2,.sa-page h3,.sa-page h4,.sa-page h5,.sa-page h6{font-family:'Outfit',system-ui,sans-serif!important}
+.sa-page h1,.sa-page h2,.sa-page h3,.sa-page h4,.sa-page h5,.sa-page h6{font-family:'Times New Roman',Tinos,Times,serif!important}
 `;
 
 export default function SuperAdminLayout() {
   return (
-    <div className="sa-page flex h-screen" style={{ fontFamily: "'Outfit', system-ui, sans-serif", background: V.bg }}>
+    <div className="sa-page flex h-screen" style={{ fontFamily: "'Times New Roman', Tinos, Times, serif", background: V.bg }}>
       <style>{css}</style>
       {/* Ambient grid */}
       <div style={{

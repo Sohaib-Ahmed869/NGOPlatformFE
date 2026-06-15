@@ -28,10 +28,17 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "../../context/TenantContext";
 import { OrderService } from "../../services/order.service";
+import PaymentMethodService from "../../services/paymentMethod.service";
 import { toast } from "react-hot-toast";
 import CustomSelect from "../../components/CustomSelect";
 import mastercard from "../../assets/mastercard.png";
 import visa from "../../assets/visa.png";
+
+const CARD_BRAND_LABEL = {
+  visa: "Visa", mastercard: "Mastercard", amex: "American Express",
+  discover: "Discover", diners: "Diners Club", jcb: "JCB", unionpay: "UnionPay",
+};
+const cardBrandLabel = (b) => CARD_BRAND_LABEL[(b || "").toLowerCase()] || "Card";
 
 /* ── shared styling tokens (squared, admin-aligned) ── */
 const labelCls = "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500";
@@ -168,14 +175,18 @@ const UnifiedCheckout = () => {
   const [recurringAmount, setRecurringAmount] = useState(total);
   const [stripePaymentMethod, setStripePaymentMethod] = useState(null);
   const [submittingCardForm, setSubmittingCardForm] = useState(false);
+  // Saved cards (logged-in donors) reusable for one-off payments.
+  const [savedCards, setSavedCards] = useState([]);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState("new"); // "new" or a card _id
+  const [savedCustomerId, setSavedCustomerId] = useState(null);
   const [selectedDonationType, setSelectedDonationType] = useState("");
   const [installmentMonths, setInstallmentMonths] = useState(3);
   const [recurringEndDate, setRecurringEndDate] = useState("");
   const [totalRecurringPayments, setTotalRecurringPayments] = useState(0);
   const [hasRamadanRecurringItems, setHasRamadanRecurringItems] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [donationTypes, setDonationTypes] = useState([]);
-  const [loadingDonationTypes, setLoadingDonationTypes] = useState(true);
+  const [donationTypes, setDonationTypes] = useState(() => donationTypeService.getCached() || []);
+  const [loadingDonationTypes, setLoadingDonationTypes] = useState(() => !donationTypeService.getCached());
   const [savedDataIndicator, setSavedDataIndicator] = useState({
     name: false, phone: false, email: false,
     address: { street: false, city: false, state: false, postalCode: false },
@@ -188,8 +199,41 @@ const UnifiedCheckout = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (user) fetchUserProfile();
+    if (user) {
+      fetchUserProfile();
+      fetchSavedCards();
+    } else {
+      setSavedCards([]);
+      setSelectedSavedCardId("new");
+    }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchSavedCards = async () => {
+    try {
+      const cards = await PaymentMethodService.getAllPaymentMethods();
+      const usable = (cards || []).filter((c) => c.stripePaymentMethodId);
+      setSavedCards(usable);
+      // Pre-select the default (or first) saved card so the card step is ready.
+      const preferred = usable.find((c) => c.isDefault) || usable[0];
+      if (preferred) {
+        setSelectedSavedCardId(preferred._id);
+        setStripePaymentMethod({ id: preferred.stripePaymentMethodId });
+        setSavedCustomerId(preferred.stripeCustomerId || null);
+      }
+    } catch {
+      /* not critical — donor can still pay with a new card */
+    }
+  };
+
+  // Saved cards only apply to one-off payments (recurring/installments use
+  // their own Stripe customer). Switching away → fall back to a new card.
+  useEffect(() => {
+    if (paymentType !== "single" && selectedSavedCardId !== "new") {
+      setSelectedSavedCardId("new");
+      setStripePaymentMethod(null);
+      setSavedCustomerId(null);
+    }
+  }, [paymentType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -203,29 +247,29 @@ const UnifiedCheckout = () => {
   };
 
   useEffect(() => {
-    const fetchDonationTypes = async () => {
-      try {
-        setLoadingDonationTypes(true);
-        const response = await donationTypeService.getAll();
-        if (response.success && response.data) {
-          setDonationTypes(response.data);
-        } else {
-          setDonationTypes([
-            { donationType: "Sadaqah" }, { donationType: "Zakat ul Maal" }, { donationType: "Zakat ul Fitr" },
-            { donationType: "Education Fund" }, { donationType: "Water Fund" }, { donationType: "Food Fund" }, { donationType: "Emergency Fund" },
-          ]);
-        }
-      } catch (err) {
+    let active = true;
+    const FALLBACK = [
+      { donationType: "Sadaqah" }, { donationType: "Zakat ul Maal" }, { donationType: "Zakat ul Fitr" },
+      { donationType: "Education Fund" }, { donationType: "Water Fund" }, { donationType: "Food Fund" }, { donationType: "Emergency Fund" },
+    ];
+    // Stale-while-revalidate: cached types render instantly (set in useState),
+    // then we refresh in the background. Falls back to a sensible default list
+    // only when there's nothing cached and the request fails.
+    donationTypeService
+      .refresh()
+      .then((list) => {
+        if (active) setDonationTypes(list.length ? list : FALLBACK);
+      })
+      .catch((err) => {
         console.error("Error fetching donation types:", err);
-        setDonationTypes([
-          { donationType: "Sadaqah" }, { donationType: "Zakat ul Maal" }, { donationType: "Zakat ul Fitr" },
-          { donationType: "Education Fund" }, { donationType: "Water Fund" }, { donationType: "Food Fund" }, { donationType: "Emergency Fund" },
-        ]);
-      } finally {
-        setLoadingDonationTypes(false);
-      }
+        if (active) setDonationTypes((prev) => (prev.length ? prev : FALLBACK));
+      })
+      .finally(() => {
+        if (active) setLoadingDonationTypes(false);
+      });
+    return () => {
+      active = false;
     };
-    fetchDonationTypes();
   }, []);
 
   const onChangeDonationType = (item, donationType) => {
@@ -361,6 +405,22 @@ const UnifiedCheckout = () => {
 
   const handlePaymentMethodCreated = (paymentMethod) => setStripePaymentMethod(paymentMethod);
 
+  const pickSavedCard = (card) => {
+    setSelectedSavedCardId(card._id);
+    setStripePaymentMethod({ id: card.stripePaymentMethodId });
+    setSavedCustomerId(card.stripeCustomerId || null);
+  };
+  const pickNewCard = () => {
+    setSelectedSavedCardId("new");
+    setStripePaymentMethod(null);
+    setSavedCustomerId(null);
+  };
+  // Saved cards are offered only for one-off card payments by signed-in donors.
+  const showSavedCards =
+    !!user && paymentType === "single" && savedCards.length > 0 &&
+    (selectedPaymentMethod === "visa" || selectedPaymentMethod === "mastercard");
+  const usingNewCard = !showSavedCards || selectedSavedCardId === "new";
+
   const validateDonorDetails = () => {
     const newErrors = {};
     if (!formData.name) newErrors.name = "Name is required";
@@ -458,6 +518,11 @@ const UnifiedCheckout = () => {
         }),
         ...((selectedPaymentMethod === "visa" || selectedPaymentMethod === "mastercard") && {
           stripePaymentMethodId: stripePaymentMethod.id,
+          // Present only for a SAVED card (its PM is attached to this customer);
+          // the backend then charges with { customer, payment_method }.
+          ...(paymentType === "single" && savedCustomerId && selectedSavedCardId !== "new"
+            ? { stripeCustomerId: savedCustomerId }
+            : {}),
         }),
       };
 
@@ -775,9 +840,56 @@ const UnifiedCheckout = () => {
       </div>
 
       {(selectedPaymentMethod === "visa" || selectedPaymentMethod === "mastercard") && stripePromise && (
-        <Elements stripe={stripePromise}>
-          <StripeCardForm onPaymentMethodCreated={handlePaymentMethodCreated} isSubmitting={submittingCardForm} />
-        </Elements>
+        <div className="mt-5 space-y-3">
+          {/* Saved cards (one-off payments, signed-in donors) */}
+          {showSavedCards && (
+            <>
+              <label className={labelCls}>Pay with a saved card</label>
+              {savedCards.map((c) => {
+                const active = selectedSavedCardId === c._id;
+                return (
+                  <button
+                    key={c._id}
+                    type="button"
+                    onClick={() => pickSavedCard(c)}
+                    className={`flex w-full items-center gap-3 border p-3.5 text-left transition-colors ${active ? "border-accent bg-accent/5" : "border-gray-200 hover:border-accent/50"}`}
+                  >
+                    <span className={`grid h-9 w-9 shrink-0 place-items-center ${active ? "bg-accent text-white" : "bg-accent/10 text-accent"}`}>
+                      <CreditCard className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-primary">
+                        {cardBrandLabel(c.brand)}{c.cardNumber ? ` •••• ${c.cardNumber}` : ""}
+                      </span>
+                      <span className="block text-xs text-text-muted">
+                        {c.expiryMonth && c.expiryYear ? `Expires ${String(c.expiryMonth).padStart(2, "0")}/${c.expiryYear}` : "Saved card"}
+                        {c.isDefault ? " · Default" : ""}
+                      </span>
+                    </span>
+                    {active && <Check className="h-4 w-4 shrink-0 text-accent" />}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={pickNewCard}
+                className={`flex w-full items-center gap-3 border p-3.5 text-left transition-colors ${selectedSavedCardId === "new" ? "border-accent bg-accent/5" : "border-gray-200 hover:border-accent/50"}`}
+              >
+                <span className={`grid h-9 w-9 shrink-0 place-items-center ${selectedSavedCardId === "new" ? "bg-accent text-white" : "bg-accent/10 text-accent"}`}>
+                  <Plus className="h-[18px] w-[18px]" />
+                </span>
+                <span className="text-sm font-semibold text-primary">Use a new card</span>
+              </button>
+            </>
+          )}
+
+          {/* New-card entry (Stripe Elements) */}
+          {usingNewCard && (
+            <Elements stripe={stripePromise}>
+              <StripeCardForm onPaymentMethodCreated={handlePaymentMethodCreated} isSubmitting={submittingCardForm} />
+            </Elements>
+          )}
+        </div>
       )}
 
       {selectedPaymentMethod === "bank" && (

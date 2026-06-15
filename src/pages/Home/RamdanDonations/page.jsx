@@ -1,115 +1,54 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import NewsletterSection from "../Newsletter/newsletter";
-import { sectionReveal, staggerContainer, staggerItem } from "../../../utils/animations";
-
-// Unsplash images for Ramadan / charity themes
-const image1 = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&q=80"; // food distribution
-const image2 = "https://images.unsplash.com/photo-1497375638960-ca368c7231e4?w=600&q=80"; // community giving
-const image3 = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=600&q=80"; // charity
-const image4 = "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&q=80"; // community support
-const image5 = "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=600&q=80"; // helping hands
-const image6 = "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=600&q=80"; // charity donation
-const zakatbg = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=600&q=80";
-// Video banner replaced with a hero image
-const videoPoster = "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=1200&q=80";
-import { useCart } from "../../Components/cart";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Info } from "lucide-react"; // Assuming you're using lucide-react
+import { Moon, Sparkles, ArrowRight, Info, Calendar, Repeat, Heart, X, Calculator, CheckCircle2 } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { useCart } from "../../Components/cart";
 import AutoPlayIframe from "../../Components/AutoPlayIframe";
+import NewsletterSection from "../Newsletter/newsletter";
 import usePageContent from "../../../hooks/usePageContent";
+import { useTenant } from "../../../context/TenantContext";
+import { PageHero, GivingSubNav, SectionHeading, CTABand } from "../../../components/giving";
+import { RAMADAN_TEN_NIGHTS, RAMADAN_DAILY, GIVING_NAV, RAMADAN_HERO_IMG, RAMADAN_MISSION_IMG } from "../../../config/giving";
 
-const ZakatBanner = () => {
-  const navigate = useNavigate();
-  return (
-    <div
-      className="relative h-[400px] bg-cover bg-center"
-      style={{
-        backgroundImage: `linear-gradient(to right, rgba(27, 67, 50, 0.9), rgba(45, 106, 79, 0.9)), url(${zakatbg})`,
-      }}
-    >
-      <div className="mx-auto px-4 md:px-6 lg:px-28 h-full">
-        <div className="flex flex-col justify-center h-full">
-          <div className="flex flex-col lg:flex-row justify-between items-center">
-            <div className="space-y-4">
-              <h1 className="text-6xl font-bold text-white">
-                Zakat Calculator
-              </h1>
-            </div>
-            <div className="gap-10 flex flex-col items-start">
-              <p className="text-white text-xl max-w-xl text-justify">
-                Easily calculate your Zakat in just one click and fulfill your
-                obligation with confidence.
-              </p>
-              <button
-                className="bg-white text-text-dark px-6 py-3 rounded-xl hover:bg-gray-100 transition-colors font-semibold shadow-md"
-                onClick={() => navigate("/zakat/calculator")}
-              >
-                Use our zakat calculator
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ----------------------------------
-// RECURRING DONATION MODAL
-// ----------------------------------
+/* ── Recurring (automated daily) donation modal ───────────────────────────── */
 const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
   const { addItem } = useCart();
-  const [recurringFrequency, setRecurringFrequency] = useState("daily");
   const [recurringAmount, setRecurringAmount] = useState(0);
   const [recurringEndDate, setRecurringEndDate] = useState("");
   const [totalRecurringPayments, setTotalRecurringPayments] = useState(0);
+  const recurringFrequency = "daily"; // Ramadan giving is automated daily.
 
   useEffect(() => {
     if (donationDetails) {
-      setRecurringAmount(donationDetails.price || 0);
-      setRecurringFrequency("daily");
-
+      setRecurringAmount(Number(donationDetails.price) || 0);
       const today = new Date();
       const endDate = new Date(today);
-      endDate.setDate(today.getDate() + 9); // 10 days including today
+      endDate.setDate(today.getDate() + 9); // 10 nights including today
       setRecurringEndDate(endDate.toISOString().split("T")[0]);
-
-      // Calculate total payments (10 days)
       setTotalRecurringPayments(10);
     }
   }, [donationDetails]);
 
   useEffect(() => {
-    if (recurringEndDate) {
-      const startDate = new Date();
-      const endDate = new Date(recurringEndDate);
-      const diffTime = Math.abs(endDate - startDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include both start and end date
-
-      if (recurringFrequency === "daily") {
-        setTotalRecurringPayments(diffDays);
-      } else if (recurringFrequency === "weekly") {
-        setTotalRecurringPayments(Math.ceil(diffDays / 7));
-      } else if (recurringFrequency === "monthly") {
-        setTotalRecurringPayments(Math.ceil(diffDays / 30));
-      } else if (recurringFrequency === "yearly") {
-        setTotalRecurringPayments(Math.ceil(diffDays / 365));
-      }
-    }
-  }, [recurringEndDate, recurringFrequency]);
+    if (!recurringEndDate) return;
+    const startDate = new Date();
+    const endDate = new Date(recurringEndDate);
+    const diffTime = Math.abs(endDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    setTotalRecurringPayments(diffDays);
+  }, [recurringEndDate]);
 
   const handleSubmit = () => {
-    const today = new Date();
-    const formattedToday = today.toISOString().split("T")[0];
-
+    const formattedToday = new Date().toISOString().split("T")[0];
     addItem({
       id: `donation-${donationDetails.amount}-recurring`,
       title: donationDetails.amount,
       price: recurringAmount,
       image: donationDetails.image,
+      donationType: "Sadaqah",
       isRecurring: true,
-      source: "ramadan", // Add source identifier for checkout
+      source: "ramadan",
       recurringDetails: {
         frequency: recurringFrequency,
         endDate: recurringEndDate,
@@ -117,363 +56,318 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
         startDate: formattedToday,
       },
     });
+    toast.success("Daily Ramadan giving added to your cart");
     onClose();
   };
 
-  if (!isOpen) return null;
+  const grandTotal = (Number(recurringAmount) || 0) * (totalRecurringPayments || 0);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-gray-800">
-              Set Up Recurring Donation
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              &times;
-            </button>
-          </div>
-
-          <div className="mb-4 p-4 bg-background rounded-2xl">
-            <h4 className="font-medium text-justify">{donationDetails?.amount}</h4>
-            <p className="text-sm text-gray-600 text-justify">
-              {donationDetails?.description}
-            </p>
-          </div>
-
-          <div className="mt-6 p-6 bg-background border border-primary/30 rounded-2xl shadow-sm space-y-6">
-            <h4 className="text-lg font-semibold text-gray-800 text-justify">
-              Recurring Payment Details
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Frequency
-                </label>
-                <select
-                  value={recurringFrequency}
-                  onChange={(e) => setRecurringFrequency(e.target.value)}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                  disabled
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Amount Charged {recurringFrequency}
-                </label>
-                <input
-                  type="number"
-                  value={recurringAmount}
-                  onChange={(e) => setRecurringAmount(parseFloat(e.target.value))}
-                  disabled
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                />
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+        >
+          <motion.div
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-white shadow-2xl"
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative overflow-hidden bg-primary px-6 py-5">
+              <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-accent/20 blur-2xl" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-accent text-white">
+                    <Repeat className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="font-heading text-xl font-bold text-white">Automate your daily giving</h3>
+                    <p className="mt-0.5 text-sm text-white/60">Give every night and never miss Laylatul Qadr.</p>
+                  </div>
+                </div>
+                <button onClick={onClose} className="text-white/60 transition-colors hover:text-white" aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  End Date (Stop recurring payments)
-                </label>
-                <input
-                  type="date"
-                  value={recurringEndDate}
-                  onChange={(e) => setRecurringEndDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
-                  className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                />
+
+            <div className="space-y-5 p-6">
+              <div className="flex items-start gap-2.5 border border-accent/20 bg-accent/5 px-4 py-3">
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <div>
+                  <p className="font-semibold text-primary">{donationDetails?.amount}</p>
+                  <p className="text-sm text-text-muted">{donationDetails?.description}</p>
+                </div>
               </div>
-              <div className="flex items-center">
-                <div className="flex-1 text-sm text-gray-700">
-                  <p className="mb-1 font-medium">Total Payments</p>
-                  <div className="flex items-center justify-center p-3 border border-primary/30 bg-primary/10 text-primary rounded-md font-semibold">
-                    {totalRecurringPayments > 0 ? totalRecurringPayments : 0}{" "}
-                    Payments
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Repeat className="h-4 w-4 text-accent" /> Frequency
+                  </label>
+                  <div className="flex items-center border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700">Daily</div>
+                </div>
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Heart className="h-4 w-4 text-accent" /> Amount per night
+                  </label>
+                  <div className="flex items-center gap-2 border border-gray-200 bg-white px-3 transition-colors focus-within:border-accent">
+                    <span className="text-sm font-semibold text-gray-400">$</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={recurringAmount}
+                      onChange={(e) => setRecurringAmount(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-transparent py-2.5 text-sm text-gray-800 outline-none"
+                    />
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Info Text */}
-            <div className="text-sm text-gray-600 flex items-center">
-              <Info className="w-4 h-4 mr-2 text-primary" />
-              <span className="text-justify">
-                Your card will be charged ${recurringAmount}{" "}
-                {recurringFrequency} for {totalRecurringPayments} payments
-              </span>
-            </div>
-          </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <Calendar className="h-4 w-4 text-accent" /> Give until
+                  </label>
+                  <input
+                    type="date"
+                    value={recurringEndDate}
+                    onChange={(e) => setRecurringEndDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className="w-full border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <span className="mb-1.5 block text-sm font-medium text-primary">Total nights</span>
+                  <div className="flex items-center justify-center border border-accent/30 bg-accent/10 px-3 py-2.5 text-sm font-bold text-primary">
+                    {totalRecurringPayments > 0 ? totalRecurringPayments : 0} nights
+                  </div>
+                </div>
+              </div>
 
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-light"
-            >
-              Confirm Donation
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                <span className="flex items-center gap-1.5 text-xs text-text-muted">
+                  <Info className="h-3.5 w-3.5 text-accent" />${recurringAmount} × {totalRecurringPayments} nights
+                </span>
+                <span className="font-heading text-lg font-bold text-primary">${grandTotal.toLocaleString()}</span>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button onClick={onClose} className="border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Confirm daily giving
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
+/* ── A single Ramadan giving card ─────────────────────────────────────────── */
+const GiveCard = ({ donation, onDonate, reduce }) => (
+  <motion.div
+    variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}
+    whileHover={reduce ? {} : { y: -6 }}
+    transition={{ type: "spring", stiffness: 300, damping: 24 }}
+    className="group relative flex h-full flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+  >
+    <div className="relative h-56 overflow-hidden">
+      <img
+        src={donation.image}
+        alt={donation.amount}
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+      <span className="absolute right-3 top-3 inline-flex items-center gap-1 bg-accent px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+        <Repeat className="h-3 w-3" /> Daily
+      </span>
+      <span className="absolute bottom-3 left-3 bg-white/90 px-2.5 py-1 font-heading text-sm font-bold text-primary backdrop-blur-sm">
+        ${donation.price}/night
+      </span>
+    </div>
+    <div className="flex flex-1 flex-col p-6">
+      <h3 className="font-heading text-base font-bold text-primary">{donation.amount}</h3>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-text-muted">{donation.description}</p>
+      <button
+        onClick={() => onDonate(donation)}
+        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+      >
+        Automate this gift <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  </motion.div>
+);
 
 const RamadanDonations = () => {
   const { addItem } = useCart();
+  const navigate = useNavigate();
+  const reduce = useReducedMotion();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState(null);
   const { content } = usePageContent("ramadan");
+  const { organisation } = useTenant();
   const hero = content?.hero || {};
   const intro = content?.intro || {};
+  const mission = content?.mission || {};
+  const orgName = organisation?.name || "our foundation";
 
-  // Scroll to top when the component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Donation arrays
-  const tenDayDonations = [
-    {
-      image: image1,
-      amount: "Feed a family of 5 in last 10 nights",
-      price: 7,
-      description:
-        "Donate $7 daily for one food / ration bag for the family of 5 in last 10 nights.",
-      isRecurring: true,
-    },
-    {
-      image: image2,
-      amount: "Educate A Child in last 10 nights ",
-      price: 30,
-      description:
-        "Donate $30 daily to support the education of a child during last 10 nights.",
-      isRecurring: true,
-    },
-    {
-      image: image3,
-      amount: "Build a large hand pump in last 10 nights",
-      price: 60,
-      description:
-        "Donate $60 daily to build a large hand pump in last 10 nights.",
-      isRecurring: true,
-    },
-  ];
+  // CMS-editable card lists, normalised to numeric prices, with config fallback.
+  const toCards = (list) => list.map((d) => ({ ...d, price: Number(d.price) || 0 }));
+  const tenNights = toCards(content?.tenNights?.length ? content.tenNights : RAMADAN_TEN_NIGHTS);
+  const daily = toCards(content?.daily?.length ? content.daily : RAMADAN_DAILY);
 
-  const dailyDonations = [
-    {
-      image: image4,
-      amount: "Donate $5 Daily",
-      price: 5,
-      description:
-        "Make a difference with just $5 a day, providing consistent support to those in need.",
-      isRecurring: true,
-    },
-    {
-      image: image5,
-      amount: "Donate $10 Daily",
-      price: 10,
-      description:
-        "Give $10 a day to provide essential aid and make a lasting impact on those in need.",
-      isRecurring: true,
-    },
-    {
-      image: image6,
-      amount: "Donate $20 Daily",
-      price: 20,
-      description:
-        "Contribute $20 daily to sustain vital programs and bring meaningful change to those in need.",
-      isRecurring: true,
-    },
-  ];
-
-  // Handler for donate button
   const handleDonateClick = (donation) => {
-    if (donation.isRecurring) {
-      // Open modal for recurring donations
-      setSelectedDonation(donation);
-      setModalOpen(true);
-    } else {
-      // Regular one-time donation
-      addItem({
-        id: `donation-${donation.amount}`,
-        title: donation.amount,
-        price: donation.price,
-        image: donation.image,
-      });
-    }
+    setSelectedDonation(donation);
+    setModalOpen(true);
   };
 
+  const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.1 } } };
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-      {/* Hero Header */}
-      <div>
-        <div className="w-screen overflow-hidden">
-          <div className="relative h-[350px] bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to right, rgba(27, 67, 50, 0.7), rgba(45, 106, 79, 0.7)), url(${hero.image ?? videoPoster})` }}>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <h1 className="text-4xl md:text-5xl font-bold text-white text-center px-6">{hero.title ?? "Ramadan Giving"}</h1>
-            </div>
-          </div>
-        </div>
-
-        {/* Intro Text */}
-        <div className="max-w-5xl mx-auto px-4 py-8 text-center">
-          <p className="text-lg text-gray-700 font-medium mb-1 text-justify">
-            {intro.line1 ??
-              "Automate your daily sadaqah for the last 10 nights of Ramadan and never miss Laylatul Qadr!"}
-          </p>
-          <p className="text-lg text-gray-700 font-medium text-justify">
-            {intro.line2 ??
-              "During the last ten nights of Ramadan, many of us will dedicate more time to Dhikr, Salah and offering Sadaqah. We all want to do the best we can during these sacred nights."}
-          </p>
-        </div>
-      </div>
-
-      {/* Donation Cards */}
-      <motion.div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" {...sectionReveal}>
-        <h2 className="text-xl font-bold mb-8">Make a Donation</h2>
-
-        <div className="space-y-12">
-          {/* Ten-Day Donations */}
-          <div>
-            <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-8" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
-              {tenDayDonations.map((donation, index) => (
-                <motion.div
-                  key={index}
-                  variants={staggerItem}
-                  className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full"
-                >
-                  <div className="relative h-72">
-                    <img
-                      src={donation.image}
-                      alt={donation.amount}
-                      className="w-full h-full object-cover"
-                       loading="lazy"
-                    />
-                    <div className="absolute top-2 right-2 bg-primary text-white px-3 py-1 rounded-full text-xs">
-                      Recurring
-                    </div>
-                  </div>
-
-                  <div className="p-6 flex flex-col flex-1">
-                    <h3 className="font-bold mb-2 text-justify">{donation.amount}</h3>
-                    <p className="text-gray-600 text-sm mb-4 text-justify">
-                      {donation.description}
-                    </p>
-                    <div className="mt-auto">
-                      <button
-                        className="w-full bg-primary text-white py-2 rounded-xl hover:bg-primary-light transition-colors font-semibold"
-                        onClick={() => handleDonateClick(donation)}
-                      >
-                        Donate Now
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Daily Donations */}
-          <div>
-            <h3 className="text-xl font-semibold mb-6">One-Time Donations</h3>
-            <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-8" variants={staggerContainer} initial="initial" whileInView="animate" viewport={{ once: true }}>
-              {dailyDonations.map((donation, index) => (
-                <motion.div
-                  key={index}
-                  variants={staggerItem}
-                  className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full"
-                >
-                  <div className="relative h-56">
-                    <img
-                      src={donation.image}
-                      alt={donation.amount}
-                      className="w-full h-full object-cover object-top"
-                       loading="lazy"
-                    />
-                    <div className="absolute top-2 right-2 bg-primary text-white px-3 py-1 rounded-full text-xs">
-                      Recurring
-                    </div>
-                  </div>
-
-                  <div className="p-6 flex flex-col flex-1">
-                    <h3 className="font-bold mb-2 text-justify">{donation.amount}</h3>
-                    <p className="text-gray-600 text-sm mb-4 text-justify">
-                      {donation.description}
-                    </p>
-                    <div className="mt-auto">
-                      <button
-                        className="w-full bg-primary text-white py-2 rounded-xl hover:bg-primary-light transition-colors font-semibold"
-                        onClick={() => handleDonateClick(donation)}
-                      >
-                        Donate Now
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Mission Statement */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mt-20 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <div className="rounded-2xl shadow-md w-full overflow-hidden">
-              <AutoPlayIframe
-                videoId="6PQn8hkSMEA"
-                width="100%"
-                height="315"
-                title="Ramadan Charity Initiative"
-                className="w-full"
-              />
-            </div>
-          </div>
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-justify">
-              Supporting Local Communities in Ramadan
-            </h2>
-            <p className="text-gray-600 text-justify">
-              The HopeGive Foundation's Ramadan Charity Initiative aims
-              to assist underprivileged families across Australia by providing
-              food and essential supplies during the holy month. This effort
-              reflects the foundation's commitment to "Hope Not Out," focusing
-              on humanitarian aid within the local community. The initiative
-              encourages local donations and volunteer involvement, promoting a
-              spirit of compassion and support for those in need across
-              Australia.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recurring Donation Modal */}
-      <RecurringDonationModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        donationDetails={selectedDonation}
+    <motion.div className="bg-background" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <PageHero
+        image={hero.image ?? RAMADAN_HERO_IMG}
+        icon={Moon}
+        eyebrow={hero.eyebrow ?? "The last 10 nights"}
+        title={hero.title ?? "Ramadan Giving"}
+        subtitle={
+          intro.line1 ??
+          "Automate your daily sadaqah for the last 10 nights of Ramadan and never miss the immense rewards of Laylatul Qadr."
+        }
       />
 
-      {/* Zakat Banner & Newsletter */}
-      <ZakatBanner />
+      <GivingSubNav items={GIVING_NAV} />
+
+      {/* ── Intro ────────────────────────────────────────────────────────── */}
+      <section className="bg-background px-6 pt-14">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="font-body text-lg leading-relaxed text-text-muted">
+            {intro.line2 ??
+              "During the last ten nights, many of us dedicate more time to Dhikr, Salah and Sadaqah. Set your giving on autopilot so every blessed night counts — including the night that is better than a thousand months."}
+          </p>
+        </div>
+      </section>
+
+      {/* ── Last 10 Nights ───────────────────────────────────────────────── */}
+      <section className="bg-background px-6 py-14 lg:py-16">
+        <div className="mx-auto max-w-6xl">
+          <SectionHeading
+            icon={Sparkles}
+            eyebrow="The last 10 nights"
+            title="Targeted nightly giving"
+            intro="Pick a cause and let it give automatically every night of the final ten."
+          />
+          <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+            {tenNights.map((d, i) => (
+              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} />
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Daily giving ─────────────────────────────────────────────────── */}
+      <section className="bg-white px-6 py-14 lg:py-16">
+        <div className="mx-auto max-w-6xl">
+          <SectionHeading
+            icon={Heart}
+            eyebrow="Flexible daily sadaqah"
+            title="Set an amount, give every night"
+            intro="Choose a nightly amount and we'll direct it where it's needed most."
+          />
+          <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+            {daily.map((d, i) => (
+              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} />
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Mission statement + video ────────────────────────────────────── */}
+      <section className="bg-background px-6 py-16 lg:py-20">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6 }}
+            className="overflow-hidden border border-gray-100 shadow-md"
+          >
+            {/* Show a video only when the tenant has set one in the CMS;
+                otherwise show an image so it's never a broken embed. */}
+            {mission.videoId ? (
+              <AutoPlayIframe videoId={mission.videoId} title="Ramadan Charity Initiative" className="w-full" />
+            ) : (
+              <img
+                src={mission.image || RAMADAN_MISSION_IMG}
+                alt="Ramadan charity initiative"
+                className="aspect-video w-full object-cover"
+                loading="lazy"
+              />
+            )}
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.6 }}
+            className="space-y-5"
+          >
+            <SectionHeading
+              icon={Moon}
+              eyebrow="Our Ramadan mission"
+              title={mission.title || "Supporting local communities in Ramadan"}
+            />
+            <p className="-mt-6 leading-relaxed text-text-muted">
+              {mission.text ||
+                `${orgName}'s Ramadan initiative provides food and essential supplies to underprivileged families during the holy month. Rooted in compassion, we focus on humanitarian aid within the local community — encouraging donations and volunteer involvement to support those most in need.`}
+            </p>
+            <button
+              onClick={() => {
+                addItem({ id: `ramadan-sadaqah-${Date.now()}`, title: "Ramadan Sadaqah", price: 50, donationType: "Sadaqah", image: "" });
+                toast.success("$50 Ramadan Sadaqah added to your cart");
+              }}
+              className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+            >
+              Give a one-off Sadaqah <Heart className="h-4 w-4" />
+            </button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Zakat CTA band ───────────────────────────────────────────────── */}
+      <CTABand
+        title="Don't forget your Zakat this Ramadan"
+        text="Calculate exactly what you owe in seconds and fulfil your obligation with confidence."
+      >
+        <button
+          onClick={() => navigate("/zakat/calculator")}
+          className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light"
+        >
+          Use our Zakat calculator <Calculator className="h-4 w-4" />
+        </button>
+      </CTABand>
+
+      <RecurringDonationModal isOpen={modalOpen} onClose={() => setModalOpen(false)} donationDetails={selectedDonation} />
       <NewsletterSection />
     </motion.div>
   );

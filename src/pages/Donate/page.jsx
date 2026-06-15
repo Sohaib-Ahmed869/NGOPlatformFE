@@ -111,22 +111,32 @@ const QuickDonate = ({ programs }) => {
   const [amount, setAmount] = useState(100);
   const [customAmount, setCustomAmount] = useState("");
   const [donationType, setDonationType] = useState("");
-  const [donationTypes, setDonationTypes] = useState([]);
+  // Hydrate from the cached list so revisits paint instantly (no skeleton flash).
+  const [donationTypes, setDonationTypes] = useState(() => donationTypeService.getCached() || []);
+  const [loadingTypes, setLoadingTypes] = useState(() => !donationTypeService.getCached());
   const [step, setStep] = useState(1); // give flow: 1 = choose cause, 2 = choose amount
 
   useEffect(() => {
-    const fetchTypes = async () => {
-      try {
-        const res = await donationTypeService.getAll();
-        if (res.success && res.data?.length) {
-          setDonationTypes(res.data);
-          setDonationType(res.data[0].donationType);
-        }
-      } catch {
-        /* no types — the selector simply hides */
-      }
+    let active = true;
+    // Revalidate in the background (stale-while-revalidate). The cached copy is
+    // already on screen; we only block with the skeleton on a cold load, and an
+    // admin edit silently updates the list on the next view.
+    donationTypeService
+      .refresh()
+      .then((list) => {
+        // Don't pre-select a cause — let the donor choose. "Continue" stays
+        // disabled until they pick one.
+        if (active) setDonationTypes(list);
+      })
+      .catch(() => {
+        /* keep whatever's cached — the selector just won't refresh */
+      })
+      .finally(() => {
+        if (active) setLoadingTypes(false);
+      });
+    return () => {
+      active = false;
     };
-    fetchTypes();
   }, []);
 
   const activeAmount = customAmount || amount;
@@ -255,7 +265,7 @@ const QuickDonate = ({ programs }) => {
             {/* Body — guided two-step give flow */}
             <div className="relative px-6 py-6 sm:px-7">
               {/* Stepper (only when there are causes to choose → 2 steps) */}
-              {hasTypes && (
+              {!loadingTypes && hasTypes && (
                 <div className="mb-6 flex items-center gap-3">
                   <StepBadge n={1} label="Cause" step={step} />
                   <div className={cn("h-px flex-1 transition-colors", step > 1 ? "bg-accent" : "bg-gray-200")} />
@@ -264,7 +274,26 @@ const QuickDonate = ({ programs }) => {
               )}
 
               <AnimatePresence mode="wait" initial={false}>
-                {hasTypes && step === 1 ? (
+                {loadingTypes ? (
+                  /* ── Loading causes — skeleton so we never flash the amount step ─ */
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="animate-pulse"
+                    aria-hidden
+                  >
+                    <div className="mb-2 h-3 w-28 rounded bg-gray-200" />
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-11 bg-gray-200" />
+                      ))}
+                    </div>
+                    <div className="mt-6 h-12 w-full bg-gray-200" />
+                  </motion.div>
+                ) : hasTypes && step === 1 ? (
                   /* ── Step 1 — choose a cause ─────────────────────────── */
                   <motion.div
                     key="step1"

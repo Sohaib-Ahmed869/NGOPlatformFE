@@ -55,11 +55,11 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className={`min-h-screen flex ${isSaaS ? "saas-page" : ""}`} style={{ backgroundColor: bg, ...(isSaaS ? { fontFamily: "'Outfit', system-ui, sans-serif" } : {}) }}>
+    <div className={`min-h-screen flex ${isSaaS ? "saas-page" : ""}`} style={{ backgroundColor: bg, ...(isSaaS ? { fontFamily: "'Times New Roman', Tinos, Times, serif" } : {}) }}>
       {isSaaS && (
         <>
           <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px)", backgroundSize: "64px 64px", maskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)", WebkitMaskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)" }} />
-          <style>{`.saas-page h1,.saas-page h2,.saas-page h3{font-family:'Outfit',system-ui,sans-serif!important}`}</style>
+          <style>{`.saas-page h1,.saas-page h2,.saas-page h3{font-family:'Times New Roman',Tinos,Times,serif!important}`}</style>
         </>
       )}
       {/* Left panel — dark themed gradient */}

@@ -43,6 +43,8 @@ const GoFundMeService = {
   reviewRequest: (requestId, reviewData) =>
     axiosInstance.put(`/gofundme/admin/review/${requestId}`, reviewData).then((r) => r.data),
   getAdminStats: () => axiosInstance.get("/gofundme/admin/stats").then((r) => r.data),
+  getAdminPayments: (params = {}) =>
+    axiosInstance.get("/gofundme/admin/payments", { params }).then((r) => r.data),
   remove: (id) => axiosInstance.delete(`/gofundme/${id}`).then((r) => r.data),
 };
 

@@ -1,1273 +1,1130 @@
-import React, { useState, useEffect, useMemo } from "react"
-import { Calendar, Search, ChevronLeft, ChevronRight, ChevronDown, RefreshCcw, ChevronUp, X, Plus, Download, Loader, FileText, DollarSign, AlertCircle, Bell, CheckCircle2, MessageSquare } from 'lucide-react'
-import { toast } from "react-hot-toast"
-import DonationService from "../../services/donation.service"
-import logo from "../../assets/logo.png"
-import footer2 from "../../assets/footer3.png"
-import { downloadReceipt, downloadPaidPaymentsReceipt } from "./recieptDownloader"
-import { formatEndDate } from "./formatEndDate"
-import { generateAnnualStatement, getAvailableFinancialYears } from "./AnnualDonation"
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
-import AppLoader from "../../components/Loader";
+import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
+import {
+  Calendar,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Download,
+  FileText,
+  DollarSign,
+  AlertCircle,
+  Bell,
+  CheckCircle2,
+  MessageSquare,
+  CreditCard,
+  Repeat,
+  Layers,
+  HeartHandshake,
+  Wallet,
+  ArrowUpDown,
+  LayoutGrid,
+  List as ListIcon,
+  ArrowLeft,
+  ShieldCheck,
+  ExternalLink,
+  Receipt,
+} from "lucide-react";
+import { toast } from "react-hot-toast";
+import DonationService from "../../services/donation.service";
+import logo from "../../assets/logo.png";
+import footer2 from "../../assets/footer3.png";
+import { downloadReceipt, downloadPaidPaymentsReceipt } from "./recieptDownloader";
+import { formatEndDate } from "./formatEndDate";
+import { generateAnnualStatement, getAvailableFinancialYears } from "./AnnualDonation";
+import { TabLoader } from "../../components/TabLoader";
 import { useTenant } from "../../context/TenantContext";
+import { cn } from "../../utils/cn";
 
-const ITEMS_PER_PAGE = 10
+const ITEMS_PER_PAGE = 9;
+const money = (n) => `$${Number(n || 0).toLocaleString()}`;
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "—";
 
-const UserDonations = () => {
-  const { organisation } = useTenant();
-  const orgInfo = { name: organisation?.name, email: organisation?.contactEmail, phone: organisation?.contactPhone, website: organisation?.website };
-  const [donations, setDonations] = useState([])
-  const [stats, setStats] = useState({
-    totalDonated: 0,
-    paidDonated: 0,
-    activeRecurring: 0,
-    recurringCount: 0,
-    oneTimeCount: 0,
-    pendingAmount: 0,
-  })
-  const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedType, setSelectedType] = useState("All")
-  const [sortConfig, setSortConfig] = useState({
-    key: "date",
-    direction: "desc",
-  })
+const titleCase = (s) =>
+  (s || "").toString().replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-  // State for modal
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedDonation, setSelectedDonation] = useState(null)
+const STATUS_STYLE = {
+  completed: "bg-emerald-50 text-emerald-700",
+  active: "bg-emerald-50 text-emerald-700",
+  succeeded: "bg-emerald-50 text-emerald-700",
+  processing: "bg-amber-50 text-amber-700",
+  pending: "bg-blue-50 text-blue-700",
+  failed: "bg-red-50 text-red-700",
+  cancelled: "bg-red-50 text-red-700",
+};
+const statusStyle = (s) => STATUS_STYLE[(s || "").toLowerCase()] || "bg-gray-100 text-gray-600";
 
-  // New state for annual statement feature
-  const [showYearSelector, setShowYearSelector] = useState(false)
-  const [availableYears, setAvailableYears] = useState([])
-  const [selectedYear, setSelectedYear] = useState(null)
-  const [generatingStatement, setGeneratingStatement] = useState(false)
+const TYPE_META = {
+  recurring: { label: "Recurring", icon: Repeat },
+  installments: { label: "Installments", icon: Layers },
+  single: { label: "One-time", icon: HeartHandshake },
+  one_time: { label: "One-time", icon: HeartHandshake },
+};
+const typeMeta = (t) => TYPE_META[t] || TYPE_META.single;
 
-  // New state for total amount from table
-  const [tableTotal, setTableTotal] = useState(0)
+function paymentMethodLabel(d) {
+  const pm = d.paymentMethod;
+  if (pm?.type === "card" && pm?.card)
+    return `${titleCase(pm.card.brand || "Card")}${pm.card.last4 ? ` •••• ${pm.card.last4}` : ""}`;
+  if (pm?.type === "bank_transfer" || pm?.type === "bank_account")
+    return `Bank Transfer${pm?.bank_name ? ` (${pm.bank_name})` : ""}`;
+  if (pm?.type === "paypal") return "PayPal";
+  if (pm?.type) return titleCase(pm.type);
+  if (pm) return typeof pm === "string" ? titleCase(pm) : "—";
+  return "—";
+}
 
-  // New state for donation type counts
-  const [typeCounts, setTypeCounts] = useState({
-    single: 0,
-    recurring: 0,
-    installments: 0,
-  })
+// Gradient header band shared with the My Payments / Subscriptions screens.
+const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #2C2418), var(--tenant-accent, #C9A84C))";
 
-  useEffect(() => {
-    fetchDonations()
-  }, [])
+/* ── Stat tile integrated into the gradient header strip ──────────────── */
+function HeaderStat({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center gap-3 bg-white px-5 py-4 sm:px-6">
+      <span className="grid h-9 w-9 shrink-0 place-items-center bg-accent/10 text-accent">
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate font-heading text-lg font-bold leading-none text-primary">{value}</p>
+        <p className="mt-1 text-xs text-text-muted">{label}</p>
+      </div>
+    </div>
+  );
+}
 
-  // Add this effect to calculate available financial years
-  useEffect(() => {
-    if (donations.length > 0) {
-      const years = getAvailableFinancialYears(donations)
-      setAvailableYears(years)
-      // Set current/most recent financial year as default
-      if (years.length > 0) {
-        setSelectedYear(years[0])
-      }
-    }
-  }, [donations])
+/* ── Summary stat tile ────────────────────────────────────────────────── */
+function StatTile({ icon: Icon, label, value, hint }) {
+  return (
+    <div className="flex items-center gap-3 border border-gray-100 bg-white p-4 shadow-sm">
+      <span className="grid h-11 w-11 shrink-0 place-items-center bg-accent/10 text-accent">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="font-heading text-xl font-bold leading-none text-primary">{value}</p>
+        <p className="mt-1 text-xs text-text-muted">{label}</p>
+        {hint && <p className="text-[11px] text-text-muted/70">{hint}</p>}
+      </div>
+    </div>
+  );
+}
 
-  const fetchDonations = async () => {
-    try {
-      setLoading(true)
-      const [donationsResponse, statsResponse] = await Promise.all([
-        DonationService.getUserDonations(),
-        DonationService.getDonationStats(),
-      ])
-      console.log('Donations Response:', donationsResponse)
-      console.log('Stats Response:', statsResponse)
+/* ── One donation card ────────────────────────────────────────────────── */
+function DonationCard({ donation, orgInfo, onView }) {
+  const { label: tLabel, icon: TIcon } = typeMeta(donation.paymentType);
+  const inst = donation.paymentType === "installments" ? donation.installmentDetails : null;
+  const paid = inst?.installmentsPaid || 0;
+  const total = inst?.numberOfInstallments || 0;
+  const pct = total ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+  const extra = (donation.items?.length || 1) - 1;
+  const closedOff = donation.donorUpdates?.some((u) => u.type === "close-off");
+  const hasUpdates = donation.donorUpdates?.length > 0;
+  const canReceipt = !["pending", "failed", "cancelled"].includes(donation.paymentStatus);
+  const isOneTime =
+    donation.paymentType === "single" || donation.paymentType === "one_time" || !donation.paymentType;
 
-      if (donationsResponse.status === "Success") {
-        setDonations(donationsResponse.orders)
-        // Use the updated stats from backend
-        setStats(statsResponse.stats)
+  const nextPayment =
+    donation.nextPaymentDate ||
+    donation.recurringDetails?.nextPaymentDate ||
+    donation.installmentDetails?.nextInstallmentDate;
 
-        // Calculate table total using the same method as before (for display consistency)
-        const totalAmount = await Promise.all(
-          donationsResponse.orders.map(async (order) => {
-            // Skip cancelled donations
-            if (order.paymentStatus === "cancelled") return 0
+  const handleReceipt = () => {
+    if (isOneTime) downloadReceipt(donation, { logoUrl: logo, charityLogoUrl: footer2 }, orgInfo);
+    else downloadPaidPaymentsReceipt(donation, orgInfo);
+  };
 
-            if (order.paymentType === "installments" && order.installmentDetails?.installmentHistory) {
-              // For installments, include both completed and active payments
-              const activeInstallments = order.installmentDetails.installmentHistory.filter(
-                (installment) => installment.status === "completed" || installment.status === "active",
-              )
-              const installmentTotal = activeInstallments.reduce((total, installment) => total + installment.amount, 0)
-              return installmentTotal
-            } else if (order.paymentType === "recurring") {
-              // For recurring donations, sum all successful payments in recurringDetails.paymentHistory
-              let paidAmount = 0;
-              if (order.recurringDetails && Array.isArray(order.recurringDetails.paymentHistory)) {
-                paidAmount = order.recurringDetails.paymentHistory
-                  .filter(p => p.status === "succeeded" || p.status === "completed")
-                  .reduce((sum, p) => sum + (p.amount || 0), 0);
-              }
-              return paidAmount
-            } else {
-              // For one-time donations, use totalAmount
-              return order.totalAmount
-            }
-          }),
-        ).then((amounts) => amounts.reduce((sum, amount) => sum + amount, 0))
+  const methodWide = !isOneTime && nextPayment;
 
-        setTableTotal(totalAmount)
-      }
-    } catch (error) {
-      toast.error(error.message || "Failed to fetch donations")
-    } finally {
-      setLoading(false)
-    }
-  }
+  return (
+    <div className="group flex flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md">
+      {/* Header band */}
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+        <span className="inline-flex items-center gap-1.5 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+          <TIcon className="h-3.5 w-3.5" /> {tLabel}
+        </span>
+        <span className={cn("shrink-0 px-2.5 py-1 text-[11px] font-semibold capitalize", statusStyle(donation.paymentStatus))}>
+          {donation.paymentStatus || "—"}
+        </span>
+      </div>
 
-  // Filtering
-  const filteredDonations = useMemo(() => {
-    return donations.filter((donation) => {
-      const matchesSearch = donation.items[0]?.title.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesType =
-        selectedType === "All"
-          ? true
-          : selectedType === "Recurring"
-            ? donation.paymentType !== "single"
-            : donation.paymentType === "single"
+      {/* Body */}
+      <div className="flex flex-1 flex-col p-5">
+        {/* Title */}
+        <h3 className="truncate font-heading text-base font-bold text-primary" title={donation.items?.[0]?.title}>
+          {donation.items?.[0]?.title || "Donation"}
+          {extra > 0 && <span className="ml-1.5 text-xs font-normal text-accent">+{extra} more</span>}
+        </h3>
 
-      return matchesSearch && matchesType
-    })
-  }, [donations, searchTerm, selectedType])
+        {/* Amount */}
+        <p className="mt-1 font-heading text-3xl font-bold leading-tight text-accent">
+          {money(donation.totalAmount)}
+          {donation.paymentType === "recurring" && donation.recurringDetails?.frequency && (
+            <span className="text-sm font-normal text-text-muted">/{donation.recurringDetails.frequency}</span>
+          )}
+        </p>
 
-  // Calculate total and type counts using useMemo
-  const { total, counts } = useMemo(() => {
-    const total = filteredDonations.reduce((sum, donation) => sum + donation.totalAmount, 0)
-
-    const counts = filteredDonations.reduce(
-      (acc, donation) => {
-        const type = donation.paymentType || "single"
-        acc[type] = (acc[type] || 0) + 1
-        return acc
-      },
-      {
-        single: 0,
-        recurring: 0,
-        installments: 0,
-      },
-    )
-
-    return { total, counts }
-  }, [filteredDonations])
-
-  // Update state only when memoized values change
-  useEffect(() => {
-    setTableTotal(total)
-    setTypeCounts(counts)
-  }, [total, counts])
-
-  // Sorting
-  const sortedDonations = useMemo(() => {
-    return [...filteredDonations].sort((a, b) => {
-      const aValue = sortConfig.key === "date" ? new Date(a.createdAt) : a[sortConfig.key]
-      const bValue = sortConfig.key === "date" ? new Date(b.createdAt) : b[sortConfig.key]
-
-      if (sortConfig.direction === "asc") {
-        return aValue > bValue ? 1 : -1
-      } else {
-        return aValue < bValue ? 1 : -1
-      }
-    })
-  }, [filteredDonations, sortConfig])
-
-  // Pagination
-  const totalPages = Math.ceil(sortedDonations.length / ITEMS_PER_PAGE)
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedDonations = sortedDonations.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-
-  const handleSort = (key) => {
-    setSortConfig({
-      key,
-      direction: sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc",
-    })
-  }
-
-  // Toggle row expansion
-  const toggleRowExpansion = (donationId) => {
-    setExpandedDonationId(donationId)
-  }
-
-  // Open modal with donation details
-  const openDonationModal = (donation) => {
-    setSelectedDonation(donation)
-    setModalOpen(true)
-  }
-
-  // Close modal
-  const closeModal = () => {
-    setModalOpen(false)
-    setSelectedDonation(null)
-  }
-
-  const handleGenerateStatement = async () => {
-    if (!selectedYear) {
-      toast.error("Please select a financial year")
-      return
-    }
-
-    setGeneratingStatement(true)
-    try {
-      // Show a toast notification that generation has started
-      toast.loading("Generating your annual statement...")
-
-      const result = generateAnnualStatement(
-        donations,
-        selectedYear,
-        {
-          id: donations[0]?.userId,
-          name: donations[0]?.donorDetails?.name,
-          email: donations[0]?.donorDetails?.email,
-        },
-        { logoUrl: logo, charityLogoUrl: footer2, orgName: orgInfo.name, orgEmail: orgInfo.email, orgPhone: orgInfo.phone, orgWebsite: orgInfo.website },
-      )
-
-      // Dismiss the loading toast
-      toast.dismiss()
-
-      if (result.success) {
-        toast.success(result.message)
-      } else {
-        toast.error(result.message || "Failed to generate statement")
-      }
-    } catch (error) {
-      console.error("Error generating statement:", error)
-      toast.dismiss() // Dismiss any loading toast
-      toast.error("Failed to generate statement. Please try again.")
-    } finally {
-      setGeneratingStatement(false)
-      setShowYearSelector(false)
-    }
-  }
-
-  // Donation Pie Chart Component
-  const DonationPieChart = () => {
-    // Use data from stats (backend calculations)
-    const totalDonationsAmount = stats.totalDonated || 0
-    const actualTotalAmount = stats.paidDonated || 0
-    const pendingAmount = stats.pendingAmount || 0
-
-    const data = [
-      { name: "Paid Donations", value: actualTotalAmount },
-      { name: "Pending Donations", value: pendingAmount > 0 ? pendingAmount : 0 },
-    ]
-
-    // Green shades for the chart
-    const COLORS = ["#2e7d32", "#81c784"] // Dark green and light green
-
-    return (
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Donation Summary</h3>
-        <div className="flex flex-col md:flex-row items-center">
-          <div className="w-full md:w-1/2 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="w-full md:w-1/2 pl-0 md:pl-6 mt-4 md:mt-0">
-            <div className="space-y-4">
-              <div className="flex items-center">
-                <div className="w-4 h-4 rounded-full bg-[#2e7d32] mr-2"></div>
-                <div>
-                  <p className="text-sm font-medium">Paid Donations amount</p>
-                  <p className="text-lg font-bold">${actualTotalAmount.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">Total amount of payments done</p>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <div className="w-4 h-4 rounded-full bg-[#81c784] mr-2"></div>
-                <div>
-                  <p className="text-sm font-medium">Pending Donations amount</p>
-                  <p className="text-lg font-bold">${(pendingAmount > 0 ? pendingAmount : 0).toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">Remaining payments</p>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-gray-100">
-                <p className="text-sm font-medium">Total Donations Amount</p>
-                <p className="text-xl font-bold text-accent">${totalDonationsAmount.toLocaleString()}</p>
-                <p className="text-xs text-gray-500">Total amount of all donations from user</p>
-              </div>
+        {/* Installment progress */}
+        {inst && total > 0 && (
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-center justify-between text-xs text-text-muted">
+              <span>{paid} of {total} paid</span>
+              <span className="font-semibold text-primary">{pct}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-full rounded-full bg-gradient-to-r from-accent to-accent-light" style={{ width: `${pct}%` }} />
             </div>
           </div>
-        </div>
-      </div>
-    )
-  }
+        )}
 
-  // Annual Statement Section Component
-  const AnnualStatementSection = () => (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-      <div className="flex flex-col md:flex-row items-center justify-between">
-        <div className="flex items-center mb-4 md:mb-0">
-          <div className="p-3 bg-background rounded-full mr-4">
-            <FileText className="w-6 h-6 text-accent" />
-          </div>
+        {/* Meta — definition grid */}
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-100 pt-4 text-sm">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Annual Donation Statement</h3>
-            <p className="text-sm text-gray-600">Generate a statement of all your donations for tax purposes</p>
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Date</dt>
+            <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-gray-800">
+              <Calendar className="h-4 w-4 shrink-0 text-accent" /> {fmtDate(donation.createdAt)}
+            </dd>
           </div>
-        </div>
+          {!isOneTime && nextPayment && (
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Next payment</dt>
+              <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-gray-800">
+                <Repeat className="h-4 w-4 shrink-0 text-accent" /> {fmtDate(nextPayment)}
+              </dd>
+            </div>
+          )}
+          <div className={cn("min-w-0", methodWide && "col-span-2")}>
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Payment method</dt>
+            <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-gray-800">
+              <CreditCard className="h-4 w-4 shrink-0 text-accent" /> <span className="truncate">{paymentMethodLabel(donation)}</span>
+            </dd>
+          </div>
+        </dl>
 
-        <div className="flex items-center">
-          {showYearSelector ? (
-            <>
-              <select
-                className="mr-4 border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-                value={selectedYear || ""}
-                onChange={(e) => setSelectedYear(Number.parseInt(e.target.value))}
-              >
-                <option value="" disabled>
-                  Select Financial Year
-                </option>
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    FY {year - 1}-{year}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleGenerateStatement}
-                disabled={generatingStatement || !selectedYear}
-                className="flex items-center space-x-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {generatingStatement ? <Loader className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                <span>Generate</span>
-              </button>
-              <button
-                onClick={() => setShowYearSelector(false)}
-                className="ml-2 p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </>
-          ) : (
+        {/* Badges */}
+        {(closedOff || hasUpdates) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {closedOff && (
+              <span className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                <CheckCircle2 className="h-3 w-3" /> Closed off
+              </span>
+            )}
+            {hasUpdates && !closedOff && (
+              <span className="inline-flex items-center gap-1 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                <Bell className="h-3 w-3" /> {donation.donorUpdates.length} update{donation.donorUpdates.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="mt-auto flex items-center gap-2 pt-5">
+          <button
+            onClick={() => onView(donation)}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent"
+          >
+            <FileText className="h-3.5 w-3.5" /> Details
+          </button>
+          {canReceipt && (
             <button
-              onClick={() => setShowYearSelector(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-background text-accent rounded-lg hover:bg-accent/10 transition-colors"
+              onClick={handleReceipt}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 bg-accent px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-light"
             >
-              <span>Generate Statement</span>
+              <Download className="h-3.5 w-3.5" /> Receipt
             </button>
           )}
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+/* ── One donation row (list view) ─────────────────────────────────────── */
+function DonationRow({ donation, orgInfo, onView, showNextPayment = true }) {
+  const { label: tLabel, icon: TIcon } = typeMeta(donation.paymentType);
+  const inst = donation.paymentType === "installments" ? donation.installmentDetails : null;
+  const extra = (donation.items?.length || 1) - 1;
+  const closedOff = donation.donorUpdates?.some((u) => u.type === "close-off");
+  const canReceipt = !["pending", "failed", "cancelled"].includes(donation.paymentStatus);
+  const isOneTime =
+    donation.paymentType === "single" || donation.paymentType === "one_time" || !donation.paymentType;
+  const nextPayment =
+    donation.nextPaymentDate ||
+    donation.recurringDetails?.nextPaymentDate ||
+    donation.installmentDetails?.nextInstallmentDate;
+
+  const handleReceipt = () => {
+    if (isOneTime) downloadReceipt(donation, { logoUrl: logo, charityLogoUrl: footer2 }, orgInfo);
+    else downloadPaidPaymentsReceipt(donation, orgInfo);
+  };
+
+  return (
+    <tr className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50/60">
+      {/* Cause */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-900" title={donation.items?.[0]?.title}>
+            {donation.items?.[0]?.title || "Donation"}
+          </span>
+          {extra > 0 && <span className="text-xs text-accent">+{extra}</span>}
+          {closedOff && (
+            <span className="inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+              <CheckCircle2 className="h-3 w-3" /> Closed
+            </span>
+          )}
+        </div>
+      </td>
+      {/* Type */}
+      <td className="whitespace-nowrap px-4 py-3">
+        <span className="inline-flex items-center gap-1 text-sm text-text-muted">
+          <TIcon className="h-3.5 w-3.5" /> {tLabel}
+        </span>
+      </td>
+      {/* Amount */}
+      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">
+        {money(donation.totalAmount)}
+        {inst?.numberOfInstallments ? (
+          <span className="block text-[11px] font-normal text-text-muted">
+            {inst.installmentsPaid || 0}/{inst.numberOfInstallments} paid
+          </span>
+        ) : null}
+      </td>
+      {/* Date */}
+      <td className="whitespace-nowrap px-4 py-3 text-sm text-text-muted">{fmtDate(donation.createdAt)}</td>
+      {/* Next payment */}
+      {showNextPayment && (
+        <td className="whitespace-nowrap px-4 py-3 text-sm text-text-muted">{!isOneTime && nextPayment ? fmtDate(nextPayment) : "—"}</td>
+      )}
+      {/* Status */}
+      <td className="whitespace-nowrap px-4 py-3">
+        <span className={cn("inline-flex px-2.5 py-0.5 text-[11px] font-semibold capitalize", statusStyle(donation.paymentStatus))}>
+          {donation.paymentStatus || "—"}
+        </span>
+      </td>
+      {/* Actions */}
+      <td className="whitespace-nowrap px-4 py-3">
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={() => onView(donation)}
+            title="View details"
+            className="inline-flex items-center gap-1.5 border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent"
+          >
+            <FileText className="h-3.5 w-3.5" /> Details
+          </button>
+          {canReceipt && (
+            <button
+              onClick={handleReceipt}
+              title="Download receipt"
+              className="inline-flex items-center gap-1.5 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/20"
+            >
+              <Download className="h-3.5 w-3.5" /> Receipt
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* ── Detail PAGE (in-place, mirrors My Payments PaymentDetail) ────────── */
+function Section({ title, icon: Icon, children }) {
+  return (
+    <div className="border-t border-gray-100 pt-5">
+      <h3 className="mb-3 flex items-center gap-2 font-heading text-sm font-bold uppercase tracking-wide text-primary">
+        {Icon && <Icon className="h-4 w-4 text-accent" />} {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+function Field({ label, value, mono }) {
+  return (
+    <div>
+      <p className="text-xs text-text-muted">{label}</p>
+      <p className={cn("text-sm font-medium text-gray-900", mono && "break-all font-mono text-xs")}>{value}</p>
+    </div>
+  );
+}
+
+/* At-a-glance fact tile shown in the detail hero strip. */
+function QuickFact({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-center gap-2.5 px-4 py-3.5">
+      <span className="grid h-8 w-8 shrink-0 place-items-center bg-accent/10 text-accent">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted/70">{label}</p>
+        <p className="truncate text-sm font-semibold capitalize text-primary">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function DonationDetailPage({ donation, orgInfo, onBack }) {
+  const { label: tLabel, icon: TIcon } = typeMeta(donation.paymentType);
+  const isOneTime =
+    donation.paymentType === "single" || donation.paymentType === "one_time" || !donation.paymentType;
+  const canReceipt = !["pending", "failed", "cancelled"].includes(donation.paymentStatus);
+  const rec = donation.recurringDetails;
+  const inst = donation.installmentDetails;
+
+  const instPaid = inst?.installmentsPaid || 0;
+  const instTotal = inst?.numberOfInstallments || 0;
+  const instPct = instTotal ? Math.min(100, Math.round((instPaid / instTotal) * 100)) : 0;
+  const itemsTotal = donation.items.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+  const typeFact = isOneTime
+    ? "One-time gift"
+    : donation.paymentType === "recurring"
+      ? `${cap(rec?.frequency || "monthly")} recurring`
+      : `${instTotal} installments`;
+
+  const handleReceipt = () => {
+    if (isOneTime) downloadReceipt(donation, { logoUrl: logo, charityLogoUrl: footer2 }, orgInfo);
+    else downloadPaidPaymentsReceipt(donation, orgInfo);
+    toast.success("Receipt download initiated");
+  };
+
+  return (
+    <div className="w-full space-y-6 lg:p-6">
+      <button onClick={onBack} className="group inline-flex items-center gap-1.5 text-sm font-medium text-text-muted transition-colors hover:text-accent">
+        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to donations
+      </button>
+
+      {/* Hero band — full width across both columns */}
+      <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+        <div className="relative px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+          {/* decorative depth */}
+          <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-20 right-28 h-48 w-48 rounded-full bg-white/5" />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                <TIcon className="h-3.5 w-3.5" /> {tLabel}
+              </span>
+              <p className="mt-3 truncate text-sm font-medium text-white/85">{donation.items?.[0]?.title || "Donation"}</p>
+              <p className="font-heading text-4xl font-bold leading-tight text-white sm:text-5xl">{money(donation.totalAmount)}</p>
+              <p className="mt-1.5 text-xs text-white/70">
+                Donation {donation.donationId ? `#${donation.donationId}` : ""} · {fmtDate(donation.createdAt)}
+              </p>
+            </div>
+            <span className={cn("inline-flex shrink-0 px-2.5 py-1 text-[11px] font-semibold capitalize", statusStyle(donation.paymentStatus))}>
+              {donation.paymentStatus || "—"}
+            </span>
+          </div>
+
+          {/* Installment progress in the hero */}
+          {donation.paymentType === "installments" && instTotal > 0 && (
+            <div className="relative mt-5 max-w-md">
+              <div className="mb-1.5 flex items-center justify-between text-xs text-white/85">
+                <span>{instPaid} of {instTotal} installments paid</span>
+                <span className="font-semibold">{instPct}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/20">
+                <div className="h-full rounded-full bg-white" style={{ width: `${instPct}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Quick-facts strip */}
+        <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4 sm:divide-y-0">
+          <QuickFact icon={Calendar} label="Date" value={fmtDate(donation.createdAt)} />
+          <QuickFact icon={CreditCard} label="Method" value={paymentMethodLabel(donation)} />
+          <QuickFact icon={TIcon} label="Plan" value={typeFact} />
+          <QuickFact icon={DollarSign} label="Amount" value={money(donation.totalAmount)} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Main */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* Items */}
+          <div className="border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center bg-accent/10 text-accent">
+                <HeartHandshake className="h-[18px] w-[18px]" />
+              </span>
+              <h3 className="font-heading text-base font-bold text-primary">
+                Items <span className="ml-1 text-sm font-normal text-text-muted">({donation.items.length})</span>
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {donation.items.map((item, i) => (
+                <div key={i} className="flex items-start justify-between gap-3 border border-gray-100 p-3.5 transition-colors hover:border-accent/30">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900">{item.title}</p>
+                    {item.onBehalfOf && <p className="mt-0.5 text-xs text-text-muted">On behalf of: {item.onBehalfOf}</p>}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-semibold text-gray-900">{money(item.price)}</p>
+                    <p className="text-xs text-text-muted">Qty: {item.quantity || 1}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+              <span className="text-sm font-medium text-text-muted">Total</span>
+              <span className="font-heading text-lg font-bold text-accent">{money(itemsTotal)}</span>
+            </div>
+          </div>
+
+          {/* Payment + breakdown */}
+          <div className="border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center gap-3 border-b border-gray-100 pb-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center bg-accent/10 text-accent">
+                <Wallet className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold text-primary">Payment details</h2>
+                <p className="mt-0.5 text-sm text-text-muted">{tLabel} donation</p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {/* Payment grid */}
+              <div className="grid grid-cols-2 gap-4 border border-gray-100 bg-gray-50/60 p-4 md:grid-cols-3">
+                <Field label="Total amount" value={money(donation.totalAmount)} />
+                <Field label="Type" value={cap(donation.paymentType || "single")} />
+                <Field label="Method" value={paymentMethodLabel(donation)} />
+                <div>
+                  <p className="text-xs text-text-muted">Status</p>
+                  <span className={cn("mt-0.5 inline-flex px-2 py-0.5 text-xs font-semibold capitalize", statusStyle(donation.paymentStatus))}>
+                    {donation.paymentStatus}
+                  </span>
+                </div>
+                {!isOneTime && (
+                  <Field
+                    label="End date"
+                    value={rec?.endDate ? fmtDate(rec.endDate) : inst?.endDate ? fmtDate(inst.endDate) : formatEndDate(donation) || "Ongoing"}
+                  />
+                )}
+              </div>
+
+              {donation.adminCostContribution?.included && (
+                <Section title="Admin contribution">
+                  <div className="border border-gray-100 bg-gray-50/60 p-4 text-sm text-gray-700">
+                    You contributed an additional {money(donation.adminCostContribution.amount)} towards administrative costs.
+                  </div>
+                </Section>
+              )}
+
+              {donation.paymentType === "recurring" && rec && (
+                <Section title="Recurring details" icon={Repeat}>
+                  <div className="grid grid-cols-2 gap-4 border border-gray-100 bg-gray-50/60 p-4 md:grid-cols-3">
+                    <Field label="Frequency" value={cap(rec.frequency)} />
+                    <Field label="Amount / payment" value={money(rec.amount)} />
+                    <Field label="Status" value={cap(rec.status)} />
+                    <Field label="Start date" value={fmtDate(rec.startDate)} />
+                    <Field label="Next payment" value={fmtDate(rec.nextPaymentDate)} />
+                    <Field label="Payments so far" value={rec.totalPayments || 0} />
+                  </div>
+                  {rec.paymentHistory?.length > 0 && <HistoryTable rows={rec.paymentHistory} kind="recurring" />}
+                </Section>
+              )}
+
+              {donation.paymentType === "installments" && inst && (
+                <Section title="Installment details" icon={Layers}>
+                  <div className="grid grid-cols-2 gap-4 border border-gray-100 bg-gray-50/60 p-4 md:grid-cols-3">
+                    <Field label="Installments" value={inst.numberOfInstallments} />
+                    <Field label="Amount each" value={money(inst.installmentAmount)} />
+                    <Field label="Paid" value={`${inst.installmentsPaid} of ${inst.numberOfInstallments}`} />
+                    <Field label="Next installment" value={fmtDate(inst.nextInstallmentDate)} />
+                  </div>
+                  {inst.installmentHistory?.length > 0 && <HistoryTable rows={inst.installmentHistory} kind="installments" />}
+                </Section>
+              )}
+
+              {donation.donorDetails && (
+                <Section title="Donor information">
+                  <div className="grid grid-cols-1 gap-4 border border-gray-100 bg-gray-50/60 p-4 md:grid-cols-2">
+                    <Field label="Name" value={donation.donorDetails.name} />
+                    <Field label="Email" value={donation.donorDetails.email} />
+                    {donation.donorDetails.phone && <Field label="Phone" value={donation.donorDetails.phone} />}
+                    {donation.donorDetails.address && (
+                      <Field
+                        label="Address"
+                        value={[
+                          donation.donorDetails.address.street,
+                          donation.donorDetails.address.city,
+                          donation.donorDetails.address.state,
+                          donation.donorDetails.address.postcode,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      />
+                    )}
+                  </div>
+                </Section>
+              )}
+
+            </div>
+          </div>
+
+          {/* Updates */}
+          {donation.donorUpdates?.length > 0 && (
+            <div className="border border-gray-100 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 flex items-center gap-2 font-heading text-sm font-bold uppercase tracking-wide text-primary">
+                <Bell className="h-4 w-4 text-accent" /> Updates on your donation
+              </h3>
+              <div className="space-y-3">
+                {[...donation.donorUpdates]
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((u, idx) => (
+                    <div
+                      key={u._id || idx}
+                      className={cn("border p-4", u.type === "close-off" ? "border-emerald-200 bg-emerald-50/60" : "border-blue-200 bg-blue-50/60")}
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-medium",
+                            u.type === "close-off" ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800",
+                          )}
+                        >
+                          {u.type === "close-off" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
+                          {u.type === "close-off" ? "Completed" : "Progress update"}
+                        </span>
+                        <span className="text-xs text-text-muted">{fmtDate(u.createdAt)}</span>
+                      </div>
+                      {u.comment && <p className="whitespace-pre-line text-sm text-gray-700">{u.comment}</p>}
+                      {u.images?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {u.images.map((img, i) => (
+                            <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                              <img src={img} alt={`Update ${i + 1}`} className="h-20 w-20 border border-gray-200 object-cover hover:opacity-80" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar — receipt */}
+        <div className="lg:col-span-1">
+          <div className="space-y-4 lg:sticky lg:top-24">
+            <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+              <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3">
+                <Receipt className="h-4 w-4 text-accent" />
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Receipt</p>
+              </div>
+              <div className="p-5">
+                <div className="flex items-center gap-3 bg-accent/5 p-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center bg-accent/15 text-accent">
+                    <DollarSign className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-heading text-xl font-bold text-primary">{money(donation.totalAmount)}</p>
+                    <p className="text-xs text-text-muted">{fmtDate(donation.createdAt)}</p>
+                  </div>
+                </div>
+                {canReceipt ? (
+                  <>
+                    <button
+                      onClick={handleReceipt}
+                      className="mt-4 flex w-full items-center justify-center gap-2 bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+                    >
+                      <Download className="h-4 w-4" /> Download receipt
+                    </button>
+                    {donation.stripeReceiptUrl && (
+                      <a
+                        href={donation.stripeReceiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 flex w-full items-center justify-center gap-2 border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent"
+                      >
+                        <Receipt className="h-4 w-4" /> Stripe receipt <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-4 bg-gray-50 px-3 py-2.5 text-center text-xs text-text-muted">No receipt available for this donation yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 border border-emerald-100 bg-emerald-50/50 p-4">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+              <p className="text-xs leading-relaxed text-emerald-800">Thank you for your generosity — your contribution goes directly to the cause.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryTable({ rows, kind }) {
+  return (
+    <div className="mt-4 overflow-hidden border border-gray-100">
+      <table className="min-w-full divide-y divide-gray-100 text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">No.</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Date</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Amount</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {rows.map((p, idx) => (
+            <tr key={idx}>
+              <td className="px-3 py-2 text-text-muted">{kind === "installments" ? p.installmentNumber : idx + 1}</td>
+              <td className="px-3 py-2 text-text-muted">{p.date ? fmtDate(p.date) : "—"}</td>
+              <td className="px-3 py-2 text-gray-700">{money(p.amount)}</td>
+              <td className="px-3 py-2">
+                <span className={cn("inline-flex px-2 py-0.5 text-xs font-medium capitalize", statusStyle(p.status))}>{p.status}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ── Type filter pills ────────────────────────────────────────────────── */
+const FILTERS = [
+  { id: "All", label: "All" },
+  { id: "single", label: "One-time" },
+  { id: "recurring", label: "Recurring" },
+  { id: "installments", label: "Installments" },
+];
+const matchesType = (d, f) => {
+  if (f === "All") return true;
+  if (f === "single") return d.paymentType === "single" || d.paymentType === "one_time" || !d.paymentType;
+  return d.paymentType === f;
+};
+
+const SORTS = [
+  { id: "date-desc", label: "Newest first" },
+  { id: "date-asc", label: "Oldest first" },
+  { id: "amount-desc", label: "Amount: high to low" },
+  { id: "amount-asc", label: "Amount: low to high" },
+];
+
+const UserDonations = () => {
+  const { organisation } = useTenant();
+  const orgInfo = {
+    name: organisation?.name,
+    email: organisation?.contactEmail,
+    phone: organisation?.contactPhone,
+    website: organisation?.website,
+  };
+
+  const cachedOrders = DonationService.getCachedUserDonations();
+  const cachedStats = DonationService.getCachedDonationStats();
+  const [donations, setDonations] = useState(cachedOrders?.orders || []);
+  const [stats, setStats] = useState(
+    cachedStats?.stats || { totalDonated: 0, paidDonated: 0, activeRecurring: 0, pendingAmount: 0 },
+  );
+  const [loading, setLoading] = useState(!(cachedOrders && cachedStats));
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedType, setSelectedType] = useState("All");
+  const [sort, setSort] = useState("date-desc");
+  const [view, setView] = useState(() => localStorage.getItem("donationsView") || "card");
+  const [selectedDonation, setSelectedDonation] = useState(null);
+
+  const changeView = (v) => {
+    setView(v);
+    localStorage.setItem("donationsView", v);
+  };
+
+  // Annual statement
+  const [showStatement, setShowStatement] = useState(false);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [generatingStatement, setGeneratingStatement] = useState(false);
+
+  const fetchDonations = async ({ force = false } = {}) => {
+    try {
+      const [donationsRes, statsRes] = await Promise.all([
+        DonationService.getUserDonations({ force }),
+        DonationService.getDonationStats({ force }),
+      ]);
+      if (donationsRes?.status === "Success") setDonations(donationsRes.orders || []);
+      if (statsRes?.stats) setStats(statsRes.stats);
+    } catch (error) {
+      toast.error(error?.message || "Failed to fetch donations");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDonations({ force: true });
+  }, []);
+
+  useEffect(() => {
+    if (donations.length > 0) {
+      const years = getAvailableFinancialYears(donations);
+      setAvailableYears(years);
+      if (years.length > 0) setSelectedYear((prev) => prev || years[0]);
+    }
+  }, [donations]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedType, sort]);
+
+  const refresh = () => {
+    setRefreshing(true);
+    fetchDonations({ force: true }).then(() => toast.success("Refreshed"));
+  };
+
+  const handleGenerateStatement = async () => {
+    if (!selectedYear) return toast.error("Please select a financial year");
+    setGeneratingStatement(true);
+    try {
+      toast.loading("Generating your annual statement...");
+      const result = generateAnnualStatement(
+        donations,
+        selectedYear,
+        { id: donations[0]?.userId, name: donations[0]?.donorDetails?.name, email: donations[0]?.donorDetails?.email },
+        { logoUrl: logo, charityLogoUrl: footer2, orgName: orgInfo.name, orgEmail: orgInfo.email, orgPhone: orgInfo.phone, orgWebsite: orgInfo.website },
+      );
+      toast.dismiss();
+      if (result.success) {
+        toast.success(result.message);
+        setShowStatement(false);
+      } else {
+        toast.error(result.message || "Failed to generate statement");
+      }
+    } catch (error) {
+      console.error("Error generating statement:", error);
+      toast.dismiss();
+      toast.error("Failed to generate statement. Please try again.");
+    } finally {
+      setGeneratingStatement(false);
+    }
+  };
+
+  const filtered = useMemo(
+    () =>
+      donations.filter(
+        (d) =>
+          (d.items?.[0]?.title || "").toLowerCase().includes(searchTerm.toLowerCase()) && matchesType(d, selectedType),
+      ),
+    [donations, searchTerm, selectedType],
+  );
+
+  const sorted = useMemo(() => {
+    const [key, dir] = sort.split("-");
+    return [...filtered].sort((a, b) => {
+      const av = key === "date" ? new Date(a.createdAt).getTime() : a.totalAmount || 0;
+      const bv = key === "date" ? new Date(b.createdAt).getTime() : b.totalAmount || 0;
+      return dir === "asc" ? av - bv : bv - av;
+    });
+  }, [filtered, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const page = Math.min(currentPage, totalPages);
+  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+  const paginated = sorted.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  // giving progress (paid vs pending share of total)
+  const total = stats.totalDonated || 0;
+  const paidPct = total > 0 ? Math.round(((stats.paidDonated || 0) / total) * 100) : 0;
 
   if (loading) {
     return (
-      <AppLoader />
-    )
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <TabLoader label="Loading donations…" />
+      </div>
+    );
+  }
+
+  // Detail opens as a full in-place page (not a modal), mirroring My Payments.
+  if (selectedDonation) {
+    return <DonationDetailPage donation={selectedDonation} orgInfo={orgInfo} onBack={() => setSelectedDonation(null)} />;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Donations Amount</p>
-              <p className="text-2xl font-bold text-primary">
-                ${(stats.totalDonated || 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">Total amount of all donations from user</p>
-            </div>
-            <div className="p-3 bg-amber-50 rounded-full">
-              <DollarSign className="w-6 h-6 text-amber-600" />
-            </div>
+    <div className="w-full space-y-6 lg:p-6">
+      {/* Header card with gradient band + integrated stats (My Payments style) */}
+      <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Your giving</p>
+            <h1 className="mt-1 font-heading text-2xl font-bold text-white">My Donations</h1>
+            <p className="mt-1 text-sm text-white/80">Every gift you've made — receipts, history and your annual statement.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} /> Refresh
+            </button>
+            <button
+              onClick={() => setShowStatement(true)}
+              className="inline-flex items-center gap-1.5 bg-white px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-white/90"
+            >
+              <FileText className="h-4 w-4" /> Annual statement
+            </button>
           </div>
         </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Paid Donations amount</p>
-              <p className="text-2xl font-bold text-primary">
-                ${(stats.paidDonated || 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">Total amount of payments done</p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <Calendar className="w-6 h-6 text-accent" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Pending Donations amount</p>
-              <p className="text-2xl font-bold text-primary">
-                ${(stats.pendingAmount || 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-gray-500">Remaining payments</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-full">
-              <AlertCircle className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-accent/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active payments</p>
-              <p className="text-2xl font-bold text-primary">{stats.activeRecurring}</p>
-              <p className="text-xs text-gray-500">Includes number of active installments and recurring</p>
-            </div>
-            <div className="p-3 bg-background rounded-full">
-              <RefreshCcw className="w-6 h-6 text-green-800" />
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-4">
+          <HeaderStat icon={DollarSign} label="Total donated" value={money(stats.totalDonated)} />
+          <HeaderStat icon={CheckCircle2} label="Paid" value={money(stats.paidDonated)} />
+          <HeaderStat icon={AlertCircle} label="Pending" value={money(stats.pendingAmount)} />
+          <HeaderStat icon={RefreshCw} label="Active plans" value={stats.activeRecurring || 0} />
         </div>
       </div>
 
-      {/* Annual Statement Section */}
-      <DonationPieChart />
-      <AnnualStatementSection />
-
-      {/* Donations Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-accent/10">
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-4 w-full md:w-auto">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by cause..."
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent w-full md:w-64"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-              </div>
-
-              <select
-                className="border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-              >
-                <option value="All">All Types</option>
-                <option value="One-time">One-time</option>
-                <option value="Recurring">Recurring</option>
-              </select>
-            </div>
+      {/* Giving progress */}
+      {total > 0 && (
+        <div className="border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="font-heading text-sm font-bold text-primary">Giving progress</p>
+            <p className="text-xs text-text-muted">
+              <span className="font-semibold text-emerald-600">{paidPct}%</span> paid
+            </p>
           </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      Cause
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("totalAmount")}
-                  >
-                    <div className="flex items-center">
-                      Amount
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("paymentType")}
-                  >
-                    <div className="flex items-center">
-                      Payment Type
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("donationType")}
-                  >
-                    <div className="flex items-center">
-                      Donation Type
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("date")}
-                  >
-                    <div className="flex items-center">
-                      Start Date
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      End Date
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      Frequency
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => handleSort("paymentStatus")}
-                  >
-                    <div className="flex items-center">
-                      Status
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      Next Payment
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      Payment Method
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      View Details
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex items-center">
-                      Receipts
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedDonations.map((donation) => (
-                  <tr key={donation._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {donation.items[0]?.title}
-                        {donation.items.length > 1 && (
-                          <span className="ml-2 text-xs text-accent bg-background px-2 py-0.5 rounded-full">
-                            +{donation.items.length - 1} more
-                          </span>
-                        )}
-                      </div>
-                      {donation.donorUpdates?.some((u) => u.type === "close-off") && (
-                        <span
-                          className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-100 text-green-800 border border-green-200"
-                          title="The organisation has posted a close-off update for this donation. Open Details to read it."
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          Closed off
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-semibold text-gray-900">
-                        ${donation.totalAmount.toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-background text-primary border border-accent/10">
-                        {donation.paymentType?.charAt(0).toUpperCase() + donation.paymentType?.slice(1) || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {donation.items?.[0]?.title?.replace(' - Custom Amount', '') || 'N/A'}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(donation.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {donation.paymentType === "recurring" && donation.recurringDetails?.endDate
-                        ? new Date(donation.recurringDetails.endDate).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })
-                        : donation.paymentType === "installments" && donation.installmentDetails?.endDate
-                          ? new Date(donation.installmentDetails.endDate).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })
-                          : donation.paymentType === 'one_time'
-                            ? 'N/A'
-                            : formatEndDate(donation) || 'Ongoing'}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {donation.paymentType === 'recurring'
-                        ? donation.recurringDetails?.frequency?.charAt(0).toUpperCase() + donation.recurringDetails?.frequency?.slice(1) || 'N/A'
-                        : donation.paymentType === 'installments'
-                          ? `Installment `
-                          : 'One-time'}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                          ${donation.paymentStatus === "completed"
-                            ? "bg-background text-accent border border-green-100"
-                            : donation.paymentStatus === "processing"
-                              ? "bg-yellow-50 text-yellow-700 border border-yellow-100"
-                              : donation.paymentStatus === "pending"
-                                ? "bg-blue-50 text-blue-700 border border-blue-100"
-                                : "bg-red-50 text-red-700 border border-red-100"
-                          }`}
-                      >
-                        {donation.paymentStatus?.charAt(0).toUpperCase() + donation.paymentStatus?.slice(1) || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {donation.nextPaymentDate
-                        ? new Date(donation.nextPaymentDate).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })
-                        : donation.recurringDetails?.nextPaymentDate
-                          ? new Date(donation.recurringDetails.nextPaymentDate).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })
-                          : donation.installmentDetails?.nextInstallmentDate
-                            ? new Date(donation.installmentDetails.nextInstallmentDate).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })
-                            : "N/A"}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {donation.paymentMethod?.type === 'card' && donation.paymentMethod?.card ? (
-                        <div className="flex items-center">
-                          <span className="capitalize">{donation.paymentMethod.card.brand || 'Card'}</span>
-                          {donation.paymentMethod.card.last4 && (
-                            <span className="ml-2 text-gray-500">•••• {donation.paymentMethod.card.last4}</span>
-                          )}
-                        </div>
-                      ) : donation.paymentMethod?.type === 'bank_transfer' || donation.paymentMethod?.type === 'bank_account' ? (
-                        <div className="flex items-center">
-                          <span>Bank Transfer</span>
-                          {donation.paymentMethod?.bank_name && (
-                            <span className="ml-2 text-gray-500">({donation.paymentMethod.bank_name})</span>
-                          )}
-                        </div>
-                      ) : donation.paymentMethod?.type === 'paypal' ? (
-                        <div className="flex items-center">
-                          <span>PayPal</span>
-                        </div>
-                      ) : donation.paymentMethod?.type ? (
-                        <div className="capitalize">{donation.paymentMethod.type.replace(/_/g, ' ')}</div>
-                      ) : donation.paymentMethod ? (
-                        <div className="capitalize">{typeof donation.paymentMethod === 'string' ? donation.paymentMethod : 'N/A'}</div>
-                      ) : 'N/A'}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => openDonationModal(donation)}
-                        className="flex items-center justify-center px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md border border-gray-200 transition-colors duration-150"
-                        title="View Full Details"
-                      >
-                        <FileText className="w-4 h-4 mr-1.5" />
-                        Details
-                      </button>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      {!['pending', 'failed', 'cancelled'].includes(donation.paymentStatus) ? (
-                        <div className="flex items-center space-x-1">
-                          {/* For one-time donations - show Setup Receipt */}
-                          {donation.paymentType === "single" || donation.paymentType === "one_time" || !donation.paymentType ? (
-                            <button
-                              onClick={() =>
-                                downloadReceipt(donation, {
-                                  logoUrl: logo,
-                                  charityLogoUrl: footer2,
-                                }, orgInfo)
-                              }
-                              className="flex items-center justify-center px-3 py-1.5 bg-background hover:bg-accent/10 text-accent text-sm font-medium rounded-md border border-accent/10 transition-colors duration-150"
-                              title="Download Receipt"
-                            >
-                              <Download className="w-4 h-4 mr-1.5" />
-                              Receipt
-                            </button>
-                          ) : null}
-
-                          {/* For recurring/installments - show Paid Receipt only */}
-                          {(donation.paymentType === "recurring" || donation.paymentType === "installments") && (
-                            <button
-                              onClick={() =>
-                                downloadPaidPaymentsReceipt(donation, orgInfo)
-                              }
-                              className="flex items-center justify-center px-3 py-1.5 bg-background hover:bg-accent/10 text-accent text-sm font-medium rounded-md border border-accent/10 transition-colors duration-150"
-                              title="Download Paid Payments Receipt"
-                            >
-                              <Download className="w-4 h-4 mr-1.5" />
-                              Receipt
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">N/A</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex h-3 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full bg-emerald-500" style={{ width: `${paidPct}%` }} />
+            <div className="h-full bg-amber-400" style={{ width: `${100 - paidPct}%` }} />
           </div>
-
-          {/* Pagination */}
-          <div className="flex justify-between items-center mt-6">
-            <div className="text-sm text-gray-700">
-              Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, sortedDonations.length)} of{" "}
-              {sortedDonations.length} donations
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg ${currentPage === 1 ? "text-gray-400 cursor-not-allowed" : "text-accent hover:bg-background"
-                  }`}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNumber
-                if (totalPages <= 5) {
-                  pageNumber = i + 1
-                } else if (currentPage <= 3) {
-                  pageNumber = i + 1
-                } else if (currentPage >= totalPages - 2) {
-                  pageNumber = totalPages - (4 - i)
-                } else {
-                  pageNumber = currentPage - 2 + i
-                }
-
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(pageNumber)}
-                    className={`px-3 py-1 rounded-lg ${currentPage === pageNumber ? "bg-accent text-white" : "text-gray-600 hover:bg-background"
-                      }`}
-                  >
-                    {pageNumber}
-                  </button>
-                )
-              })}
-
-              <button
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg ${currentPage === totalPages ? "text-gray-400 cursor-not-allowed" : "text-accent hover:bg-background"
-                  }`}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Modal */}
-      {modalOpen && selectedDonation && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-screen overflow-y-auto">
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-900">Donation #{selectedDonation.donationId}</h2>
-                <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900 mb-3">Donation Items</h3>
-                <div className="space-y-4">
-                  {selectedDonation.items.map((item, index) => (
-                    <div key={index} className="bg-white rounded-lg border border-gray-200 p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-md font-medium text-gray-900">{item.title}</h4>
-                          {item.onBehalfOf && (
-                            <p className="text-sm text-gray-600 mt-1">On behalf of: {item.onBehalfOf}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-md font-medium text-gray-900">${item.price.toLocaleString()}</p>
-                          <p className="text-sm text-gray-600">Quantity: {item.quantity || 1}</p>
-                          <p className="text-sm text-gray-600">
-                            Subtotal: ${(item.price * (item.quantity || 1)).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900 mb-3">Payment Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                  <div>
-                    <p className="text-sm text-gray-500">Total Amount</p>
-                    <p className="text-md font-medium">${selectedDonation.totalAmount.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Payment Type</p>
-                    <p className="text-md font-medium capitalize">{selectedDonation.paymentType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Payment Method</p>
-                    <p className="text-md font-medium capitalize">{selectedDonation.paymentMethod}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Payment Status</p>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${selectedDonation.paymentStatus === "completed"
-                          ? "bg-accent/10 text-green-800"
-                          : selectedDonation.paymentStatus === "processing"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                    >
-                      {selectedDonation.paymentStatus}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Date</p>
-                    <p className="text-md font-medium">{new Date(selectedDonation.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  {selectedDonation.nextPaymentDate && (
-                    <div>
-                      <p className="text-sm text-gray-500">Next Payment Date</p>
-                      <p className="text-md font-medium">
-                        {new Date(selectedDonation.nextPaymentDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {selectedDonation.adminCostContribution && selectedDonation.adminCostContribution.included && (
-                <div className="border-t pt-4">
-                  <h3 className="text-md font-semibold text-gray-900 mb-3">Admin Contribution</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm">
-                      You contributed an additional ${selectedDonation.adminCostContribution.amount.toLocaleString()}{" "}
-                      towards administrative costs.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {selectedDonation.paymentType === "recurring" && selectedDonation.recurringDetails && (
-                <div className="border-t pt-4">
-                  <h3 className="text-md font-semibold text-gray-900 mb-3">Recurring Donation Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                    {/* Existing recurring details */}
-                    <div>
-                      <p className="text-sm text-gray-500">Frequency</p>
-                      <p className="text-md font-medium capitalize">{selectedDonation.recurringDetails.frequency}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Amount per Payment</p>
-                      <p className="text-md font-medium">
-                        ${selectedDonation.recurringDetails.amount.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Status</p>
-                      <p className="text-md font-medium capitalize">{selectedDonation.recurringDetails.status}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Start Date</p>
-                      <p className="text-md font-medium">
-                        {new Date(selectedDonation.recurringDetails.startDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Next Payment Date</p>
-                      <p className="text-md font-medium">
-                        {new Date(selectedDonation.recurringDetails.nextPaymentDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Total Payments So Far</p>
-                      <p className="text-md font-medium">{selectedDonation.recurringDetails.totalPayments || 0}</p>
-                    </div>
-                  </div>
-
-                  {/* Add payment history section */}
-                  {selectedDonation.recurringDetails.paymentHistory &&
-                    selectedDonation.recurringDetails.paymentHistory.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Payment History</h4>
-                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  No.
-                                </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Date
-                                </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Amount
-                                </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Status
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {selectedDonation.recurringDetails.paymentHistory.map((payment, idx) => (
-                                <tr key={idx} className="hover:bg-gray-50">
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{idx + 1}</td>
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                    {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                    $
-                                    {payment.amount
-                                      ? payment.amount.toLocaleString()
-                                      : selectedDonation.recurringDetails.amount.toLocaleString()}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap">
-                                    <span
-                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                            ${payment.status === "succeeded"
-                                          ? "bg-accent/10 text-green-800"
-                                          : payment.status === "processing"
-                                            ? "bg-yellow-100 text-yellow-800"
-                                            : "bg-red-100 text-red-800"
-                                        }`}
-                                    >
-                                      {payment.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                </div>
-              )}
-
-              {selectedDonation.paymentType === "installments" && selectedDonation.installmentDetails && (
-                <div className="border-t pt-4">
-                  <h3 className="text-md font-semibold text-gray-900 mb-3">Installment Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                    <div>
-                      <p className="text-sm text-gray-500">Number of Installments</p>
-                      <p className="text-md font-medium">{selectedDonation.installmentDetails.numberOfInstallments}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Amount per Installment</p>
-                      <p className="text-md font-medium">
-                        ${selectedDonation.installmentDetails.installmentAmount.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Installments Paid</p>
-                      <p className="text-md font-medium">
-                        {selectedDonation.installmentDetails.installmentsPaid} of{" "}
-                        {selectedDonation.installmentDetails.numberOfInstallments}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Next Installment Date</p>
-                      <p className="text-md font-medium">
-                        {new Date(selectedDonation.installmentDetails.nextInstallmentDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedDonation.installmentDetails.installmentHistory &&
-                    selectedDonation.installmentDetails.installmentHistory.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Payment History</h4>
-                        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  No.
-                                </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Date
-                                </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Amount
-                                </th>
-                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Status
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {selectedDonation.installmentDetails.installmentHistory.map((payment, idx) => (
-                                <tr key={idx} className="hover:bg-gray-50">
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                    {payment.installmentNumber}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                    {new Date(payment.date).toLocaleDateString()}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                                    ${payment.amount.toLocaleString()}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap">
-                                    <span
-                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                                   ${payment.status === "completed"
-                                          ? "bg-accent/10 text-green-800"
-                                          : payment.status === "processing"
-                                            ? "bg-yellow-100 text-yellow-800"
-                                            : "bg-red-100 text-red-800"
-                                        }`}
-                                    >
-                                      {payment.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                </div>
-              )}
-
-              <div className="border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900 mb-3">Donor Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                  {selectedDonation.donorDetails && (
-                    <>
-                      <div>
-                        <p className="text-sm text-gray-500">Name</p>
-                        <p className="text-md font-medium">{selectedDonation.donorDetails.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="text-md font-medium">{selectedDonation.donorDetails.email}</p>
-                      </div>
-                      {selectedDonation.donorDetails.phone && (
-                        <div>
-                          <p className="text-sm text-gray-500">Phone</p>
-                          <p className="text-md font-medium">{selectedDonation.donorDetails.phone}</p>
-                        </div>
-                      )}
-                      {selectedDonation.donorDetails.address && (
-                        <div>
-                          <p className="text-sm text-gray-500">Address</p>
-                          <p className="text-md font-medium">
-                            {selectedDonation.donorDetails.address.street &&
-                              `${selectedDonation.donorDetails.address.street}, `}
-                            {selectedDonation.donorDetails.address.city &&
-                              `${selectedDonation.donorDetails.address.city}, `}
-                            {selectedDonation.donorDetails.address.state &&
-                              `${selectedDonation.donorDetails.address.state}, `}
-                            {selectedDonation.donorDetails.address.postcode &&
-                              selectedDonation.donorDetails.address.postcode}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {selectedDonation.transactionDetails && Object.keys(selectedDonation.transactionDetails).length > 0 && (
-                <div className="border-t pt-4">
-                  <h3 className="text-md font-semibold text-gray-900 mb-3">Transaction Details</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    {selectedDonation.transactionDetails.stripePaymentIntentId && (
-                      <div className="mb-2">
-                        <p className="text-sm text-gray-500">Payment ID</p>
-                        <p className="text-sm font-mono">{selectedDonation.transactionDetails.stripePaymentIntentId}</p>
-                      </div>
-                    )}
-                    {selectedDonation.transactionDetails.stripeSubscriptionId && (
-                      <div className="mb-2">
-                        <p className="text-sm text-gray-500">Subscription ID</p>
-                        <p className="text-sm font-mono">{selectedDonation.transactionDetails.stripeSubscriptionId}</p>
-                      </div>
-                    )}
-                    {selectedDonation.transactionDetails.stripeCustomerId && (
-                      <div className="mb-2">
-                        <p className="text-sm text-gray-500">Customer ID</p>
-                        <p className="text-sm font-mono">{selectedDonation.transactionDetails.stripeCustomerId}</p>
-                      </div>
-                    )}
-                    {selectedDonation.transactionDetails.stripeStatus && (
-                      <div className="mb-2">
-                        <p className="text-sm text-gray-500">Transaction Status</p>
-                        <p className="text-sm">{selectedDonation.transactionDetails.stripeStatus}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Updates from the organisation */}
-              {selectedDonation.donorUpdates && selectedDonation.donorUpdates.length > 0 && (
-                <div className="border-t pt-4">
-                  <h3 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
-                    <Bell className="w-4 h-4 mr-2 text-accent" />
-                    Updates on Your Donation
-                  </h3>
-                  <div className="space-y-3">
-                    {[...selectedDonation.donorUpdates]
-                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                      .map((u, idx) => (
-                        <div
-                          key={u._id || idx}
-                          className={`rounded-lg border p-4 ${
-                            u.type === "close-off"
-                              ? "border-green-200 bg-green-50"
-                              : "border-blue-200 bg-blue-50"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                u.type === "close-off"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }`}
-                            >
-                              {u.type === "close-off" ? (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              ) : (
-                                <MessageSquare className="w-3.5 h-3.5" />
-                              )}
-                              {u.type === "close-off" ? "Completed" : "Progress Update"}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(u.createdAt).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </span>
-                          </div>
-                          {u.comment && (
-                            <p className="text-sm text-gray-700 whitespace-pre-line">
-                              {u.comment}
-                            </p>
-                          )}
-                          {u.images && u.images.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                              {u.images.map((img, i) => (
-                                <a key={i} href={img} target="_blank" rel="noopener noreferrer">
-                                  <img
-                                    src={img}
-                                    alt={`Update ${i + 1}`}
-                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200 hover:opacity-80"
-                                  />
-                                </a>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Receipt download button */}
-              <div className="flex justify-center space-x-4 pt-4 border-t">
-                {/* For one-time donations - show Setup Receipt */}
-                {(selectedDonation.paymentType === "single" || selectedDonation.paymentType === "one_time" || !selectedDonation.paymentType) && (
-                  <button
-                    className="bg-accent hover:bg-accent-light text-white font-medium py-2 px-6 rounded-lg flex items-center"
-                    onClick={() => {
-                      toast.success("Receipt download initiated")
-                      downloadReceipt(selectedDonation, {
-                        logoUrl: logo,
-                        charityLogoUrl: footer2,
-                      }, orgInfo)
-                    }}
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download Receipt
-                  </button>
-                )}
-
-                {/* For recurring/installments - show Paid Receipt only */}
-                {(selectedDonation.paymentType === "recurring" || selectedDonation.paymentType === "installments") && (
-                  <button
-                    className="bg-accent hover:bg-accent-light text-white font-medium py-2 px-6 rounded-lg flex items-center"
-                    onClick={() => {
-                      toast.success("Paid payments receipt download initiated")
-                      downloadPaidPaymentsReceipt(selectedDonation, orgInfo)
-                    }}
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download Receipt
-                  </button>
-                )}
-              </div>
-            </div>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-muted">
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Paid {money(stats.paidDonated)}</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Pending {money(stats.pendingAmount)}</span>
           </div>
         </div>
       )}
 
-      {/* No donations message */}
-      {filteredDonations.length === 0 && !loading && (
-        <div className="text-center py-8">
-          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <Calendar className="w-8 h-8 text-gray-400" />
+      {/* Toolbar */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setSelectedType(f.id)}
+              className={cn(
+                "border px-3 py-1.5 text-sm font-medium transition-colors",
+                selectedType === f.id
+                  ? "border-accent bg-accent/10 text-accent"
+                  : "border-gray-200 text-text-muted hover:border-accent/40 hover:text-primary",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by cause…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-accent lg:w-56"
+            />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No donations found</h3>
-          <p className="text-gray-500">
+          <div className="relative">
+            <ArrowUpDown className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="appearance-none border border-gray-200 py-2 pl-9 pr-8 text-sm outline-none focus:border-accent"
+            >
+              {SORTS.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex border border-gray-200">
+            <button
+              onClick={() => changeView("card")}
+              title="Card view"
+              className={cn(
+                "grid h-9 w-9 place-items-center transition-colors",
+                view === "card" ? "bg-accent text-white" : "text-gray-500 hover:text-accent",
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => changeView("list")}
+              title="List view"
+              className={cn(
+                "grid h-9 w-9 place-items-center border-l border-gray-200 transition-colors",
+                view === "list" ? "bg-accent text-white" : "text-gray-500 hover:text-accent",
+              )}
+            >
+              <ListIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* List */}
+      {sorted.length === 0 ? (
+        <div className="border border-gray-100 bg-white p-12 text-center shadow-sm">
+          <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+            <HeartHandshake className="h-6 w-6" />
+          </span>
+          <p className="font-semibold text-gray-800">No donations found</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
             {searchTerm || selectedType !== "All"
-              ? "Try adjusting your search or filter settings"
-              : "You haven't made any donations yet"}
+              ? "Try adjusting your search or filter."
+              : "You haven't made any donations yet."}
           </p>
         </div>
+      ) : (
+        <>
+          {view === "card" ? (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {paginated.map((donation) => (
+                <DonationCard key={donation._id} donation={donation} orgInfo={orgInfo} onView={setSelectedDonation} />
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-gray-100 bg-white shadow-sm">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50 text-left">
+                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Cause</th>
+                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Type</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted">Amount</th>
+                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Date</th>
+                    {selectedType !== "single" && (
+                      <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Next payment</th>
+                    )}
+                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Status</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((donation) => (
+                    <DonationRow
+                      key={donation._id}
+                      donation={donation}
+                      orgInfo={orgInfo}
+                      onView={setSelectedDonation}
+                      showNextPayment={selectedType !== "single"}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-text-muted">
+                Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, sorted.length)} of {sorted.length}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="grid h-9 w-9 place-items-center border border-gray-200 text-gray-600 transition-colors hover:border-accent/50 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let n;
+                  if (totalPages <= 5) n = i + 1;
+                  else if (page <= 3) n = i + 1;
+                  else if (page >= totalPages - 2) n = totalPages - (4 - i);
+                  else n = page - 2 + i;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(n)}
+                      className={cn(
+                        "h-9 min-w-9 px-2 text-sm font-medium transition-colors",
+                        page === n ? "bg-accent text-white" : "border border-gray-200 text-gray-600 hover:border-accent/50 hover:text-accent",
+                      )}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="grid h-9 w-9 place-items-center border border-gray-200 text-gray-600 transition-colors hover:border-accent/50 hover:text-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
+
+      {/* Annual statement modal */}
+      {showStatement &&
+        createPortal(
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowStatement(false)} />
+            <div className="relative w-full max-w-md border border-gray-100 bg-white p-6 shadow-2xl">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center bg-accent/10 text-accent">
+                  <FileText className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="font-heading text-lg font-bold text-gray-900">Annual donation statement</h3>
+                  <p className="mt-0.5 text-sm text-text-muted">A tax-ready summary of all your donations for a financial year.</p>
+                </div>
+              </div>
+
+              {availableYears.length === 0 ? (
+                <p className="border border-gray-100 bg-gray-50 p-4 text-sm text-text-muted">
+                  No donations available to generate a statement yet.
+                </p>
+              ) : (
+                <>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Financial year</label>
+                  <select
+                    value={selectedYear || ""}
+                    onChange={(e) => setSelectedYear(Number.parseInt(e.target.value))}
+                    className="w-full border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-accent"
+                  >
+                    <option value="" disabled>Select a financial year</option>
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>FY {year - 1}–{year}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowStatement(false)}
+                  className="border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleGenerateStatement}
+                  disabled={generatingStatement || !selectedYear || availableYears.length === 0}
+                  className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
+                >
+                  {generatingStatement ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Generate
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
+  );
+};
 
-  )
-}
-
-export default UserDonations
+export default UserDonations;

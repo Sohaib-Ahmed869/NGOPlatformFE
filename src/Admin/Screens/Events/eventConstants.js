@@ -334,3 +334,74 @@ export const eventTypeDisplay = (event) =>
   event?.eventType === "other" && event?.eventTypeOther
     ? event.eventTypeOther
     : EVENT_TYPE_LABELS[event?.eventType] || event?.eventType || "—";
+
+/* ── Timezone options (searchable dropdown on the event form) ────────────── */
+// Built once from the browser's IANA zone database; older browsers fall back to
+// a curated list. Each option is { value: IANA id, label: "Region · City (GMT+11)" }.
+
+const FALLBACK_TIMEZONES = [
+  "UTC",
+  "Australia/Sydney", "Australia/Melbourne", "Australia/Brisbane", "Australia/Adelaide",
+  "Australia/Perth", "Australia/Darwin", "Australia/Hobart", "Pacific/Auckland",
+  "Asia/Karachi", "Asia/Kolkata", "Asia/Dubai", "Asia/Singapore", "Asia/Tokyo",
+  "Asia/Hong_Kong", "Asia/Jakarta", "Asia/Riyadh", "Asia/Kuala_Lumpur",
+  "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Istanbul", "Europe/Moscow",
+  "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+  "America/Toronto", "America/Sao_Paulo",
+  "Africa/Cairo", "Africa/Johannesburg", "Africa/Lagos", "Africa/Nairobi",
+];
+
+function tzOffsetLabel(tz, now) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(now);
+    return parts.find((p) => p.type === "timeZoneName")?.value || "";
+  } catch {
+    return "";
+  }
+}
+
+function tzOffsetMinutes(s) {
+  const m = /GMT([+-])(\d{1,2})(?::?(\d{2}))?/.exec(s || "");
+  if (!m) return 0;
+  return (m[1] === "-" ? -1 : 1) * (parseInt(m[2], 10) * 60 + (m[3] ? parseInt(m[3], 10) : 0));
+}
+
+export const TIMEZONE_OPTIONS = (() => {
+  let zones = [];
+  try {
+    if (typeof Intl !== "undefined" && typeof Intl.supportedValuesOf === "function") {
+      zones = Intl.supportedValuesOf("timeZone") || [];
+    }
+  } catch {
+    /* ignore — use fallback */
+  }
+  if (!zones.length) zones = FALLBACK_TIMEZONES;
+
+  const now = new Date();
+  return zones
+    .map((tz) => {
+      const offset = tzOffsetLabel(tz, now);
+      const city = tz.split("/").pop().replace(/_/g, " ");
+      const region = tz.includes("/") ? tz.split("/")[0].replace(/_/g, " ") : "";
+      const name = region ? `${region} · ${city}` : city;
+      return { value: tz, label: offset ? `${name} (${offset})` : name, _off: tzOffsetMinutes(offset) };
+    })
+    .sort((a, b) => a._off - b._off || a.label.localeCompare(b.label))
+    .map(({ value, label }) => ({ value, label }));
+})();
+
+// Sensible default for a new event — the admin's own zone, else Sydney.
+export const DEFAULT_TIMEZONE = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Australia/Sydney";
+  } catch {
+    return "Australia/Sydney";
+  }
+})();
+
+// Keep a legacy value (e.g. "AEST") selectable by prepending it when it isn't a
+// known IANA zone, so editing an old event doesn't silently blank the field.
+export const timezoneOptionsWith = (value) =>
+  !value || TIMEZONE_OPTIONS.some((o) => o.value === value)
+    ? TIMEZONE_OPTIONS
+    : [{ value, label: value }, ...TIMEZONE_OPTIONS];

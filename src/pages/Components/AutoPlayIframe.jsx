@@ -1,10 +1,29 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useId } from "react";
+
+// Accepts a raw 11-char video id OR any YouTube URL (watch?v=, youtu.be/,
+// /embed/, /shorts/) and returns the bare id so the embed always resolves.
+const parseVideoId = (input = "") => {
+  const s = String(input).trim();
+  if (!s) return "";
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  const m =
+    s.match(/[?&]v=([a-zA-Z0-9_-]{11})/) ||
+    s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
+    s.match(/\/embed\/([a-zA-Z0-9_-]{11})/) ||
+    s.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : s;
+};
 
 const AutoPlayIframe = ({ videoId, ...props }) => {
   const containerRef = useRef(null);
   const [player, setPlayer] = useState(null);
   const [timestamp, setTimestamp] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  // Unique element id per instance — the old hardcoded id collided when two
+  // players rendered on the same page.
+  const reactId = useId();
+  const containerId = `yt-${reactId.replace(/[:]/g, "")}`;
+  const resolvedId = parseVideoId(videoId);
 
   // Load YouTube API script once
   useEffect(() => {
@@ -39,8 +58,8 @@ const AutoPlayIframe = ({ videoId, ...props }) => {
     if (isInitialized) return;
     setIsInitialized(true);
 
-    const newPlayer = new window.YT.Player("youtube-player-container", {
-      videoId: videoId,
+    const newPlayer = new window.YT.Player(containerId, {
+      videoId: resolvedId,
       playerVars: {
         autoplay: 1,
         mute: 0, // Allow audio
@@ -80,7 +99,7 @@ const AutoPlayIframe = ({ videoId, ...props }) => {
       {...props}
     >
       <div
-        id="youtube-player-container"
+        id={containerId}
         style={{
           position: "absolute",
           top: 0,

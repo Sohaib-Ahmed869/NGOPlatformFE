@@ -10,7 +10,7 @@ const V = {
   primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
   success: "#059669",
 };
-const font = "'Outfit', system-ui, sans-serif";
+const font = "'Times New Roman', Tinos, Times, serif";
 const mono = "'JetBrains Mono', monospace";
 
 /* Scroll-reveal — same as homepage */
@@ -37,7 +37,7 @@ const fadeUpChild = {
 const css = `
 /* Override global index.css h1-h6 font-heading (Cormorant Garamond) */
 .saas-page h1, .saas-page h2, .saas-page h3, .saas-page h4, .saas-page h5, .saas-page h6 {
-  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-family: 'Times New Roman', Tinos, Times, serif !important;
 }
 
 /* Regular (non-featured) price cards */

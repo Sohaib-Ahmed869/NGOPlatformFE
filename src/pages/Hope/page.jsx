@@ -319,7 +319,7 @@ const Hope = () => {
       />
 
       {/* Hero — parallax background + scroll-reactive content */}
-      <div ref={heroRef} className="relative overflow-hidden py-36 lg:py-44">
+      <div ref={heroRef} data-hero className="relative overflow-hidden py-36 lg:py-44">
         <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
           <img
             src={hero.image ?? "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1600&q=80"}

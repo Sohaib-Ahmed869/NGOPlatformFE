@@ -136,7 +136,7 @@ export function AdminSidebar() {
                 {!sidebarCollapsed ? (
                   <span className="flex min-w-0 flex-col leading-tight">
                     <span className="truncate text-[15px] font-bold tracking-tight text-white">{brandName}</span>
-                    <span className="truncate font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-white/40">
+                    <span className="truncate text-[9px] font-medium uppercase tracking-[0.18em] text-white/40">
                       {brandSubtitle}
                     </span>
                   </span>
@@ -157,7 +157,7 @@ export function AdminSidebar() {
                     type="button"
                     onClick={() => toggleGroup(group.label)}
                     aria-expanded={groupOpen}
-                    className="mb-1 flex w-full items-center justify-between gap-2 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40 transition-colors hover:text-white/70"
+                    className="mb-1 flex w-full items-center justify-between gap-2 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40 transition-colors hover:text-white/70"
                   >
                     <span className="truncate">{group.label}</span>
                     <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform duration-200', groupOpen ? 'rotate-0' : '-rotate-90')} />

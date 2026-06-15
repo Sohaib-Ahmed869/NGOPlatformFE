@@ -8,6 +8,11 @@ const multipart = { headers: { "Content-Type": "multipart/form-data" } };
 let _cache = null; // array of admin programs (the res.data of getAll({ admin: "true" }))
 let _inFlight = null;
 
+// Separate session cache for the donor's "My Programs" list so that screen also
+// renders instantly on revisit (mirrors the admin cache above + profile.service).
+let _myCache = null; // array (res.data of getMyDonated())
+let _myInFlight = null;
+
 const programService = {
   getAll: (params) => axiosInstance.get("/programs", { params }),
 
@@ -42,6 +47,28 @@ const programService = {
   getById: (id, params) => axiosInstance.get(`/programs/${id}`, { params }),
 
   getMyDonated: () => axiosInstance.get("/programs/my/donated"),
+
+  // Sync peek at the cached donor list (null until the first load resolves).
+  getMyDonatedCached: () => _myCache,
+
+  // Cached donor list — returns the programs array directly (the shape the
+  // screen sets into state). De-duped in-flight; force to revalidate.
+  myDonatedCached: ({ force = false } = {}) => {
+    if (_myCache && !force) return Promise.resolve(_myCache);
+    if (_myInFlight && !force) return _myInFlight;
+    _myInFlight = axiosInstance
+      .get("/programs/my/donated")
+      .then((res) => {
+        _myCache = res.data || [];
+        _myInFlight = null;
+        return _myCache;
+      })
+      .catch((err) => {
+        _myInFlight = null;
+        throw err;
+      });
+    return _myInFlight;
+  },
 
   create: (formData) => axiosInstance.post("/programs", formData, multipart),
 

@@ -42,6 +42,7 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import "../phone-input.css";
 import eventsService from "../../../services/events.service";
+import settingsService from "../../../services/settings.service";
 import { TabLoader } from "../../../components/TabLoader";
 import { CustomSelect } from "../../../components/CustomSelect";
 import { cn } from "../../../utils/cn";
@@ -54,6 +55,8 @@ import {
   QUESTION_TEMPLATES,
   QUESTION_PACKS,
   EVENT_TEMPLATES,
+  DEFAULT_TIMEZONE,
+  timezoneOptionsWith,
 } from "./eventConstants";
 
 // Icon per event template.
@@ -156,7 +159,7 @@ function Field({ label, value, onChange, type = "text", placeholder, required, h
   );
 }
 
-function SelectField({ label, value, onChange, options, required, hint }) {
+function SelectField({ label, value, onChange, options, required, hint, searchable, searchPlaceholder }) {
   return (
     <div>
       <label className={labelCls}>
@@ -167,6 +170,8 @@ function SelectField({ label, value, onChange, options, required, hint }) {
         value={value}
         onChange={onChange}
         options={options}
+        searchable={searchable}
+        searchPlaceholder={searchPlaceholder}
         triggerClassName="w-full border-b border-gray-200 bg-transparent py-2.5 text-sm text-gray-800 outline-none focus:border-accent"
         className="w-full"
       />
@@ -392,8 +397,8 @@ function QuestionBuilder({ questions, setQuestions }) {
 }
 
 const blankForm = {
-  title: "", description: "", eventType: "fundraiser", eventTypeOther: "", status: "upcoming",
-  date: "", endDate: "", startTime: "", endTime: "", timezone: "AEST",
+  title: "", description: "", eventType: "fundraiser", eventTypeOther: "", audience: "", status: "upcoming",
+  date: "", endDate: "", startTime: "", endTime: "", timezone: DEFAULT_TIMEZONE,
   location: { city: "", venue: "", address: "" },
   registrationMode: "none", registrationLink: "", capacity: "", registrationDeadline: "",
   isRegistrationOpen: true, allowGuests: false, maxGuestsPerRegistration: 1,
@@ -405,9 +410,9 @@ const toForm = (e) =>
     ? blankForm
     : {
         title: e.title || "", description: e.description || "", eventType: e.eventType || "fundraiser",
-        eventTypeOther: e.eventTypeOther || "", status: e.status || "upcoming",
+        eventTypeOther: e.eventTypeOther || "", audience: e.audience || "", status: e.status || "upcoming",
         date: toDateInput(e.date), endDate: toDateInput(e.endDate),
-        startTime: e.startTime || "", endTime: e.endTime || "", timezone: e.timezone || "AEST",
+        startTime: e.startTime || "", endTime: e.endTime || "", timezone: e.timezone || DEFAULT_TIMEZONE,
         location: { city: e.location?.city || "", venue: e.location?.venue || "", address: e.location?.address || "" },
         registrationMode: e.registrationMode || "none", registrationLink: e.registrationLink || "",
         capacity: e.capacity != null ? String(e.capacity) : "",
@@ -438,11 +443,20 @@ export default function EventForm() {
   const [drag, setDrag] = useState(false);
   // New events open on the template picker first; edits skip it.
   const [showTemplates, setShowTemplates] = useState(!isEdit);
+  // Audience options come from Organisation Settings → Events (per-tenant).
+  const [audiences, setAudiences] = useState(() => settingsService.getCached()?.eventAudiences || []);
 
   useEffect(() => {
     if (isEdit && !preset) fetchEvent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    settingsService
+      .getSettings()
+      .then((d) => setAudiences(d?.eventAudiences || []))
+      .catch(() => {});
+  }, []);
 
   const fetchEvent = async () => {
     try {
@@ -535,6 +549,7 @@ export default function EventForm() {
     fd.append("description", form.description);
     fd.append("eventType", form.eventType);
     fd.append("eventTypeOther", form.eventType === "other" ? form.eventTypeOther : "");
+    fd.append("audience", form.audience || "");
     fd.append("status", form.status);
     fd.append("date", form.date);
     fd.append("endDate", form.endDate || "");
@@ -751,6 +766,22 @@ export default function EventForm() {
                       <Field label="Specify type" required value={form.eventTypeOther} onChange={(e) => set("eventTypeOther", e.target.value)} placeholder="e.g. Open Day" />
                     )}
 
+                    {audiences.length > 0 ? (
+                      <SelectField
+                        label="Audience"
+                        value={form.audience}
+                        onChange={(v) => set("audience", v)}
+                        options={[{ value: "", label: "No specific audience" }, ...audiences.map((a) => ({ value: a.key, label: a.label }))]}
+                        hint="Colour-codes this event on the public events calendar."
+                      />
+                    ) : (
+                      <p className="text-xs text-text-muted">
+                        Tip: define audience segments (e.g. Brothers, Sisters, Open to all) in{" "}
+                        <Link to="/admin/settings?tab=events" className="font-medium text-accent hover:underline">Settings → Events</Link>{" "}
+                        to colour-code events on the public calendar.
+                      </p>
+                    )}
+
                     <div>
                       <label className={labelCls}>Description</label>
                       <textarea
@@ -775,7 +806,15 @@ export default function EventForm() {
                       <Field label="End date" type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} hint="Only for multi-day events." />
                       <Field label="Start time" required type="time" value={form.startTime} onChange={(e) => set("startTime", e.target.value)} />
                       <Field label="End time" required type="time" value={form.endTime} onChange={(e) => set("endTime", e.target.value)} />
-                      <Field label="Timezone" required value={form.timezone} onChange={(e) => set("timezone", e.target.value)} placeholder="e.g. AEST" />
+                      <SelectField
+                        label="Timezone"
+                        required
+                        value={form.timezone}
+                        onChange={(v) => set("timezone", v)}
+                        options={timezoneOptionsWith(form.timezone)}
+                        searchable
+                        searchPlaceholder="Search timezones…"
+                      />
                     </div>
 
                     <div className="border-t border-gray-100 pt-6">

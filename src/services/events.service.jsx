@@ -82,6 +82,33 @@ const eventsService = {
 
   exportRegistrations: (eventId) =>
     axiosInstance.get(`/admin/events/${eventId}/registrations/export`, { responseType: "blob" }),
+
+  // ── Event payments (cross-event paid registrations dashboard) ──
+  listPayments: ({
+    page,
+    limit,
+    search,
+    paymentStatus,
+    eventId,
+    startDate,
+    endDate,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (page) params.set("page", page);
+    if (limit) params.set("limit", limit);
+    if (search) params.set("search", search);
+    if (paymentStatus && paymentStatus !== "all") params.set("paymentStatus", paymentStatus);
+    if (eventId && eventId !== "all") params.set("eventId", eventId);
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    params.set("sortBy", sortBy);
+    params.set("sortOrder", sortOrder);
+    return axiosInstance
+      .get(`/admin/events/payments/list?${params.toString()}`)
+      .then((res) => res.data);
+  },
 };
 
 export default eventsService;

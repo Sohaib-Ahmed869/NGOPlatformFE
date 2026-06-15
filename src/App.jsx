@@ -20,6 +20,8 @@ import Navbar from "./pages/Components/navbar";
 import Footer from "./pages/Components/footer";
 import Cart from "./pages/Components/cart";
 import BackToTop from "./components/BackToTop";
+import ScrollToTop from "./components/ScrollToTop";
+import PageTransition from "./components/PageTransition";
 
 // Public pages
 import Home from "./pages/Home/Home";
@@ -31,11 +33,13 @@ import ChangePassword from "./pages/Login/change-password";
 import InitiativesSection from "./pages/Initiatives/page";
 import Events from "./pages/Events/page";
 import EventDetailPage from "./pages/Events/EventDetail";
+import EventRegisterPage from "./pages/Events/EventRegister";
 import IslamicGiving from "./pages/IslamicGivings/page";
 import ZakatCalculator from "./pages/ZakatCalculator/page";
 import RamadanDonations from "./pages/Home/RamdanDonations/page";
 import AboutSection from "./pages/About/page";
 import PartnersSection from "./pages/OurPartners/page";
+import BecomePartner from "./pages/OurPartners/BecomePartner";
 import AboutUsPage from "./pages/About/page2";
 import EducationInitiatives from "./pages/EducationInitiatives/page";
 import EmergenciesInitiatives from "./pages/Emergencies/page";
@@ -54,9 +58,13 @@ import DonationsPage from "./Admin/Screens/donations";
 import DonorsPage from "./Admin/Screens/donors";
 import SubscriptionsPage from "./Admin/Screens/subscriptions";
 import EventsManagement from "./Admin/Screens/Events";
+import EventPaymentsPage from "./Admin/Screens/EventPayments";
+import CampaignPaymentsPage from "./Admin/Screens/CampaignPayments";
+import ProgramPaymentsPage from "./Admin/Screens/ProgramPayments";
 import AdminLogin from "./pages/AdminLogin/login";
 import Unsubscribe from "./pages/Unsubscribe";
 import JoinTeamAdmin from "./Admin/Screens/joinTeam";
+import PartnersAdmin from "./Admin/Screens/Partners";
 import VolunteerProfile from "./Admin/Screens/VolunteerProfile";
 import ContactRequestsAdmin from "./Admin/Screens/contacts";
 import ProductsManagement from "./Admin/Screens/Products";
@@ -72,8 +80,9 @@ import AdminPages from "./Admin/Screens/Pages";
 // User
 import UserLayout from "./User/UserLayout";
 import UserDonations from "./User/Screens/donations";
-import ActiveSubscriptions from "./User/Screens/activeSubs";
-import PreviousSubscriptions from "./User/Screens/previousSubs";
+import UserPayments from "./User/Screens/UserPayments";
+import MyFundraisers from "./User/Screens/MyFundraisers";
+import Subscriptions from "./User/Screens/Subscriptions";
 import PaymentMethods from "./User/Screens/payments";
 import ProfileSettings from "./User/Screens/profile";
 import UserDashboard from "./User/Screens/dashboard";
@@ -87,6 +96,7 @@ import ProgramCheckout from "./pages/Programs/ProgramCheckout";
 import AdminPrograms from "./Admin/Screens/Programs";
 import CampaignsPage from "./pages/P2PCampaigns/CampaignsPage";
 import CampaignDetail from "./pages/P2PCampaigns/CampaignDetail";
+import GoFundMeDonate from "./pages/P2PCampaigns/GoFundMeDonate";
 import StartFundraiser from "./pages/P2PCampaigns/StartFundraiser";
 import GoFundMeAdmin from "./Admin/Screens/GoFundMe";
 
@@ -138,6 +148,7 @@ const TenantRoutes = () => (
     <Route path="/change-password" element={<ChangePassword />} />
     <Route path="/signup" element={<SignUp />} />
     <Route path="/our-partners" element={<PageGate path="/our-partners"><PartnersSection /></PageGate>} />
+    <Route path="/become-a-partner" element={<BecomePartner />} />
     <Route path="/initiatives" element={<PageGate path="/initiatives"><InitiativesSection /></PageGate>} />
     <Route path="/initiative-1" element={<PageGate path="/initiative-1"><EducationInitiatives /></PageGate>} />
     <Route path="/initiative-2" element={<PageGate path="/initiative-2"><WaterInitiatives /></PageGate>} />
@@ -151,10 +162,12 @@ const TenantRoutes = () => (
     <Route path="/team-hope" element={<PageGate path="/team-hope"><Hope /></PageGate>} />
     <Route path="/events" element={<PageGate path="/events"><Events /></PageGate>} />
     <Route path="/events/:id" element={<EventDetailPage />} />
+    <Route path="/events/:id/register" element={<EventRegisterPage />} />
     <Route path="/contact-us" element={<PageGate path="/contact-us"><Contact /></PageGate>} />
     <Route path="/p2p-campaigns" element={<PageGate path="/p2p-campaigns"><CampaignsPage /></PageGate>} />
     <Route path="/p2p-campaigns/start" element={<ProtectedRoute><StartFundraiser /></ProtectedRoute>} />
     <Route path="/p2p-campaigns/:slug" element={<CampaignDetail />} />
+    <Route path="/p2p-campaigns/:slug/donate" element={<GoFundMeDonate />} />
     <Route path="/checkout" element={<UnifiedCheckout />} />
     <Route path="/order-confirmation" element={<OrderConfirmation />} />
     <Route path="/programs" element={<PageGate path="/programs"><ProgramsPage /></PageGate>} />
@@ -172,9 +185,13 @@ const TenantRoutes = () => (
       <Route path="subscriptions" element={<SubscriptionsPage />} />
       <Route path="installments" element={<AdminInstallments />} />
       <Route path="events/*" element={<EventsManagement />} />
+      <Route path="event-payments" element={<EventPaymentsPage />} />
+      <Route path="campaign-payments" element={<CampaignPaymentsPage />} />
+      <Route path="program-payments" element={<ProgramPaymentsPage />} />
       <Route path="volunteers" element={<JoinTeamAdmin />} />
       <Route path="volunteers/:id" element={<VolunteerProfile />} />
       <Route path="contacts" element={<ContactRequestsAdmin />} />
+      <Route path="partners" element={<PartnersAdmin />} />
       <Route path="newsletter" element={<NewsletterScreen />} />
       <Route path="profile" element={<ProfileSetting />} />
       <Route
@@ -201,13 +218,14 @@ const TenantRoutes = () => (
       }
     >
       <Route path="donations" element={<UserDonations />} />
+      <Route path="payments" element={<UserPayments />} />
+      <Route path="fundraisers" element={<MyFundraisers />} />
       <Route path="programs" element={<MyPrograms />} />
-      <Route path="subscriptions/active" element={<ActiveSubscriptions />} />
       <Route path="dashboard" element={<UserDashboard />} />
-      <Route
-        path="subscriptions/previous"
-        element={<PreviousSubscriptions />}
-      />
+      {/* Unified subscriptions page (Active / Past tabs). Old split routes redirect in. */}
+      <Route path="subscriptions" element={<Subscriptions />} />
+      <Route path="subscriptions/active" element={<Navigate to="/user/subscriptions" replace />} />
+      <Route path="subscriptions/previous" element={<Navigate to="/user/subscriptions?tab=past" replace />} />
       <Route path="settings/payment" element={<PaymentMethods />} />
       <Route path="settings/profile" element={<ProfileSettings />} />
     </Route>
@@ -294,9 +312,9 @@ const AppLayout = ({ children }) => {
     ].includes(location.pathname) ||
     location.pathname.startsWith("/reset-password") ||
     location.pathname.startsWith("/register");
-  const needsSpacer = ["/checkout", "/order-confirmation", "/program-checkout"].includes(
-    location.pathname
-  );
+  // Note: /program-checkout now has its own full-bleed hero (data-hero), so it
+  // must NOT get the spacer — the hero sits under the transparent navbar.
+  const needsSpacer = ["/checkout", "/order-confirmation"].includes(location.pathname);
 
   if (isAuth) {
     return <>{children}</>;
@@ -379,6 +397,7 @@ function AppInner() {
 
   return (
     <LoaderContext.Provider value={{ loaderDone }}>
+      <ScrollToTop />
       <Toaster
         position="top-right"
         gutter={10}
@@ -415,7 +434,9 @@ function AppInner() {
       <AppLayout>
         <div className="">
           <div className="mx-auto">
-            <RouteSelector loaderDone={loaderDone} setLoaderDone={setLoaderDone} />
+            <PageTransition>
+              <RouteSelector loaderDone={loaderDone} setLoaderDone={setLoaderDone} />
+            </PageTransition>
           </div>
         </div>
       </AppLayout>

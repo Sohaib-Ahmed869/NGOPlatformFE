@@ -1,94 +1,47 @@
-// UserLayout.jsx
-import React, { useEffect, useState } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { useState } from "react";
+import { Outlet } from "react-router-dom";
 import UserSidebar from "./sidebar";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import axios, { getStoragePrefix } from "../services/axios";
-import { toast } from "react-hot-toast";
+import UserTopbar from "./UserTopbar";
+import { cn } from "../utils/cn";
 
+// Auth + temporary-password gating is handled by <ProtectedRoute> which wraps
+// this layout, so the shell just renders instantly — no loading screen.
 const UserLayout = () => {
-  const navigate = useNavigate();
-  
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("userSidebarCollapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
 
-  // Check if user needs to change password
-  useEffect(() => {
-    const checkPasswordStatus = async () => {
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      const next = !c;
       try {
-        // Get the token from localStorage
-        const token = localStorage.getItem(getStoragePrefix() + 'token');
-        
-        if (!token) {
-          navigate('/login');
-          return;
-        }
-
-        // Make a direct API call to check password status
-        const response = await axios.get('/users/check-password-status');
-        
-        if (response.data && response.data.passwordChangeRequired) {
-          setPasswordChangeRequired(true);
-          navigate('/change-password?mandatory=true');
-          toast.error('You must change your temporary password before accessing your account.');
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error checking password status:', error);
-        setLoading(false);
+        localStorage.setItem("userSidebarCollapsed", next ? "1" : "0");
+      } catch {
+        /* ignore */
       }
-    };
-
-    checkPasswordStatus();
-  }, [navigate]);
-
-
-  // If loading, show loading indicator
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[var(--tenant-bg,#FAF7F2)]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#C9A84C] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If password change required, redirect to change password page
-  if (passwordChangeRequired) {
-    return <Navigate to="/change-password?mandatory=true" replace />;
-  }
-
-  // If not authenticated, redirect to login
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+      return next;
+    });
 
   return (
-    <div className="flex h-screen bg-[var(--tenant-bg,#FAF7F2)]">
-      <UserSidebar />
-      <main className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="h-16 bg-white shadow-sm flex items-center justify-end lg:justify-between px-8">
-          <h1 className="text-xl font-semibold text-gray-800 max-sm:hidden">Welcome Back</h1>
-          
-          <div className="flex items-center space-x-4">
-            <button
-              className="px-4 py-2 text-white rounded-lg transition-colors"
-              style={{ backgroundColor: 'var(--tenant-accent, #C9A84C)' }}
-              onClick={() => navigate("/donate")}
-            >
-              Make a Donation
-            </button>
-          </div>
-        </div>
+    <div data-user-portal className="min-h-screen" style={{ backgroundColor: "var(--tenant-sidebar-top, #4A3F30)" }}>
+      <UserSidebar collapsed={collapsed} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <UserTopbar collapsed={collapsed} onToggleCollapse={toggleCollapsed} onMenu={() => setMobileOpen(true)} />
 
-        {/* Main Content */}
-        <div className="p-8">
+      <main
+        className={cn(
+          "min-h-screen pt-16 transition-[padding] duration-300 ease-in-out",
+          collapsed ? "md:pl-16" : "md:pl-64",
+        )}
+      >
+        <div
+          className="min-h-[calc(100vh-4rem)] px-4 py-6 lg:px-8 md:rounded-tl-[1.25rem]"
+          style={{ backgroundColor: "var(--tenant-bg, #FAF7F2)" }}
+        >
           <Outlet />
         </div>
       </main>

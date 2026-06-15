@@ -8,7 +8,7 @@ const V = {
   primary: "#047857", primary2: "#065F46",
 };
 
-const font = "'Outfit', system-ui, sans-serif";
+const font = "'Times New Roman', Tinos, Times, serif";
 
 export default function SaaSFooter() {
   return (

@@ -78,8 +78,10 @@ export const AuthProvider = ({ children }) => {
     },
   };
 
+  // Render nothing during the brief auth hydration — no bare "Loading…" flash
+  // before the branded TenantLoader takes over.
   if (loading) {
-    return <div>Loading...</div>;
+    return null;
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -25,6 +25,7 @@ import {
   ListChecks,
   DollarSign,
   ExternalLink,
+  Receipt,
   CheckCircle2,
   CalendarClock,
   AlertCircle,
@@ -59,6 +60,20 @@ const RSVP_BADGE = {
   registered: "bg-green-100 text-green-700",
   waitlisted: "bg-amber-100 text-amber-700",
   cancelled: "bg-gray-100 text-gray-500",
+};
+
+const PAY_BADGE = {
+  paid: "bg-green-100 text-green-700",
+  pending: "bg-amber-100 text-amber-700",
+  refunded: "bg-blue-100 text-blue-700",
+};
+
+const fmtMoney = (amount, currency = "AUD") => {
+  try {
+    return new Intl.NumberFormat("en-AU", { style: "currency", currency }).format(amount || 0);
+  } catch {
+    return `${(amount || 0).toFixed(2)} ${currency}`;
+  }
 };
 
 /* ── overview building blocks ── */
@@ -149,6 +164,31 @@ function RegistrationRow({ reg, questions, onToggleAttended, onDelete, busy }) {
           </p>
         </div>
 
+        {reg.paymentStatus && reg.paymentStatus !== "free" && (
+          <span
+            className={cn(
+              "hidden shrink-0 items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full sm:inline-flex",
+              PAY_BADGE[reg.paymentStatus] || "bg-gray-100 text-gray-500"
+            )}
+            title={reg.paymentStatus === "paid" ? "Payment received" : `Payment ${reg.paymentStatus}`}
+          >
+            <DollarSign className="h-3 w-3" />
+            {reg.paymentStatus === "paid" ? fmtMoney(reg.amountPaid, reg.currency) : reg.paymentStatus}
+          </span>
+        )}
+
+        {reg.stripeReceiptUrl && (
+          <a
+            href={reg.stripeReceiptUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View Stripe receipt"
+            className="grid h-7 w-7 shrink-0 place-items-center text-gray-400 transition-colors hover:bg-accent/10 hover:text-accent"
+          >
+            <Receipt className="h-4 w-4" />
+          </a>
+        )}
+
         <span className={cn("hidden shrink-0 px-2 py-0.5 text-[10px] font-semibold rounded-full sm:inline", RSVP_BADGE[reg.rsvpStatus] || "bg-gray-100 text-gray-500")}>
           {reg.rsvpStatus}
         </span>
@@ -190,19 +230,24 @@ function RegistrationRow({ reg, questions, onToggleAttended, onDelete, busy }) {
   );
 }
 
+// Session cache so revisiting an event is instant (stale-while-revalidate) —
+// mirrors the public CampaignDetail's detailCache. id -> { event, regs, regEvent }.
+const eventDetailCache = new Map();
+
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
   const preset = location.state?.event || null;
-  const [event, setEvent] = useState(preset);
-  const [loading, setLoading] = useState(!preset);
+  const cachedDetail = eventDetailCache.get(id) || null;
+  const [event, setEvent] = useState(preset || cachedDetail?.event || null);
+  const [loading, setLoading] = useState(!(preset || cachedDetail?.event));
   const [tab, setTab] = useState("overview");
 
-  // registrations state
-  const [regs, setRegs] = useState([]);
-  const [regEvent, setRegEvent] = useState(null); // {capacity, registrationCount, registrationQuestions}
+  // registrations state (seeded from cache so reopening the tab is instant)
+  const [regs, setRegs] = useState(cachedDetail?.regs || []);
+  const [regEvent, setRegEvent] = useState(cachedDetail?.regEvent || null); // {capacity, registrationCount, registrationQuestions}
   const [loadingRegs, setLoadingRegs] = useState(false);
   const [search, setSearch] = useState("");
   const [rsvpFilter, setRsvpFilter] = useState("all");
@@ -212,27 +257,53 @@ export default function EventDetail() {
 
   const isInternal = event?.registrationMode === "internal";
 
+  // Load + revalidate the event (stale-while-revalidate). Paints instantly from
+  // the passed state / session cache; only a true cold load shows the loader.
   useEffect(() => {
-    if (!preset) fetchEvent();
+    let active = true;
+    const cached = eventDetailCache.get(id);
+    const init = preset || cached?.event || null;
+    if (init) setEvent(init);
+    if (cached) {
+      setRegs(cached.regs || []);
+      setRegEvent(cached.regEvent || null);
+    }
+    setLoading(!init);
+
+    eventsService
+      .getById(id)
+      .then((ev) => {
+        if (!active) return;
+        setEvent(ev);
+        const c = eventDetailCache.get(id) || {};
+        eventDetailCache.set(id, { ...c, event: ev });
+      })
+      .catch((e) => {
+        if (active && !init) {
+          toast.error(e.response?.data?.message || "Failed to load event");
+          navigate("/admin/events");
+        }
+      })
+      .finally(() => active && setLoading(false));
+
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const fetchEvent = async () => {
-    try {
-      setLoading(true);
-      const ev = await eventsService.getById(id);
-      setEvent(ev);
-    } catch (e) {
-      toast.error(e.response?.data?.message || "Failed to load event");
-      navigate("/admin/events");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadRegistrations = async () => {
-    try {
+    const filtersDefault = rsvpFilter === "all" && attendedFilter === "all" && !search.trim();
+    const cached = eventDetailCache.get(id);
+    // Default view: paint cached rows instantly, then revalidate quietly. A
+    // filtered/searched view always fetches fresh (and shows the spinner).
+    if (filtersDefault && cached?.regs) {
+      setRegs(cached.regs);
+      setRegEvent(cached.regEvent || null);
+    } else {
       setLoadingRegs(true);
+    }
+    try {
       const data = await eventsService.listRegistrations(id, {
         rsvpStatus: rsvpFilter,
         attended: attendedFilter,
@@ -240,6 +311,10 @@ export default function EventDetail() {
       });
       setRegs(data.registrations || []);
       setRegEvent(data.event || null);
+      if (filtersDefault) {
+        const c = eventDetailCache.get(id) || {};
+        eventDetailCache.set(id, { ...c, regs: data.registrations || [], regEvent: data.event || null });
+      }
     } catch {
       toast.error("Failed to load registrations");
     } finally {
@@ -259,7 +334,12 @@ export default function EventDetail() {
     setBusyId(reg._id);
     try {
       const res = await eventsService.updateRegistration(id, reg._id, { attended: !reg.attended });
-      setRegs((prev) => prev.map((r) => (r._id === reg._id ? res.registration : r)));
+      setRegs((prev) => {
+        const next = prev.map((r) => (r._id === reg._id ? res.registration : r));
+        const c = eventDetailCache.get(id);
+        if (c?.regs) eventDetailCache.set(id, { ...c, regs: next });
+        return next;
+      });
     } catch {
       toast.error("Failed to update");
     } finally {
@@ -271,8 +351,18 @@ export default function EventDetail() {
     setBusyId(reg._id);
     try {
       await eventsService.removeRegistration(id, reg._id);
-      setRegs((prev) => prev.filter((r) => r._id !== reg._id));
-      setRegEvent((p) => (p ? { ...p, registrationCount: Math.max(0, (p.registrationCount || 1) - 1) } : p));
+      setRegs((prev) => {
+        const next = prev.filter((r) => r._id !== reg._id);
+        const c = eventDetailCache.get(id);
+        if (c?.regs) eventDetailCache.set(id, { ...c, regs: next });
+        return next;
+      });
+      setRegEvent((p) => {
+        const np = p ? { ...p, registrationCount: Math.max(0, (p.registrationCount || 1) - 1) } : p;
+        const c = eventDetailCache.get(id);
+        if (c) eventDetailCache.set(id, { ...c, regEvent: np });
+        return np;
+      });
       toast.success("Registration removed");
     } catch {
       toast.error("Failed to remove");

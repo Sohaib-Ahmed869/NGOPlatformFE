@@ -16,7 +16,7 @@ const V = {
   accent: "#F59E0B", accentSoft: "#FEF3C7", accentGlow: "rgba(245,158,11,.22)",
   success: "#059669",
 };
-const font = "'Outfit', system-ui, sans-serif";
+const font = "'Times New Roman', Tinos, Times, serif";
 
 /* ── Animation helpers ── */
 const Reveal = ({ children, delay = 0, className = "", style = {} }) => {
@@ -64,7 +64,7 @@ const MagneticBtn = ({ children, className = "", style = {}, as: Tag = "a", ...p
 /* ── Injected CSS ── */
 const css = `
 .saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{
-  font-family:'Outfit',system-ui,sans-serif !important;
+  font-family:'Times New Roman',Tinos,Times,serif !important;
 }
 @keyframes saas-float1{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes saas-float2{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}

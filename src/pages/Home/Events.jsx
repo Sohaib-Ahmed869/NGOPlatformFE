@@ -1,28 +1,19 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, ArrowRight } from "lucide-react";
 import axiosInstance from "../../services/axios";
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.15 } },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
+import { Eyebrow, CardHoverGlow } from "../../components/giving";
 
 function Events() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         const res = await axiosInstance.get("/events");
-        // Show only upcoming events, max 3
         const upcoming = (res.data || [])
           .filter((e) => e.status === "upcoming" || new Date(e.date) >= new Date())
           .slice(0, 3);
@@ -36,110 +27,97 @@ function Events() {
     fetchEvents();
   }, []);
 
-  // Don't render the section if no events
   if (!loading && events.length === 0) return null;
 
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  const formatDate = (dateStr) =>
+    new Date(dateStr).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
-    <section className="bg-white py-20 px-6">
-      <div className="max-w-7xl mx-auto">
-        <h2 className="font-heading text-3xl md:text-4xl text-primary text-center font-bold mb-4">
-          Upcoming Events
-        </h2>
-        <p className="text-text-muted text-center mb-12">
-          Join us at our next fundraising event and be part of the change.
-        </p>
+    <section className="bg-background px-6 py-20 lg:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Eyebrow icon={Calendar}>Get together</Eyebrow>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary md:text-4xl">Upcoming events</h2>
+            <p className="mt-3 max-w-2xl text-text-muted">Join us at our next event and be part of the change in person.</p>
+          </div>
+          {events.length > 0 && (
+            <Link
+              to="/events"
+              className="inline-flex shrink-0 items-center gap-2 border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+            >
+              View all events <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           </div>
         ) : (
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            {events.map((event) => (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {events.map((event, i) => (
               <motion.div
                 key={event._id}
-                className="rounded-2xl shadow-md hover:shadow-xl overflow-hidden bg-white flex flex-col border border-gray-100"
-                variants={cardVariants}
-                whileHover={{ y: -6 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                initial={{ opacity: 0, y: 28 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: (i % 3) * 0.08 }}
+                whileHover={reduce ? {} : { y: -6 }}
+                className="group relative flex flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
               >
+                <CardHoverGlow />
                 {event.imageUrl ? (
-                  <img
-                    src={event.imageUrl}
-                    alt={event.title}
-                    className="w-full h-48 object-cover"
-                  />
+                  <div className="relative h-44 overflow-hidden">
+                    <img
+                      src={event.imageUrl}
+                      alt={event.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
                 ) : (
-                  <div className="w-full h-48 bg-accent/10 flex items-center justify-center">
-                    <Calendar className="w-10 h-10 text-accent/40" />
+                  <div className="grid h-44 place-items-center bg-accent/10">
+                    <Calendar className="h-10 w-10 text-accent/40" />
                   </div>
                 )}
-                <div className="p-6 flex flex-col flex-1">
-                  <div className="flex items-center gap-2 text-sm text-accent font-semibold">
-                    <Calendar className="w-3.5 h-3.5" />
+                <div className="relative flex flex-1 flex-col p-6">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-accent">
+                    <Calendar className="h-3.5 w-3.5" />
                     <span>{formatDate(event.date)}</span>
                     {event.location?.city && (
                       <>
                         <span className="text-text-muted">&middot;</span>
-                        <MapPin className="w-3.5 h-3.5" />
+                        <MapPin className="h-3.5 w-3.5" />
                         <span>{event.location.city}</span>
                       </>
                     )}
                   </div>
-                  <h3 className="text-xl font-heading font-bold text-primary mt-2">
-                    {event.title}
-                  </h3>
-                  <p className="text-sm text-text-muted line-clamp-3 mt-2 flex-1">
-                    {event.description}
-                  </p>
+                  <h3 className="mt-2 font-heading text-lg font-bold text-primary">{event.title}</h3>
+                  <p className="mt-2 line-clamp-3 flex-1 text-sm text-text-muted">{event.description}</p>
                   {event.registrationLink ? (
                     <a
                       href={event.registrationLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-6 w-full border-2 border-primary text-primary rounded-xl px-6 py-2 hover:bg-primary hover:text-white transition-colors font-semibold text-center block"
+                      className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 border border-primary text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
                     >
                       Register
                     </a>
                   ) : (
                     <Link
                       to="/events"
-                      className="mt-6 w-full border-2 border-primary text-primary rounded-xl px-6 py-2 hover:bg-primary hover:text-white transition-colors font-semibold text-center block"
+                      className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 border border-primary text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
                     >
-                      View Details
+                      View details
                     </Link>
                   )}
                 </div>
               </motion.div>
             ))}
-          </motion.div>
-        )}
-
-        {events.length > 0 && (
-          <div className="text-center mt-10">
-            <Link
-              to="/events"
-              className="text-sm text-accent font-semibold hover:underline"
-            >
-              View all events &rarr;
-            </Link>
           </div>
         )}
+
       </div>
     </section>
   );

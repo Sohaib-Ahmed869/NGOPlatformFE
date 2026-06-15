@@ -10,9 +10,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        heading: ["Outfit", "system-ui", "sans-serif"],
-        body: ["Outfit", "system-ui", "sans-serif"],
-        nav: ["Outfit", "system-ui", "sans-serif"],
+        // Resolve through CSS variables so the admin portal + user dashboard can
+        // swap to Outfit (see index.css) while the public website keeps its serif
+        // look. Where the variable is unset (public site) the serif stack applies.
+        heading: ['var(--font-heading, "Times New Roman", Tinos, Times, serif)'],
+        body: ['var(--font-body, "Times New Roman", Tinos, Times, serif)'],
+        nav: ['var(--font-nav, "Times New Roman", Tinos, Times, serif)'],
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
@@ -27,6 +30,15 @@ export default {
         danger: '#DC2626',
         'warm-cream': '#F5EDE0',
         'warm-beige': '#EDE4D3',
+      },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
+      animation: {
+        marquee: 'marquee 60s linear infinite',
       },
       typography: {
         DEFAULT: {

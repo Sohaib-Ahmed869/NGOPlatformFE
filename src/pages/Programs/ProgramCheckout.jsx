@@ -1,18 +1,89 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import useTenantStripe from "../../hooks/useTenantStripe";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { ArrowLeft, Heart, Check, Info, Shield } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Heart,
+  Check,
+  CheckCircle2,
+  Info,
+  ShieldCheck,
+  Lock,
+  User,
+  MapPin,
+  CreditCard,
+  Loader2,
+  Minus,
+  Plus,
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useTenant } from "../../context/TenantContext";
 import axiosInstance from "../../services/axios";
 import { OrderService } from "../../services/order.service";
+import { CustomSelect } from "../../components/CustomSelect";
+import HeroOverlay from "../../components/HeroOverlay";
+import { cn } from "../../utils/cn";
 import { toast } from "react-hot-toast";
 import visa from "../../assets/visa.png";
 import mastercard from "../../assets/mastercard.png";
 
-// stripePromise is created per-tenant inside the component (see useTenantStripe).
+const money = (n) => `$${Number(n || 0).toFixed(2)}`;
+const HERO_FALLBACK_BG =
+  "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-primary-light, #4A3C2A))";
 
-// ── Stripe Card Form ────────────────────────────────────
+const AU_STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"];
+const STEPS = [
+  { key: "details", label: "Your details" },
+  { key: "payment", label: "Payment" },
+];
+
+// Underline field style — matches the Contact Us form / fundraiser donation.
+const baseField =
+  "w-full border-b bg-transparent py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400";
+const fieldCls = (err) =>
+  cn(baseField, err ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-accent");
+
+function Eyebrow({ icon: Icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
+      {Icon && <Icon className="h-3.5 w-3.5" />}
+      {children}
+    </span>
+  );
+}
+
+function Step({ n, label, active, done }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={cn(
+          "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
+          done ? "bg-emerald-500 text-white" : active ? "bg-accent text-white" : "bg-gray-100 text-text-muted",
+        )}
+      >
+        {done ? <CheckCircle2 className="h-4 w-4" /> : n}
+      </span>
+      <span className={cn("hidden text-sm font-semibold sm:inline", active || done ? "text-primary" : "text-text-muted")}>{label}</span>
+    </div>
+  );
+}
+
+function Field({ label, required, error, children, className }) {
+  return (
+    <div className={className}>
+      <label className="mb-1 block text-sm font-medium text-gray-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+/* ── Stripe card form (verify a card → PaymentMethod) ─────────────────── */
 const StripeCardForm = ({ onPaymentMethodCreated }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -25,7 +96,10 @@ const StripeCardForm = ({ onPaymentMethodCreated }) => {
     if (!stripe || !elements) return;
     setIsVerifying(true);
     const cardElement = elements.getElement(CardElement);
-    if (!cardElement) { setIsVerifying(false); return; }
+    if (!cardElement) {
+      setIsVerifying(false);
+      return;
+    }
     const { error, paymentMethod } = await stripe.createPaymentMethod({ type: "card", card: cardElement });
     if (error) {
       setCardError(error.message);
@@ -40,40 +114,48 @@ const StripeCardForm = ({ onPaymentMethodCreated }) => {
   };
 
   return (
-    <div className="mt-4">
-      <div className="p-4 border border-gray-200 rounded-xl">
-        <label className="block text-sm font-medium text-primary mb-2">Card Details</label>
-        <CardElement
-          options={{
-            style: {
-              base: { fontSize: "16px", color: "#424770", "::placeholder": { color: "#aab7c4" } },
-              invalid: { color: "#9e2146" },
-            },
-          }}
-          onChange={(e) => { setCardComplete(e.complete); setCardError(e.error?.message || ""); }}
-        />
-        {cardError && <p className="text-red-500 text-sm mt-2">{cardError}</p>}
-        {cardComplete && (
-          <button type="button" onClick={processCard} disabled={isVerifying || isVerified}
-            className="mt-3 px-4 py-2 text-white bg-accent hover:bg-accent/90 rounded-xl text-sm flex items-center gap-2 disabled:opacity-50">
-            {isVerifying ? "Verifying..." : isVerified ? <><Check className="w-4 h-4" /> Verified</> : "Verify Card"}
-          </button>
-        )}
-      </div>
+    <div className="mt-4 border border-gray-200 p-4">
+      <label className="mb-2 block text-sm font-medium text-primary">Card details</label>
+      <CardElement
+        options={{
+          style: {
+            base: { fontSize: "15px", color: "#424770", "::placeholder": { color: "#aab7c4" } },
+            invalid: { color: "#9e2146" },
+          },
+        }}
+        onChange={(e) => {
+          setCardComplete(e.complete);
+          setCardError(e.error?.message || "");
+          if (!e.complete) setIsVerified(false);
+        }}
+      />
+      {cardError && <p className="mt-2 text-sm text-red-500">{cardError}</p>}
+      {cardComplete && (
+        <button
+          type="button"
+          onClick={processCard}
+          disabled={isVerifying || isVerified}
+          className="mt-3 inline-flex items-center gap-2 bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+        >
+          {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : isVerified ? <Check className="h-4 w-4" /> : null}
+          {isVerifying ? "Verifying…" : isVerified ? "Card verified" : "Verify card"}
+        </button>
+      )}
     </div>
   );
 };
 
-// ── Main Checkout ───────────────────────────────────────
 function ProgramCheckoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { organisation } = useTenant();
   const stripePromise = useTenantStripe();
 
   const programData = location.state?.program;
   const donationAmount = location.state?.amount;
 
+  const [step, setStep] = useState(0);
   const [adminPct, setAdminPct] = useState(2);
   const [selectedPayment, setSelectedPayment] = useState("");
   const [stripePaymentMethod, setStripePaymentMethod] = useState(null);
@@ -85,7 +167,6 @@ function ProgramCheckoutInner() {
   });
   const [errors, setErrors] = useState({});
 
-  // Prefill from user profile
   useEffect(() => {
     window.scrollTo(0, 0);
     if (!programData || !donationAmount) {
@@ -93,6 +174,7 @@ function ProgramCheckoutInner() {
       return;
     }
     if (user) fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchProfile = async () => {
@@ -118,33 +200,56 @@ function ProgramCheckoutInner() {
   const adminCost = (donationAmount * adminPct) / 100;
   const total = donationAmount + adminCost;
   const coverImg = programData.images?.[programData.coverImageIndex || 0]?.url;
+  const bank = organisation?.bankDetails || {};
+  const current = STEPS[step].key;
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
-  const validate = () => {
+  const handleInput = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    setErrors((er) => ({ ...er, [name]: "" }));
+  };
+
+  const validateDetails = () => {
     const e = {};
     if (!form.name) e.name = "Required";
     if (!form.phone) e.phone = "Required";
     if (!form.email) e.email = "Required";
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Invalid email";
     setErrors(e);
-    return Object.keys(e).length === 0;
+    if (Object.keys(e).length) {
+      toast.error("Please fill in the required fields");
+      return false;
+    }
+    return true;
   };
 
+  const goToPayment = () => {
+    if (!validateDetails()) return;
+    setStep(1);
+    scrollTop();
+  };
+
+  const cardSelected = selectedPayment === "visa" || selectedPayment === "mastercard";
+
   const handleSubmit = async () => {
-    if (!validate()) { toast.error("Please fill in required fields"); return; }
-    if (!selectedPayment) { toast.error("Please select a payment method"); return; }
-    if ((selectedPayment === "visa" || selectedPayment === "mastercard") && !stripePaymentMethod) {
-      toast.error("Please verify your card details"); return;
+    if (!validateDetails()) {
+      setStep(0);
+      return;
+    }
+    if (!selectedPayment) {
+      toast.error("Please select a payment method");
+      return;
+    }
+    if (cardSelected && !stripePaymentMethod) {
+      toast.error("Please verify your card details");
+      return;
     }
 
     setLoading(true);
     try {
       const orderData = {
-        items: [{
-          title: programData.title,
-          price: donationAmount,
-          quantity: 1,
-          programId: programData._id,
-        }],
+        items: [{ title: programData.title, price: donationAmount, quantity: 1, programId: programData._id }],
         paymentType: "single",
         adminCostContribution: adminCost,
         donorDetails: {
@@ -159,17 +264,13 @@ function ProgramCheckoutInner() {
         donationType: "Program Donation",
         paymentMethod: selectedPayment,
         totalAmount: total,
-        ...((selectedPayment === "visa" || selectedPayment === "mastercard") && {
-          stripePaymentMethodId: stripePaymentMethod.id,
-        }),
+        ...(cardSelected && { stripePaymentMethodId: stripePaymentMethod.id }),
       };
 
       const response = await OrderService.createOrder(orderData);
       if (response.status === "Success") {
         toast.success("Thank you for your donation!");
-        navigate("/order-confirmation", {
-          state: { orderDetails: response.order, paymentMethod: selectedPayment },
-        });
+        navigate("/order-confirmation", { state: { orderDetails: response.order, paymentMethod: selectedPayment } });
       } else {
         toast.error(response.message || "Payment failed");
       }
@@ -180,188 +281,281 @@ function ProgramCheckoutInner() {
     }
   };
 
-  const handleInput = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
-    setErrors((e) => ({ ...e, [name]: "" }));
-  };
-
-  const InputField = ({ label, name: fieldName, required, type = "text", readOnly, ...props }) => (
-    <div>
-      <label className="block text-sm font-medium text-primary mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input type={type} name={fieldName} value={form[fieldName]} onChange={handleInput} readOnly={readOnly}
-        className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all ${
-          errors[fieldName] ? "border-red-400" : "border-gray-200"
-        } ${readOnly ? "bg-gray-50" : ""}`}
-        {...props} />
-      {errors[fieldName] && <p className="text-red-500 text-xs mt-1">{errors[fieldName]}</p>}
-    </div>
-  );
+  const submitDisabled = loading || !selectedPayment || (cardSelected && !stripePaymentMethod);
 
   return (
-    <div className="min-h-screen bg-background py-24 px-4">
-      <div className="max-w-3xl mx-auto">
-        {/* Back */}
-        <button onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 font-medium mb-6 group">
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Program
-        </button>
-
-        {/* Program Summary Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex gap-4">
-            {coverImg ? (
-              <img src={coverImg} alt={programData.title} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
-            ) : (
-              <div className="w-20 h-20 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                <Heart className="w-8 h-8 text-accent" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <h2 className="font-heading font-bold text-primary text-lg">{programData.title}</h2>
-              <p className="text-sm text-text-muted line-clamp-1 mt-0.5">{programData.description || "Program Donation"}</p>
-              <p className="text-xl font-bold text-accent mt-2">${donationAmount.toFixed(2)}</p>
-            </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      {/* ── HERO (data-hero so the navbar measures it, not the body) ──── */}
+      <div data-hero className="relative overflow-hidden py-20 lg:py-28">
+        {coverImg ? (
+          <div className="absolute inset-0">
+            <img src={coverImg} alt="" className="h-full w-full object-cover" />
+            <HeroOverlay />
           </div>
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: HERO_FALLBACK_BG }} />
+            <div className="absolute inset-0 bg-black/30" />
+          </>
+        )}
 
-          {/* Admin cost */}
-          <div className="mt-5 pt-4 border-t border-gray-100">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-primary">Contribute to admin costs?</p>
-                <p className="text-xs text-text-muted">Helps maintain our 100% donation policy</p>
-              </div>
-              <div className="flex items-center">
-                <button onClick={() => setAdminPct(Math.max(0, adminPct - 1))}
-                  className="px-2.5 py-1 border border-gray-200 rounded-l-lg hover:bg-gray-50 text-sm">-</button>
-                <span className="px-3 py-1 border-t border-b border-gray-200 text-sm font-medium min-w-[40px] text-center">{adminPct}%</span>
-                <button onClick={() => setAdminPct(Math.min(20, adminPct + 1))}
-                  className="px-2.5 py-1 border border-gray-200 rounded-r-lg hover:bg-gray-50 text-sm">+</button>
-              </div>
-            </div>
-            {adminPct > 0 && (
-              <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
-                <Info className="w-3 h-3" /> Admin contribution: ${adminCost.toFixed(2)}
-              </p>
-            )}
-          </div>
-
-          {/* Total */}
-          <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <span className="text-lg font-bold text-primary">Total</span>
-            <span className="text-lg font-bold text-primary">${total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Donor Details */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-          <h3 className="text-base font-heading font-bold text-primary mb-4">Your Details</h3>
-
-          {user && (
-            <div className="mb-4 bg-accent/5 border border-accent/15 rounded-xl p-3 flex items-center gap-2">
-              <Check className="w-4 h-4 text-accent flex-shrink-0" />
-              <p className="text-xs text-accent">Logged in as {user.email}. Details pre-filled from your profile.</p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-            <InputField label="Name" name="name" required placeholder="Full name" />
-            <InputField label="Phone" name="phone" required placeholder="Phone number" />
-            <InputField label="Email" name="email" required type="email" readOnly={!!user?.email} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <InputField label="Street" name="streetAddress" placeholder="Street address" />
-            <InputField label="Suburb" name="townCity" placeholder="City" />
-            <div>
-              <label className="block text-sm font-medium text-primary mb-1">State</label>
-              <select name="state" value={form.state} onChange={handleInput}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none">
-                <option value="">Select</option>
-                {["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"].map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <InputField label="Postcode" name="postcode" placeholder="0000" />
-          </div>
-        </div>
-
-        {/* Payment Method */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-          <h3 className="text-base font-heading font-bold text-primary mb-4">Payment Method</h3>
-
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {[
-              { key: "visa", img: visa, label: "Visa" },
-              { key: "mastercard", img: mastercard, label: "Mastercard" },
-              { key: "bank", label: "Bank Transfer" },
-            ].map(({ key, img, label }) => (
-              <button key={key} onClick={() => { setSelectedPayment(key); setStripePaymentMethod(null); }}
-                className={`p-4 border rounded-xl transition-all flex flex-col items-center justify-center gap-2 ${
-                  selectedPayment === key ? "border-accent bg-accent/5 ring-1 ring-accent/30" : "border-gray-200 hover:border-accent/30"
-                }`}>
-                {img ? (
-                  <img src={img} alt={label} className="h-8" loading="lazy" />
-                ) : (
-                  <span className="font-bold text-accent text-sm text-center leading-tight">Bank<br />Transfer</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {(selectedPayment === "visa" || selectedPayment === "mastercard") && (
-            <Elements stripe={stripePromise}>
-              <StripeCardForm onPaymentMethodCreated={setStripePaymentMethod} />
-            </Elements>
-          )}
-
-          {selectedPayment === "bank" && (
-            <div className="border border-gray-200 rounded-xl p-4 mt-2 space-y-1 text-sm">
-              <p className="font-semibold text-primary">Bank Transfer Details</p>
-              <p>Bank: Westpac</p>
-              <p>BSB: 032075</p>
-              <p>Account: 841783</p>
-              <p className="text-xs text-text-muted mt-2">Your donation will be processed once funds are received.</p>
-            </div>
-          )}
-        </div>
-
-        {/* Submit */}
-        <button onClick={handleSubmit} disabled={loading || !selectedPayment ||
-          ((selectedPayment === "visa" || selectedPayment === "mastercard") && !stripePaymentMethod)}
-          className="w-full py-4 bg-accent hover:bg-accent/90 text-white rounded-2xl font-semibold text-base flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed">
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Processing...
-            </span>
-          ) : (
-            <>
-              <Heart className="w-5 h-5" />
-              {selectedPayment === "bank" ? "Confirm Donation" : `Pay $${total.toFixed(2)}`}
-            </>
-          )}
-        </button>
-
-        {/* Trust badges */}
-        <div className="mt-5 text-center">
-          <div className="flex justify-center gap-4 mb-3">
-            <img src={visa} alt="Visa" className="h-7 opacity-60" />
-            <img src={mastercard} alt="Mastercard" className="h-7 opacity-60" />
-          </div>
-          <div className="flex items-center justify-center gap-1.5 text-xs text-text-muted">
-            <Shield className="w-3.5 h-3.5" />
-            100% Secure · 100% Donation Policy · Privacy Protected
-          </div>
+        <div className="relative z-10 mx-auto max-w-5xl px-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="group mb-6 flex w-fit items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to program
+          </button>
+          <span className="inline-flex items-center gap-1.5 bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
+            <Heart className="h-3.5 w-3.5" /> Complete your donation
+          </span>
+          <h1 className="mt-4 max-w-3xl font-heading text-3xl font-bold leading-tight text-warm-cream md:text-5xl">
+            {programData.title}
+          </h1>
+          <p className="mt-3 text-sm text-warm-beige/80">You're donating {money(donationAmount)} to this program.</p>
         </div>
       </div>
-    </div>
+
+      {/* ── BODY ──────────────────────────────────────────────────────── */}
+      <section className="bg-background px-6 py-12 lg:py-16">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-3">
+          {/* Left — stepped form */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="lg:col-span-2"
+          >
+            <div className="border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+              {/* Step indicator */}
+              <div className="mb-7 flex items-center gap-2 sm:gap-3">
+                {STEPS.map((s, i) => (
+                  <Fragment key={s.key}>
+                    {i > 0 && <span className="h-px flex-1 bg-gray-200" />}
+                    <Step n={i + 1} label={s.label} active={i === step} done={i < step} />
+                  </Fragment>
+                ))}
+              </div>
+
+              {/* Step 1 — details */}
+              {current === "details" && (
+                <>
+                  <Eyebrow icon={User}>Your details</Eyebrow>
+                  <div className="mt-4 space-y-5">
+                    <Field label="Full name" required error={errors.name}>
+                      <input name="name" value={form.name} onChange={handleInput} placeholder="Your name" className={fieldCls(errors.name)} />
+                    </Field>
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <Field label="Email" required error={errors.email}>
+                        <input
+                          type="email"
+                          name="email"
+                          value={form.email}
+                          onChange={handleInput}
+                          readOnly={!!user?.email}
+                          placeholder="you@example.com"
+                          className={cn(fieldCls(errors.email), user?.email && "opacity-70")}
+                        />
+                      </Field>
+                      <Field label="Phone" required error={errors.phone}>
+                        <input name="phone" value={form.phone} onChange={handleInput} placeholder="Phone number" className={fieldCls(errors.phone)} />
+                      </Field>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      <MapPin className="h-3.5 w-3.5 text-accent" /> Address <span className="font-normal normal-case text-gray-400">(optional — for your receipt)</span>
+                    </div>
+                    <Field label="Street address">
+                      <input name="streetAddress" value={form.streetAddress} onChange={handleInput} placeholder="Street address" className={fieldCls(false)} />
+                    </Field>
+                    <div className="grid gap-5 sm:grid-cols-3">
+                      <Field label="Suburb / City">
+                        <input name="townCity" value={form.townCity} onChange={handleInput} placeholder="City" className={fieldCls(false)} />
+                      </Field>
+                      <Field label="State">
+                        <CustomSelect
+                          value={form.state}
+                          onChange={(v) => setForm((f) => ({ ...f, state: v }))}
+                          options={[{ value: "", label: "Select" }, ...AU_STATES.map((s) => ({ value: s, label: s }))]}
+                          variant="line"
+                          className="w-full"
+                        />
+                      </Field>
+                      <Field label="Postcode">
+                        <input name="postcode" value={form.postcode} onChange={handleInput} placeholder="0000" className={fieldCls(false)} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={goToPayment}
+                    className="mt-8 flex w-full items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                  >
+                    Continue to payment <ArrowRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+
+              {/* Step 2 — payment */}
+              {current === "payment" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep(0);
+                      scrollTop();
+                    }}
+                    className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-text-muted transition-colors hover:text-primary"
+                  >
+                    <ArrowLeft className="h-4 w-4" /> Edit details
+                  </button>
+                  <Eyebrow icon={CreditCard}>Payment method</Eyebrow>
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    {[
+                      { key: "visa", img: visa, label: "Visa" },
+                      { key: "mastercard", img: mastercard, label: "Mastercard" },
+                      { key: "bank", label: "Bank transfer" },
+                    ].map(({ key, img, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPayment(key);
+                          setStripePaymentMethod(null);
+                        }}
+                        className={cn(
+                          "flex h-20 flex-col items-center justify-center gap-2 border text-sm font-semibold transition-all",
+                          selectedPayment === key ? "border-accent bg-accent/5 text-accent ring-1 ring-accent/30" : "border-gray-200 text-gray-600 hover:border-accent/40",
+                        )}
+                      >
+                        {img ? <img src={img} alt={label} className="h-7" loading="lazy" /> : <CreditCard className="h-6 w-6" />}
+                        <span className="text-xs">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {cardSelected && (
+                    <Elements stripe={stripePromise}>
+                      <StripeCardForm onPaymentMethodCreated={setStripePaymentMethod} />
+                    </Elements>
+                  )}
+
+                  {selectedPayment === "bank" && (
+                    <div className="mt-4 border border-gray-200 bg-gray-50/60 p-4 text-sm">
+                      <p className="font-semibold text-primary">Bank transfer details</p>
+                      <div className="mt-2 grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[11px] text-text-muted">Bank</p>
+                          <p className="font-medium text-primary">{bank.bankName || "Contact us"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-text-muted">BSB</p>
+                          <p className="font-medium text-primary">{bank.bsb || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-text-muted">Account</p>
+                          <p className="font-medium text-primary">{bank.accountNumber || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-text-muted">Amount</p>
+                          <p className="font-medium text-primary">{money(total)}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs text-text-muted">Your donation will be confirmed once funds are received. You can upload your transfer receipt on the next screen.</p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitDisabled}
+                    className="mt-8 flex w-full items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className="h-5 w-5" />}
+                    {selectedPayment === "bank" ? "Confirm donation" : `Donate ${money(total)}`}
+                  </button>
+                  <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-text-muted">
+                    <Lock className="h-3.5 w-3.5" /> Secure payment · 100% donation policy · Privacy protected
+                  </p>
+                </>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Right — sticky summary */}
+          <motion.aside
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            className="lg:col-span-1"
+          >
+            <div className="lg:sticky lg:top-24">
+              <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+                {coverImg && (
+                  <div className="relative h-36 w-full">
+                    <img src={coverImg} alt="" className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                  </div>
+                )}
+                <div className="p-6">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">Program donation</p>
+                  <h2 className="mt-1 font-heading text-lg font-bold leading-snug text-primary">{programData.title}</h2>
+
+                  <div className="mt-5 space-y-3 border-t border-gray-100 pt-5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-text-muted">Your donation</span>
+                      <span className="font-semibold text-primary">{money(donationAmount)}</span>
+                    </div>
+
+                    {/* Admin cost */}
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm text-text-muted">Admin contribution</p>
+                          <p className="text-[11px] text-gray-400">Keeps our 100% donation policy</p>
+                        </div>
+                        <div className="inline-flex shrink-0 items-center border border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => setAdminPct(Math.max(0, adminPct - 1))}
+                            className="grid h-8 w-8 place-items-center text-primary transition-colors hover:bg-gray-100"
+                            aria-label="Decrease admin contribution"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="w-12 text-center text-sm font-semibold text-primary">{adminPct}%</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdminPct(Math.min(20, adminPct + 1))}
+                            className="grid h-8 w-8 place-items-center text-primary transition-colors hover:bg-gray-100"
+                            aria-label="Increase admin contribution"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      {adminPct > 0 && (
+                        <p className="mt-1.5 flex items-center justify-end gap-1 text-xs text-text-muted">
+                          <Info className="h-3 w-3" /> +{money(adminCost)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-baseline justify-between border-t border-gray-100 pt-5">
+                    <span className="text-sm font-semibold text-primary">Total</span>
+                    <span className="font-heading text-2xl font-bold text-primary">{money(total)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 border-t border-gray-100 bg-gray-50/60 px-6 py-4 text-xs text-text-muted">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" /> Secure payment — every dollar goes to the program.
+                </div>
+              </div>
+            </div>
+          </motion.aside>
+        </div>
+      </section>
+    </motion.div>
   );
 }
 

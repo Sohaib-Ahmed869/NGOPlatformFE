@@ -52,6 +52,13 @@ class AdminDonationService {
     }
   }
 
+  // Program payments dashboard (donations to programs) — returns the full body
+  // { success, data: { payments, pagination, stats } }.
+  async listProgramPayments(params = {}) {
+    const response = await axios.get(`${API_URL}/program-payments`, { params });
+    return response.data;
+  }
+
   // In AdminDonationService.js
 async getAllDonations(params = {}) {
   try {

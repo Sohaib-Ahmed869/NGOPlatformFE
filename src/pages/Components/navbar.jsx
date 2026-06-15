@@ -29,13 +29,15 @@ const Navbar = () => {
   const timeoutRef = useRef(null);
   const prevPathRef = useRef(location.pathname);
 
-  // Collapse into the floating capsule only once scrolled past the hero — the
-  // page's first <section>. Pages without a hero fall back to a small offset.
-  // Re-measured on scroll, route change and resize.
+  // Collapse into the floating capsule only once scrolled past the hero. The
+  // hero is the first element marked [data-hero], else the page's first
+  // <section> (most heroes are <section>s; pages with a <div> hero add
+  // data-hero so the measurement targets the hero, not the body below). Pages
+  // without a hero fall back to a small offset. Re-measured on scroll/route/resize.
   useEffect(() => {
     const NAV_H = 64; // expanded bar height (h-16)
     const measure = () => {
-      const hero = document.querySelector("section");
+      const hero = document.querySelector("[data-hero], section");
       if (hero && hero.isConnected) {
         setScrolled(hero.getBoundingClientRect().bottom <= NAV_H);
       } else {
@@ -92,9 +94,10 @@ const Navbar = () => {
     .map((p) => ({ key: p.key, label: p.navLabel, path: p.path, children: childrenOf(p.key) }));
 
   const isHomePage = location.pathname === "/";
-  // Both /programs (listing) and /programs/:id (detail) use a dark, image-led
-  // hero → white nav text at the top, so they're NOT light-hero pages. /donate too.
-  const isLightHeroPage = isHomePage || location.pathname === "/checkout";
+  // Pages with a light background (no dark image hero) need dark nav text at the
+  // top so the logo/links are visible — home, checkout and order confirmation.
+  const isLightHeroPage =
+    isHomePage || ["/checkout", "/order-confirmation"].includes(location.pathname);
 
   // Is the tenant's hero background light enough for dark text?
   const heroBgIsLight = (() => {

@@ -38,6 +38,21 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Admin portal ([data-admin-theme]) + user dashboard ([data-user-portal]) use
+   Outfit (sans-serif). The public website keeps its serif (Times/Tinos) look.
+   The font-heading/body/nav utilities resolve to these CSS variables (see
+   tailwind.config.js), so heading/labelled elements switch automatically; the
+   font-family below makes plain / inherited text pick up Outfit too.
+   ───────────────────────────────────────────────────────────────────────── */
+[data-admin-theme],
+[data-user-portal] {
+  --font-heading: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-nav: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-body);
+}
+
 /* @mention chips, in the rich-text editor and in rendered message bodies. */
 .mention {
   color: var(--tenant-accent, #c9a84c);

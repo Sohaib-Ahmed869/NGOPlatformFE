@@ -11,7 +11,7 @@ const V = {
   primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
   accentGlow: "rgba(245,158,11,.20)", success: "#059669",
 };
-const font = "'Outfit', system-ui, sans-serif";
+const font = "'Times New Roman', Tinos, Times, serif";
 const mono = "'JetBrains Mono', monospace";
 
 const Reveal = ({ children, delay = 0, className = "" }) => {
@@ -28,7 +28,7 @@ const Reveal = ({ children, delay = 0, className = "" }) => {
 };
 
 const css = `
-.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Outfit',system-ui,sans-serif!important}
+.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Times New Roman',Tinos,Times,serif!important}
 .saas-input{transition:border-color .3s,box-shadow .3s}
 .saas-input:focus{border-color:rgba(4,120,87,.4);box-shadow:0 0 0 3px rgba(4,120,87,.12)}
 .saas-submit{position:relative;overflow:hidden;transition:transform .3s}

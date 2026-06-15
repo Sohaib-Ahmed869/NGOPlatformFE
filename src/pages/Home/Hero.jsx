@@ -161,7 +161,7 @@ const Hero = () => {
             className="mb-10"
           >
             <span
-              className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full text-sm font-body tracking-widest uppercase"
+              className="inline-flex items-center gap-2.5 px-6 py-2.5 text-sm font-body tracking-widest uppercase"
               style={{
                 color: primary,
                 border: `1px solid ${primary}20`,
@@ -203,27 +203,27 @@ const Hero = () => {
           >
             <Link
               to={primaryCtaLink}
-              className="group relative inline-flex items-center gap-2 font-semibold rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:scale-[1.02]"
+              className="group relative inline-flex items-center gap-2 font-semibold px-10 py-4 text-lg overflow-hidden transition-all hover:scale-[1.02]"
               style={{
                 color: primary,
                 background: `linear-gradient(180deg, ${lighten(accent, 0.15)} 0%, ${accent} 100%)`,
                 boxShadow: `0 4px 24px ${accent}4D, inset 0 1px 0 rgba(255,255,255,0.25)`,
               }}
             >
-              <span className="absolute inset-0 rounded-full bg-gradient-to-b from-white/20 via-transparent to-transparent pointer-events-none" />
+              <span className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-transparent pointer-events-none" />
               <span className="relative">{primaryCtaText}</span>
               <svg className="w-5 h-5 relative group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
             </Link>
             <Link
               to={secondaryCtaLink}
-              className="relative inline-flex items-center gap-2 rounded-full px-10 py-4 text-lg overflow-hidden transition-all hover:bg-white/40"
+              className="relative inline-flex items-center gap-2 px-10 py-4 text-lg overflow-hidden transition-all hover:bg-white/40"
               style={{
                 color: primary,
                 border: `1px solid ${primary}33`,
                 background: "linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 100%)",
               }}
             >
-              <span className="absolute inset-0 rounded-full bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+              <span className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
               <span className="relative">{secondaryCtaText}</span>
             </Link>
           </motion.div>
@@ -238,14 +238,14 @@ const Hero = () => {
             {stats.map((stat, i) => (
               <div
                 key={stat.label || i}
-                className="relative text-center p-5 rounded-2xl overflow-hidden"
+                className="relative text-center p-5 overflow-hidden"
                 style={{
                   border: "1px solid rgba(255,255,255,0.5)",
                   background: "linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.3) 100%)",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
                 }}
               >
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent pointer-events-none" />
                 <div className="relative">
                   <div className="font-heading text-3xl md:text-4xl font-bold mb-1" style={{ color: accentDark }}>{stat.value}</div>
                   <div className="font-body text-[11px] md:text-xs tracking-[0.15em] uppercase" style={{ color: `${primary}80` }}>{stat.label}</div>
