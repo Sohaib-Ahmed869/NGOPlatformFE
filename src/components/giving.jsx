@@ -23,6 +23,14 @@ import {
   Droplets,
   Utensils,
   LifeBuoy,
+  Eye,
+  Globe,
+  Building2,
+  Users,
+  Boxes,
+  Megaphone,
+  Handshake,
+  Award,
 } from "lucide-react";
 import { useTenant } from "../context/TenantContext";
 import { cn } from "../utils/cn";
@@ -51,6 +59,14 @@ export const ICONS = {
   Droplets,
   Utensils,
   LifeBuoy,
+  Eye,
+  Globe,
+  Building2,
+  Users,
+  Boxes,
+  Megaphone,
+  Handshake,
+  Award,
 };
 
 export const icon = (name) => ICONS[name] || ArrowRight;
@@ -74,7 +90,7 @@ export function Eyebrow({ icon: Icon, children, light = false }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 rounded-token px-3 py-1 text-xs font-semibold uppercase tracking-wider",
         light ? "border border-white/25 bg-white/10 text-white backdrop-blur-sm" : "bg-accent/10 text-accent",
       )}
     >
@@ -134,7 +150,10 @@ export function PageHero({ image, icon, eyebrow, title, subtitle, align = "cente
   const Icon = icon;
 
   return (
-    <section ref={ref} className="relative overflow-hidden pb-20 pt-32 lg:pb-24 lg:pt-40">
+    <section
+      ref={ref}
+      className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden pb-20 pt-32 lg:pb-24 lg:pt-40"
+    >
       <motion.div style={{ y: bgY, scale: bgScale }} className="absolute -inset-y-[8%] inset-x-0 will-change-transform">
         <img src={image} alt="" className="h-full w-full object-cover" />
       </motion.div>
@@ -146,7 +165,7 @@ export function PageHero({ image, icon, eyebrow, title, subtitle, align = "cente
       <div className={cn("relative z-10 mx-auto px-6", maxWidth, centered && "text-center")}>
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           {eyebrow && (
-            <span className="inline-flex items-center gap-1.5 border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-token border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
               {Icon && <Icon className="h-3.5 w-3.5" />} {eyebrow}
             </span>
           )}
@@ -180,7 +199,7 @@ export function GivingSubNav({ items }) {
 
   return (
     <div className="relative z-30 -mt-7 px-6">
-      <nav className="mx-auto flex w-fit max-w-full flex-wrap justify-center gap-1 border border-gray-100 bg-white p-1.5 shadow-xl shadow-black/5">
+      <nav className="mx-auto flex w-fit max-w-full flex-wrap justify-center gap-1 rounded-token border border-gray-100 bg-white p-1.5 shadow-xl shadow-black/5">
         {visible.map((it) => {
           const Ic = icon(it.icon);
           return (
@@ -190,7 +209,7 @@ export function GivingSubNav({ items }) {
               end={it.end}
               className={({ isActive }) =>
                 cn(
-                  "inline-flex items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-semibold transition-colors",
+                  "inline-flex items-center gap-2 whitespace-nowrap rounded-token-btn px-4 py-2.5 text-sm font-semibold transition-colors",
                   isActive
                     ? "bg-accent text-white shadow-sm shadow-accent/25"
                     : "text-text-muted hover:bg-accent/10 hover:text-primary",

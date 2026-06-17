@@ -1,347 +1,399 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { TabLoader } from "../../components/TabLoader";
-import { withMinDelay } from "../../utils/minDelay";
-import { useTenant } from "../../context/TenantContext";
-import { CustomSelect } from "../../components/CustomSelect";
+import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "react-hot-toast";
 import {
-  TrendingUp,
   Search,
+  RefreshCw,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  Calendar,
   Download,
-  Filter,
   Loader2,
+  DollarSign,
+  Receipt,
+  TrendingUp,
+  Repeat,
+  Gift,
+  Calendar,
   Eye,
-  X,
-  CheckCircle,
-  Info,
-  FileText
+  AlertCircle,
+  LayoutGrid,
+  List,
 } from "lucide-react";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { Pie } from 'react-chartjs-2';
-import { ResponsiveContainer, PieChart, Pie as RechartsPie, Cell } from 'recharts';
-
-// Register Chart.js components
-ChartJS.register(ArcElement, Tooltip, Legend);
-
-import logo from "../../assets/logo.png";
-import footer2 from "../../assets/footer3.png";
+import { TabLoader } from "../../components/TabLoader";
+import { withMinDelay } from "../../utils/minDelay";
+import { CustomSelect } from "../../components/CustomSelect";
+import { cn } from "../../utils/cn";
 import AdminDonationService from "../../services/adminDonation.service";
-import { OrderService } from "../../services/order.service";
-import { toast } from "react-hot-toast";
-import { downloadReceipt, downloadPaidPaymentsReceipt } from "../../User/Screens/recieptDownloader";
-import DonationDetailsModal from "./DonationsModal"; 
 import axiosInstance from "../../services/axios";
 import Modal from "../../components/Modal";
-import KpiCard from "../../components/KpiCard";
+import {
+  HEADER_GRADIENT,
+  money,
+  fmtDate,
+  mapDonationRow,
+  computeStats,
+  statusLabel,
+  TYPE_LABEL,
+  TYPE_COLOR,
+} from "./donationUtils";
+import { HeaderStat, StatusBadge, TypeChip, Avatar } from "./donationShared";
 
-const ITEMS_PER_PAGE = 10;
+const PER_PAGE = 12;
 
-// Theme-aware chart colors
-function getChartColors() {
-  const s = getComputedStyle(document.documentElement);
-  const a = s.getPropertyValue("--tenant-accent").trim() || "#C9A84C";
-  const p = s.getPropertyValue("--tenant-primary").trim() || "#2C2418";
-  const al = s.getPropertyValue("--tenant-accent-light").trim() || "#D4B85A";
-  return [a, p, al, "#8B7E6A"];
-}
-
-const DEFAULT_STATS = {
-  totalAmount: 0,
-  averageDonation: 0,
-  recurringDonations: 0,
-  successRate: 0,
-  singleCount: 0,
-  recurringCount: 0,
-  installmentsCount: 0,
-  totalDonationsCount: 0,
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+const fadeWrap = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.45, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.28 } },
+};
+const gridContainer = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.06 } },
+  exit: { opacity: 0, transition: { duration: 0.28 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+};
+const listContainer = { hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.06 } } };
+const rowVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
 };
 
-const DEFAULT_DONOR_STATS = {
-  totalDonors: 0,
-  totalAmount: 0,
-  averageDonation: 0,
-  recurringDonations: 0,
-};
+/* ── Card / row / mobile ─────────────────────────────────────────────────── */
+function DonationCard({ item, onView, onProcess }) {
+  const pendingCancel = item.status === "pending_cancellation";
+  return (
+    <motion.div
+      variants={cardVariants}
+      onClick={() => onView(item)}
+      className="group flex cursor-pointer flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md"
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+        <TypeChip category={item.category} />
+        <StatusBadge status={item.status} />
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-center gap-2.5">
+          <Avatar name={item.donor} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-primary" title={item.donor}>
+              {item.donor}
+            </p>
+            <p className="truncate text-xs text-text-muted" title={item.email}>
+              {item.email}
+            </p>
+          </div>
+        </div>
 
-const DEFAULT_PAGINATION = { total: 0, pages: 0, currentPage: 1 };
+        <p className="mt-4 font-heading text-3xl font-bold leading-tight text-accent">{money(item.amount)}</p>
+        <p className="mt-0.5 truncate text-xs text-text-muted">{item.cause}</p>
 
-// Map a raw donation record to the shape the table renders.
-const mapDonationRow = (donation) => ({
-  id: donation._id,
-  donationId: donation.donationId,
-  donor: donation.donorDetails?.name || "Anonymous",
-  email: donation.donorDetails?.email || "-",
-  amount: donation.totalAmount,
-  cause: donation.items && donation.items.length > 0
-    ? donation.items.length === 1
-      ? donation.items[0].title
-      : "Multiple Items"
-    : "-",
-  type: donation.paymentType,
-  paymentMethod: donation.paymentMethod || "-",
-  date: donation.createdAt,
-  status: donation.paymentStatus,
-  recurringDetails: donation.recurringDetails,
-  installmentDetails: donation.installmentDetails,
-  adminCostContribution: donation.adminCostContribution,
-  items: donation.items || [],
-  receiptUrl: donation.receiptUrl || null,
-});
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-100 pt-4 text-sm">
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Donation ID</dt>
+            <dd className="mt-0.5 truncate font-medium text-gray-800" title={item.donationId}>
+              {item.donationId || "—"}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Date</dt>
+            <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-gray-800">
+              <Calendar className="h-4 w-4 shrink-0 text-accent" /> {fmtDate(item.date)}
+            </dd>
+          </div>
+        </dl>
 
-// Derive the donation-type counts (single / recurring / installments) from a
-// full donations response. Pure — same logic the dashboard used inline.
-function computeDonationTypeCounts(response) {
-  try {
-    const mapped = (response?.donations || []).map((donation) => ({
-      type: donation.paymentType,
-      status: donation.paymentStatus,
-      recurringDetails: donation.recurringDetails,
-      installmentDetails: donation.installmentDetails,
-    }));
-
-    const currentDate = new Date();
-
-    const singleCount = mapped.filter(
-      (d) => !d.installmentDetails && d.type !== "recurring"
-    ).length;
-    const recurringCount = mapped.filter((d) => d.type === "recurring").length;
-    const installmentsCount = mapped.filter((d) => d.installmentDetails).length;
-    const totalDonationsCount = mapped.length;
-
-    const activeDonations = mapped.filter((d) => d.status !== "failed");
-    const activeSingleCount = activeDonations.filter((d) => d.type === "single").length;
-    const activeRecurringCount = activeDonations.filter(
-      (d) =>
-        d.type === "recurring" &&
-        (!d.recurringDetails?.endDate || new Date(d.recurringDetails.endDate) >= currentDate)
-    ).length;
-    const activeInstallmentsCount = activeDonations.filter((d) => d.type === "installment").length;
-
-    return {
-      singleCount,
-      recurringCount,
-      installmentsCount,
-      totalDonationsCount,
-      activeSingleCount,
-      activeRecurringCount,
-      activeInstallmentsCount,
-    };
-  } catch (error) {
-    console.error("Error computing donation type counts:", error);
-    return { singleCount: 0, recurringCount: 0, installmentsCount: 0, totalDonationsCount: 0 };
-  }
+        <div className="mt-auto flex items-center gap-2 pt-5">
+          {pendingCancel && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onProcess(item);
+              }}
+              className="inline-flex flex-1 items-center justify-center gap-2 border border-orange-200 px-3 py-2 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-50"
+            >
+              <AlertCircle className="h-4 w-4" /> Process
+            </button>
+          )}
+          <span className="inline-flex flex-1 items-center justify-center gap-2 border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors group-hover:border-accent/50 group-hover:text-accent">
+            <Eye className="h-4 w-4" /> View details
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
-// Turn a cached initial bundle into the screen's seed state (no loader flash).
-function buildDonationsSeed(bundle) {
-  const typeCounts = computeDonationTypeCounts(bundle.countsResponse);
-  return {
-    stats: { ...(bundle.stats || DEFAULT_STATS), ...typeCounts },
-    topDonors: bundle.topDonors || [],
-    donorStats: bundle.donorStats || DEFAULT_DONOR_STATS,
-    allDonations: bundle.allDonations?.donations || [],
-    donations: (bundle.list?.donations || []).map(mapDonationRow),
-    pagination: bundle.list?.pagination || DEFAULT_PAGINATION,
-  };
+function DonationRow({ item, onView, onProcess }) {
+  const pendingCancel = item.status === "pending_cancellation";
+  return (
+    <motion.tr
+      variants={rowVariants}
+      onClick={() => onView(item)}
+      className="group cursor-pointer border-b border-gray-50 transition-colors last:border-0 hover:bg-accent/[0.035]"
+    >
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3">
+          <Avatar name={item.donor} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-primary">{item.donor}</p>
+            <p className="max-w-[200px] truncate text-xs text-text-muted">{item.email}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-4">
+        <p className="truncate text-sm text-primary">{item.cause}</p>
+        <p className="truncate text-[11px] text-text-muted" title={item.donationId}>
+          {item.donationId}
+        </p>
+      </td>
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className="font-heading text-base font-bold tabular-nums text-primary">{money(item.amount)}</span>
+      </td>
+      <td className="px-4 py-4">
+        <TypeChip category={item.category} />
+      </td>
+      <td className="whitespace-nowrap px-4 py-4 capitalize text-text-muted">{item.paymentMethod}</td>
+      <td className="whitespace-nowrap px-4 py-4 text-text-muted">{fmtDate(item.date)}</td>
+      <td className="px-4 py-4">
+        <StatusBadge status={item.status} />
+      </td>
+      <td className="px-4 py-4 text-right">
+        <div className="flex items-center justify-end gap-1">
+          {pendingCancel && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onProcess(item);
+              }}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-orange-600 transition-colors hover:bg-orange-50"
+            >
+              Process
+            </button>
+          )}
+          <button
+            type="button"
+            title="View details"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView(item);
+            }}
+            className="grid h-8 w-8 place-items-center text-gray-400 transition-colors hover:bg-accent/5 hover:text-accent group-hover:text-accent"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </motion.tr>
+  );
+}
+
+function DonationMobile({ item, onView, onProcess }) {
+  const pendingCancel = item.status === "pending_cancellation";
+  return (
+    <motion.div
+      variants={rowVariants}
+      onClick={() => onView(item)}
+      className="cursor-pointer p-4 transition-colors hover:bg-accent/[0.035]"
+    >
+      <div className="flex items-start gap-3">
+        <Avatar name={item.donor} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-primary">{item.donor}</p>
+              <p className="truncate text-xs text-text-muted">{item.cause}</p>
+            </div>
+            <span className="shrink-0 font-heading text-base font-bold tabular-nums text-primary">{money(item.amount)}</span>
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <TypeChip category={item.category} />
+              <StatusBadge status={item.status} />
+            </div>
+            <div className="flex items-center gap-3 text-xs text-text-muted">
+              <span>{fmtDate(item.date)}</span>
+              {pendingCancel && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onProcess(item);
+                  }}
+                  className="font-semibold text-orange-600"
+                >
+                  Process
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 const AdminDonationsList = () => {
   const navigate = useNavigate();
-  const { organisation } = useTenant();
-  const orgInfo = { name: organisation?.name, email: organisation?.contactEmail, phone: organisation?.contactPhone, website: organisation?.website };
 
-  // If the initial bundle is already cached (a previous visit), seed every
-  // piece of state from it so the screen paints instantly with no loader.
-  const seed = useMemo(() => {
-    const cachedBundle = AdminDonationService.getCachedDonationsBundle();
-    return cachedBundle ? buildDonationsSeed(cachedBundle) : null;
-  }, []);
-  // The table is already seeded from cache — skip its first auto-fetch.
-  const didSeedTableRef = useRef(Boolean(seed));
+  // Seed instantly from the cached initial bundle (populated by the dashboard /
+  // a prior visit); otherwise fetch the full donations set on mount.
+  const seedRaw = () => AdminDonationService.getCachedDonationsBundle()?.allDonations?.donations || null;
 
-  const [loading, setLoading] = useState(!seed);
+  const [allRaw, setAllRaw] = useState(() => seedRaw() || []);
+  const [loading, setLoading] = useState(() => !seedRaw());
+  const [refreshing, setRefreshing] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(!seed);
 
-  const [stats, setStats] = useState(seed ? seed.stats : { ...DEFAULT_STATS });
-
-  // Add donor stats state to match dashboard component
-  const [donorStats, setDonorStats] = useState(seed ? seed.donorStats : { ...DEFAULT_DONOR_STATS });
-
-  const [topDonors, setTopDonors] = useState(seed ? seed.topDonors : []);
-  const [donations, setDonations] = useState(seed ? seed.donations : []);
-  const [allDonations, setAllDonations] = useState(seed ? seed.allDonations : []);
-
-  const [pagination, setPagination] = useState(seed ? seed.pagination : { ...DEFAULT_PAGINATION });
-
-  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [selectedType, setSelectedType] = useState("All");
-  const [sortConfig, setSortConfig] = useState({
-    key: "createdAt",
-    direction: "desc",
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [view, setView] = useState(() => {
+    try {
+      return localStorage.getItem("adminDonationsView") || "list";
+    } catch {
+      return "list";
+    }
   });
-  const [fullDetailModalOpen, setFullDetailModalOpen] = useState(false);
-  const [fullDonationDetails, setFullDonationDetails] = useState(null);
+  const changeView = (v) => {
+    setView(v);
+    try {
+      localStorage.setItem("adminDonationsView", v);
+    } catch {
+      /* ignore */
+    }
+  };
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [showCancelRequestDialog, setShowCancelRequestDialog] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState(null);
 
   useEffect(() => {
-    // Only hit the API when the initial bundle isn't already cached.
-    if (!AdminDonationService.getCachedDonationsBundle()) fetchInitial();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!seedRaw()) loadAll({ cold: true });
   }, []);
 
   useEffect(() => {
-    if (initialLoad) return;
-    // The default table list was just seeded from cache — don't refetch it.
-    if (didSeedTableRef.current) {
-      didSeedTableRef.current = false;
-      return;
-    }
-    fetchDonations();
-  }, [currentPage, searchTerm, selectedStatus, selectedType, sortConfig, initialLoad]);
-  
-  // First (uncached) load: fetch the whole initial bundle and seed the screen.
-  const fetchInitial = async () => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, typeFilter]);
+
+  const loadAll = async ({ cold = false, force = false } = {}) => {
+    if (force) setRefreshing(true);
     try {
-      setLoading(true);
-      const bundle = await withMinDelay(
-        AdminDonationService.getDonationsBundle({
-          sortBy: sortConfig.key,
-          sortOrder: sortConfig.direction,
-        })
-      );
-      const s = buildDonationsSeed(bundle);
-      setStats(s.stats);
-      setTopDonors(s.topDonors);
-      setDonorStats(s.donorStats);
-      setAllDonations(s.allDonations);
-      setDonations(s.donations);
-      setPagination(s.pagination);
-      // The default table list is already seeded — skip its first auto-fetch.
-      didSeedTableRef.current = true;
-    } catch (error) {
-      toast.error("Failed to load dashboard data");
-      console.error("Dashboard data error:", error);
-    } finally {
-      setLoading(false);
-      setInitialLoad(false);
-    }
-  };
-
-  const fetchDonations = async () => {
-    try {
-      setLoading(true);
-      const response = await AdminDonationService.getDonationsCached({
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-        search: searchTerm,
-        status: selectedStatus !== "All" ? selectedStatus : undefined,
-        type: selectedType !== "All" ? selectedType : undefined,
-        sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction,
-      });
-
-      // Map the raw donations data to the format needed for display
-      const mappedDonations = response.donations.map(mapDonationRow);
-
-      setDonations(mappedDonations);
-      setPagination(response.pagination);
+      const req = AdminDonationService.getAllDonations({ sortBy: "createdAt", sortOrder: "desc" });
+      const res = await (cold ? withMinDelay(req) : req);
+      setAllRaw(res?.donations || []);
+      if (force) toast.success("Refreshed");
     } catch (error) {
       toast.error("Failed to load donations");
       console.error("Donations fetch error:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const handleSort = (key) => {
-    setSortConfig({
-      key,
-      direction:
-        sortConfig.key === key && sortConfig.direction === "asc"
-          ? "desc"
-          : "asc",
+  const rows = useMemo(() => allRaw.map(mapDonationRow), [allRaw]);
+  const stats = useMemo(() => computeStats(rows), [rows]);
+
+  const filtered = useMemo(
+    () =>
+      rows.filter((r) => {
+        const q = searchTerm.toLowerCase();
+        const matchesSearch =
+          !q ||
+          r.donationId?.toLowerCase().includes(q) ||
+          r.donor?.toLowerCase().includes(q) ||
+          r.email?.toLowerCase().includes(q) ||
+          r.cause?.toLowerCase().includes(q);
+        const matchesStatus = statusFilter === "all" || (r.status || "").toLowerCase() === statusFilter;
+        const matchesType = typeFilter === "all" || r.category === typeFilter;
+        return matchesSearch && matchesStatus && matchesType;
+      }),
+    [rows, searchTerm, statusFilter, typeFilter],
+  );
+
+  const statusCounts = useMemo(() => {
+    const c = {};
+    rows.forEach((r) => {
+      const k = (r.status || "unknown").toLowerCase();
+      c[k] = (c[k] || 0) + 1;
     });
+    return c;
+  }, [rows]);
+  const STATUS_ORDER = ["completed", "active", "pending", "processing", "pending_cancellation", "failed", "cancelled", "ended"];
+  const statusPills = [
+    { value: "all", label: "All", count: rows.length },
+    ...STATUS_ORDER.filter((s) => statusCounts[s]).map((s) => ({ value: s, label: statusLabel(s), count: statusCounts[s] })),
+  ];
+
+  const distribution = useMemo(() => {
+    const counts = { "one-time": 0, recurring: 0, installments: 0 };
+    rows.forEach((r) => {
+      counts[r.category] = (counts[r.category] || 0) + 1;
+    });
+    return Object.keys(TYPE_LABEL).map((key) => ({ name: TYPE_LABEL[key], value: counts[key] || 0, color: TYPE_COLOR[key] }));
+  }, [rows]);
+  const distTotal = distribution.reduce((s, d) => s + d.value, 0);
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE) || 1;
+  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+  const openDetail = (item) => navigate(`/admin/donations/${item.id}`, { state: { item } });
+  const openProcess = (item) => {
+    setSelectedDonation(item);
+    setShowCancelRequestDialog(true);
   };
 
-  // Function to export donations to CSV
+  const handleProcessCancellationRequest = async (action) => {
+    try {
+      if (!selectedDonation) return;
+      await axiosInstance.post(`/admin/orders/${selectedDonation.id}/process-cancellation`, { action });
+      toast.success(`Cancellation request ${action === "approve" ? "approved" : "rejected"} successfully`);
+      setShowCancelRequestDialog(false);
+      AdminDonationService.invalidateDonationsCache();
+      loadAll();
+    } catch (error) {
+      console.error("Process cancellation error:", error);
+      toast.error(error?.response?.data?.message || "Failed to process cancellation request");
+    }
+  };
+
   const handleExportDonations = async () => {
     try {
       setExportLoading(true);
-
-      if (!allDonations || allDonations.length === 0) {
+      if (!allRaw || allRaw.length === 0) {
         toast.error("No donations to export");
-        setExportLoading(false);
         return;
       }
-
       const headers = [
-        "Donation ID",
-        "Donor Name",
-        "Email",
-        "Phone",
-        "Amount",
-        "Project/Cause",
-        "Donation Type",
-        "On Behalf Of",
-        "Payment Type",
-        "Payment Method",
-        "Status",
-        "Date",
-        "Next Payment Date",
-        "Next Installment Date",
-        "Frequency",
-        "Admin Cost",
-        "Receipt Available"
+        "Donation ID", "Donor Name", "Email", "Phone", "Amount", "Project/Cause", "Donation Type", "On Behalf Of",
+        "Payment Type", "Payment Method", "Status", "Date", "Next Payment Date", "Next Installment Date", "Frequency",
+        "Admin Cost", "Receipt Available",
       ].join(",");
 
-      const rows = allDonations.map((donation) => {
-        // Function to escape fields containing commas
-        const escapeCsvField = (field) => {
-          if (field === null || field === undefined) return "";
-          const str = String(field);
-          return str.includes(",") ? `"${str}"` : str;
-        };
+      const escapeCsvField = (field) => {
+        if (field === null || field === undefined) return "";
+        const str = String(field);
+        return str.includes(",") ? `"${str}"` : str;
+      };
 
-        // Extract items information
-        const itemsText = donation.items ? 
-          escapeCsvField(donation.items.map(item => item.title).join("; ")) : 
-          "";
-        
-        // Extract donation types
-        const donationTypes = donation.items ? 
-          escapeCsvField(donation.items.map(item => item.donationType || "Sadaqah").join("; ")) : 
-          "Sadaqah";
-        
-        // Extract on behalf of information
-        const onBehalfOfText = donation.items ? 
-          escapeCsvField(donation.items.filter(item => item.onBehalfOf).map(item => item.onBehalfOf).join("; ")) : 
-          "";
-
-        // Extract admin cost
-        const adminCost = donation.adminCostContribution && donation.adminCostContribution.included ? 
-          donation.adminCostContribution.amount : 
-          0;
-
-        // Extract frequency for recurring donations
+      const csvRows = allRaw.map((donation) => {
+        const itemsText = donation.items ? escapeCsvField(donation.items.map((item) => item.title).join("; ")) : "";
+        const donationTypes = donation.items
+          ? escapeCsvField(donation.items.map((item) => item.donationType || "Sadaqah").join("; "))
+          : "Sadaqah";
+        const onBehalfOfText = donation.items
+          ? escapeCsvField(donation.items.filter((item) => item.onBehalfOf).map((item) => item.onBehalfOf).join("; "))
+          : "";
+        const adminCost =
+          donation.adminCostContribution && donation.adminCostContribution.included ? donation.adminCostContribution.amount : 0;
         const frequency = donation.recurringDetails ? donation.recurringDetails.frequency : "";
-
-        // Add receipt availability
         const hasReceipt = donation.receiptUrl ? "Yes" : "No";
-
         return [
           escapeCsvField(donation.donationId),
           escapeCsvField(donation.donorDetails?.name || ""),
@@ -358,30 +410,28 @@ const AdminDonationsList = () => {
           escapeCsvField(
             donation.paymentType === "recurring" && donation.recurringDetails?.nextPaymentDate
               ? new Date(donation.recurringDetails.nextPaymentDate).toLocaleDateString()
-              : ""
+              : "",
           ),
           escapeCsvField(
             donation.paymentType === "installments" && donation.installmentDetails?.nextInstallmentDate
               ? new Date(donation.installmentDetails.nextInstallmentDate).toLocaleDateString()
-              : ""
+              : "",
           ),
           escapeCsvField(frequency),
           adminCost,
-          hasReceipt
+          hasReceipt,
         ].join(",");
       });
 
-      const csvContent = [headers, ...rows].join("\n");
+      const csvContent = [headers, ...csvRows].join("\n");
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      
       link.setAttribute("href", url);
       link.setAttribute("download", `donations_export_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      
       toast.success("Export completed successfully");
     } catch (error) {
       toast.error("Failed to export donations");
@@ -391,490 +441,328 @@ const AdminDonationsList = () => {
     }
   };
 
-  const handleViewReceipt = async (donationId) => {
-    try {
-      const loadingToast = toast.loading("Fetching receipt...");
-      // Call the proxy endpoint to get binary data for the receipt
-      const response = await OrderService.getReceiptViewUrl(donationId);
-      toast.dismiss(loadingToast);
-      
-      // Extract the content type from response headers
-      const contentType = response.headers["content-type"] || "application/octet-stream";
-      
-      // Create a Blob from the binary data
-      const blob = new Blob([response.data], { type: contentType });
-      
-      // Create a temporary URL for the Blob and open it inline in a new tab
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      console.error("Error viewing receipt:", error);
-      toast.error("Failed to view receipt");
-    }
-  };
-  
-  const openFullDetailModal = async (donationId) => {
-    try {
-      setLoading(true);
-      const response = await AdminDonationService.getDonationById(donationId);
-      if (response && response.donation) {
-        setFullDonationDetails(response.donation);
-        setFullDetailModalOpen(true);
-      }
-    } catch (error) {
-      toast.error("Failed to load full donation details");
-      console.error("Full donation details error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const closeFullDetailModal = () => {
-    setFullDetailModalOpen(false);
-    setFullDonationDetails(null);
-  };
-
-  // Updated function to handle donation receipts based on payment type
-  const updateDonationStatus = async (donationId, statusData, cancellationReason) => {
-    try {
-      // Find the donation to get its details
-      const donation = donations.find(d => d._id === donationId || d.id === donationId);
-      const isRecurring = donation?.paymentType === 'recurring';
-      
-      let requestData = { 
-        paymentStatus: typeof statusData === 'string' ? statusData : statusData.paymentStatus || statusData.status,
-        isRecurring,
-        paymentType: donation?.paymentType, // Include payment type
-        ...(cancellationReason && { cancellationReason })
-      };
-      
-      // Add cancellation reason if applicable
-      if (requestData.paymentStatus === "cancelled" && !cancellationReason) {
-        const reason = prompt("Please provide a reason for cancellation:", "Cancelled by admin");
-        if (!reason) return; // User canceled the prompt
-        requestData.cancellationReason = reason;
-      }
-      
-      // Make the API call with the correct data format
-      const response = await AdminDonationService.updateDonationStatus(donationId, requestData);
-      
-      if (response && (response.status === "Success" || response.status === "success")) {
-        // Show success message
-        const status = requestData.paymentStatus;
-        if (status === "cancelled") {
-          toast.success(`Donation cancelled${requestData.cancellationReason ? ': ' + requestData.cancellationReason : ''}`);
-        } else {
-          toast.success(`Status updated to ${status}`);
-        }
-
-        // Update donation in the list
-        const updatedDonations = donations.map((donation) =>
-          donation.id === donationId || donation._id === donationId
-            ? { 
-                ...donation, 
-                status: requestData.paymentStatus,
-                paymentStatus: requestData.paymentStatus,
-                ...(requestData.recurringStatus && { 
-                  recurringDetails: {
-                    ...(donation.recurringDetails || {}),
-                    status: requestData.recurringStatus 
-                  }
-                })
-              }
-            : donation
-        );
-        setDonations(updatedDonations);
-
-        // Close modal if open
-        if (
-          fullDetailModalOpen &&
-          fullDonationDetails &&
-          fullDonationDetails._id === donationId
-        ) {
-          closeFullDetailModal();
-        }
-        
-        // Invalidate cached defaults so a return to defaults is fresh, then refresh.
-        AdminDonationService.invalidateDonationsCache();
-        fetchDonations();
-      } else {
-        toast.error("Failed to update status: " + (response?.message || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Status update error:", error);
-      
-      // Extract error message from response if available
-      let errorMessage = "Failed to update status";
-      if (error.response?.data?.message) {
-        errorMessage += `: ${error.response.data.message}`;
-      }
-      
-      toast.error(errorMessage);
-    }
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-  
-  // Updated receipt download handler to handle different payment types
-  const handleDownloadReceipt = (donation) => {
-    // For recurring donations, check if there are successful payments
-    if (donation.paymentType === "recurring" && donation.recurringDetails?.paymentHistory) {
-      const successfulPayments = donation.recurringDetails.paymentHistory.filter(
-        payment => payment.status === "succeeded" || payment.status === "completed"
-      );
-      
-      if (successfulPayments.length > 0) {
-        // Download receipt for paid payments only
-        downloadPaidPaymentsReceipt(donation, orgInfo);
-      } else {
-        // Download standard receipt (original setup)
-        downloadReceipt(donation, {
-          logoUrl: logo,
-          charityLogoUrl: footer2,
-        }, orgInfo);
-      }
-    } else {
-      // For single and installment donations, download standard receipt
-      downloadReceipt(donation, {
-        logoUrl: logo,
-        charityLogoUrl: footer2,
-      }, orgInfo);
-    }
-  };
-
-  const handleDownloadImage = (donation) => {
-    if (!donation.receiptUrl) {
-      toast.error("No image available for download.");
-      return;
-    }
-    const link = document.createElement("a");
-    link.href = donation.receiptUrl;
-    // Use the filename from the URL (or set a custom one)
-    link.download = donation.receiptUrl.split("/").pop();
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-  
-  const handleAddDonorUpdate = async (donationId, updateData) => {
-    try {
-      await AdminDonationService.addDonorUpdate(donationId, updateData);
-      toast.success(
-        updateData.type === "close-off"
-          ? "Close-off sent — donation marked complete"
-          : "Follow-up update shared with the donor"
-      );
-      // Refresh the modal details so the new update appears
-      const response = await AdminDonationService.getDonationById(donationId);
-      if (response && response.donation) {
-        setFullDonationDetails(response.donation);
-      }
-      AdminDonationService.invalidateDonationsCache();
-      fetchDonations();
-    } catch (error) {
-      console.error("Add donor update error:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to send update to donor"
-      );
-      throw error;
-    }
-  };
-
-  const handleProcessCancellationRequest = async (action) => {
-    try {
-      if (!selectedDonation) return;
-
-      await axiosInstance.post(
-        `/admin/orders/${selectedDonation.id}/process-cancellation`,
-        { action }
-      );
-
-      toast.success(
-        `Cancellation request ${action === "approve" ? "approved" : "rejected"} successfully`
-      );
-      setShowCancelRequestDialog(false);
-      AdminDonationService.invalidateDonationsCache();
-      fetchDonations();
-    } catch (error) {
-      console.error("Process cancellation error:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to process cancellation request"
-      );
-    }
-  };
-
-  if (loading && initialLoad) {
+  if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <TabLoader />
+      <div className="flex h-[60vh] items-center justify-center">
+        <TabLoader label="Loading donations…" />
       </div>
     );
   }
 
-  const fadeUp = { hidden: { opacity: 0, y: 16 }, visible: (i = 0) => ({ opacity: 1, y: 0, transition: { delay: i * 0.04, duration: 0.4 } }) };
-
-  const statusStyle = (s) => {
-    const m = { completed: "bg-green-50 text-green-700", ended: "bg-green-50 text-green-700", pending: "bg-yellow-50 text-yellow-700", processing: "bg-blue-50 text-blue-700", failed: "bg-red-50 text-red-700", active: "bg-green-50 text-green-700", cancelled: "bg-gray-100 text-gray-600" };
-    return m[s] || "bg-gray-100 text-gray-600";
-  };
-  const typeStyle = (t) => {
-    const m = { "one-time": "bg-emerald-50 text-emerald-700", single: "bg-emerald-50 text-emerald-700", recurring: "bg-violet-50 text-violet-700", installments: "bg-amber-50 text-amber-700" };
-    return m[t] || "bg-gray-100 text-gray-600";
-  };
-
   return (
-<motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen" initial="hidden" animate="visible">
-      {/* Header */}
-      <motion.div variants={fadeUp} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-primary">All Donations</h1>
-          <p className="text-sm text-text-muted mt-0.5">{pagination.total || 0} total donations</p>
-        </div>
-      </motion.div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <KpiCard title="Total Amount" value={formatCurrency(stats.totalAmount)} icon={TrendingUp} color="#059669" animate={false} />
-        <KpiCard title="Total Donations" value={stats.totalDonationsCount} icon={CheckCircle} color="#10B981" animate={false} />
-        <KpiCard title="Average" value={stats.totalDonationsCount > 0 ? formatCurrency(stats.totalAmount / stats.totalDonationsCount) : formatCurrency(0)} icon={Info} color="#06B6D4" animate={false} />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard title="One-Time" value={stats.singleCount} icon={FileText} color="#059669" animate={false} />
-        <KpiCard title="Recurring" value={stats.recurringCount} icon={Calendar} color="#EC4899" animate={false} />
-        <KpiCard title="Installments" value={stats.installmentsCount} icon={TrendingUp} color="#F59E0B" animate={false} />
-      </div>
-
-      {/* Donut Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* By Count */}
-        <motion.div variants={fadeUp} custom={1}
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center">
-          <h2 className="text-sm font-semibold text-primary mb-4 self-start">By Type (Count)</h2>
-          {(() => {
-            const segments = [
-              { name: "One-Time", value: stats.singleCount || 0, color: "#34D399" },
-              { name: "Recurring", value: stats.recurringCount || 0, color: "#818CF8" },
-              { name: "Installments", value: stats.installmentsCount || 0, color: "#FB923C" },
-            ];
-            const total = segments.reduce((s, seg) => s + seg.value, 0);
-            const r = 58, c = 2 * Math.PI * r, gap = 8;
-            let offset = 0;
-            return (
-              <>
-                <svg width={160} height={160} viewBox="0 0 140 140">
-                  <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
-                  {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
-                    const pct = seg.value / total;
-                    const dashLen = Math.max(0, pct * c - gap);
-                    const el = (
-                      <circle key={i} cx="70" cy="70" r={r} fill="none"
-                        stroke={seg.color} strokeWidth="16" strokeLinecap="round"
-                        strokeDasharray={`${dashLen} ${c - dashLen}`}
-                        strokeDashoffset={-offset} transform="rotate(-90 70 70)" />
-                    );
-                    offset += pct * c;
-                    return el;
-                  })}
-                  <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{total}</text>
-                  <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">donations</text>
-                </svg>
-                <div className="flex gap-4 mt-4">
-                  {segments.map((item) => (
-                    <div key={item.name} className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
-                      <span className="text-[11px] text-text-muted">{item.name} ({item.value})</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
-        </motion.div>
-
-        {/* By Amount */}
-        <motion.div variants={fadeUp} custom={1.5}
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-center">
-          <h2 className="text-sm font-semibold text-primary mb-4 self-start">By Type (Amount)</h2>
-          {(() => {
-            const singleAmt = donations.filter(d => d.type === "one-time" || d.type === "single").reduce((s, d) => s + (d.amount || 0), 0);
-            const recurAmt = donations.filter(d => d.type === "recurring").reduce((s, d) => s + (d.amount || 0), 0);
-            const instAmt = donations.filter(d => d.type === "installments").reduce((s, d) => s + (d.amount || 0), 0);
-            const segments = [
-              { name: "One-Time", value: singleAmt, color: "#34D399" },
-              { name: "Recurring", value: recurAmt, color: "#818CF8" },
-              { name: "Installments", value: instAmt, color: "#FB923C" },
-            ];
-            const total = segments.reduce((s, seg) => s + seg.value, 0);
-            const r = 58, c = 2 * Math.PI * r, gap = 8;
-            let offset = 0;
-            return (
-              <>
-                <svg width={160} height={160} viewBox="0 0 140 140">
-                  <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
-                  {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
-                    const pct = seg.value / total;
-                    const dashLen = Math.max(0, pct * c - gap);
-                    const el = (
-                      <circle key={i} cx="70" cy="70" r={r} fill="none"
-                        stroke={seg.color} strokeWidth="16" strokeLinecap="round"
-                        strokeDasharray={`${dashLen} ${c - dashLen}`}
-                        strokeDashoffset={-offset} transform="rotate(-90 70 70)" />
-                    );
-                    offset += pct * c;
-                    return el;
-                  })}
-                  <text x="70" y="66" textAnchor="middle" fontSize="18" fontWeight="700" fill="currentColor" className="text-primary">${Math.round(total).toLocaleString()}</text>
-                  <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">total</text>
-                </svg>
-                <div className="flex gap-4 mt-4">
-                  {segments.map((item) => (
-                    <div key={item.name} className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
-                      <span className="text-[11px] text-text-muted">{item.name} (${Math.round(item.value).toLocaleString()})</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
-        </motion.div>
-      </div>
-
-      {/* Search, Filters & Table */}
-      <motion.div variants={fadeUp} custom={2} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative">
-              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search donations..."
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-52" />
-            </div>
-            <CustomSelect value={selectedStatus} onChange={(value) => setSelectedStatus(value)}
-              options={[{value:"All",label:"All Status"},{value:"completed",label:"Completed"},{value:"pending",label:"Pending"},{value:"processing",label:"Processing"},{value:"failed",label:"Failed"},{value:"ended",label:"Ended"}]}
-              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
-            <CustomSelect value={selectedType} onChange={(value) => setSelectedType(value)}
-              options={[{value:"All",label:"All Types"},{value:"one-time",label:"One Time"},{value:"recurring",label:"Recurring"},{value:"installments",label:"Installments"}]}
-              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
+    <div className="w-full space-y-6">
+      {/* Header card with gradient band + integrated stats */}
+      <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+        <div className="flex items-start justify-between gap-4 px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Giving</p>
+            <h1 className="mt-1 font-heading text-2xl font-bold text-white">All Donations</h1>
+            <p className="mt-1 text-sm text-white/80">Every donation across your organisation, in one place.</p>
           </div>
-          <button onClick={handleExportDonations} disabled={exportLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 disabled:opacity-50">
-            {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Export
+          <button
+            type="button"
+            onClick={() => loadAll({ force: true })}
+            disabled={refreshing}
+            className="inline-flex shrink-0 items-center gap-1.5 border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} /> Refresh
           </button>
         </div>
-
-        {/* Table with loading overlay */}
-        <div className="relative">
-          {loading && !initialLoad && (
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex items-center justify-center">
-              <div className="flex items-center gap-2 text-accent text-sm font-medium">
-                <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-              </div>
-            </div>
-          )}
-
-          {donations.length === 0 && !loading ? (
-            <div className="p-12 text-center">
-              <Calendar className="w-10 h-10 mx-auto mb-3 text-text-muted" />
-              <p className="text-primary font-medium mb-1">No donations found</p>
-              <p className="text-sm text-text-muted">
-                {searchTerm || selectedStatus !== "All" || selectedType !== "All" ? "Try adjusting your filters" : "No donations in the system yet"}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    {["Donation ID", "Donor", "Amount", "Project", "Type", "Payment", "Method", "Date", "Status", ""].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {donations.map((donation) => (
-                    <tr key={donation.id} className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors">
-                      <td className="px-4 py-3.5 text-sm font-medium text-primary">{donation.donationId}</td>
-                      <td className="px-4 py-3.5 text-sm text-primary">{donation.donor}</td>
-                      <td className="px-4 py-3.5 text-sm font-semibold text-primary">${donation.amount.toFixed(2)}</td>
-                      <td className="px-4 py-3.5 text-sm text-text-muted">{donation.cause}</td>
-                      <td className="px-4 py-3.5">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${typeStyle(donation.type)}`}>{donation.type}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-text-muted capitalize">{donation.paymentMethod}</td>
-                      <td className="px-4 py-3.5 text-sm text-text-muted">{donation.items?.[0]?.donationType || "Sadaqah"}</td>
-                      <td className="px-4 py-3.5 text-sm text-text-muted">{formatDate(donation.date)}</td>
-                      <td className="px-4 py-3.5">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusStyle(donation.status)}`}>{donation.status}</span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {donation.paymentStatus === "pending_cancellation" ? (
-                          <button onClick={() => { setSelectedDonation(donation); setShowCancelRequestDialog(true); }}
-                            className="text-xs text-orange-600 hover:text-orange-800 font-medium">Process</button>
-                        ) : (
-                          <button onClick={() => openFullDetailModal(donation.id)}
-                            className="text-xs text-accent hover:text-primary font-medium">Details</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div className="grid grid-cols-2 divide-y divide-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+          <HeaderStat icon={DollarSign} label="Total raised" value={money(stats.totalAmount)} />
+          <HeaderStat icon={Receipt} label="Total donations" value={stats.total} />
+          <HeaderStat icon={TrendingUp} label="Average gift" value={money(stats.avg)} />
+          <HeaderStat icon={Repeat} label="Recurring plans" value={stats.recurring} />
         </div>
+      </div>
 
-        {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-text-muted">
-              {pagination.total ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0}–{Math.min(currentPage * ITEMS_PER_PAGE, pagination.total)} of {pagination.total}
-            </p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
-                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
-              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                let pg;
-                if (pagination.pages <= 5) pg = i + 1;
-                else if (currentPage <= 3) pg = i + 1;
-                else if (currentPage >= pagination.pages - 2) pg = pagination.pages - (4 - i);
-                else pg = currentPage - 2 + i;
-                return (
-                  <button key={i} onClick={() => setCurrentPage(pg)}
-                    className={`w-8 h-8 text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
-                );
-              })}
-              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === pagination.pages}
-                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
+      {/* Type distribution */}
+      {distTotal > 0 && (
+        <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+            <h2 className="text-sm font-semibold text-primary">Donation types</h2>
+            <span className="text-xs text-text-muted">
+              {distTotal} {distTotal === 1 ? "donation" : "donations"}
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-6 p-5 sm:flex-row sm:gap-8">
+            {(() => {
+              const r = 58,
+                c = 2 * Math.PI * r,
+                gap = 8;
+              let offset = 0;
+              return (
+                <svg width={128} height={128} viewBox="0 0 140 140" className="shrink-0">
+                  <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                  {distribution
+                    .filter((s) => s.value > 0)
+                    .map((seg, i) => {
+                      const pct = seg.value / distTotal;
+                      const dashLen = Math.max(0, pct * c - gap);
+                      const el = (
+                        <circle
+                          key={i}
+                          cx="70"
+                          cy="70"
+                          r={r}
+                          fill="none"
+                          stroke={seg.color}
+                          strokeWidth="16"
+                          strokeLinecap="round"
+                          strokeDasharray={`${dashLen} ${c - dashLen}`}
+                          strokeDashoffset={-offset}
+                          transform="rotate(-90 70 70)"
+                        />
+                      );
+                      offset += pct * c;
+                      return el;
+                    })}
+                  <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="700" className="fill-primary">
+                    {distTotal}
+                  </text>
+                  <text x="70" y="83" textAnchor="middle" fontSize="10" fill="#94a3b8">
+                    total
+                  </text>
+                </svg>
+              );
+            })()}
+            <div className="grid w-full flex-1 grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-3">
+              {distribution
+                .filter((s) => s.value > 0)
+                .map((s) => {
+                  const pct = Math.round((s.value / distTotal) * 100);
+                  return (
+                    <div key={s.name}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                        <span className="text-sm text-text-muted">{s.name}</span>
+                        <span className="ml-auto text-sm font-bold text-primary">{s.value}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2.5">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.color }} />
+                        </div>
+                        <span className="w-8 shrink-0 text-right text-[11px] font-medium text-text-muted">{pct}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
-        )}
-      </motion.div>
+        </div>
+      )}
 
-      {/* Donation Details Modal */}
-      {fullDetailModalOpen && fullDonationDetails && (
-        <DonationDetailsModal
-          donation={fullDonationDetails}
-          onClose={closeFullDetailModal}
-          onDownloadReceipt={() => handleDownloadReceipt(fullDonationDetails)}
-          onUpdateStatus={updateDonationStatus}
-          onAddUpdate={handleAddDonorUpdate}
-        />
+      {/* Controls */}
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative md:flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by ID, donor, email or cause…"
+              className="w-full border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent"
+            />
+          </div>
+          <CustomSelect
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              { value: "all", label: "All types" },
+              { value: "one-time", label: "One-time" },
+              { value: "recurring", label: "Recurring" },
+              { value: "installments", label: "Installments" },
+            ]}
+            triggerClassName="border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-accent"
+            className="md:min-w-[150px]"
+          />
+          <button
+            type="button"
+            onClick={handleExportDonations}
+            disabled={exportLoading}
+            className="inline-flex shrink-0 items-center justify-center gap-2 border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
+          >
+            {exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export
+          </button>
+          <div className="inline-flex shrink-0 border border-gray-200">
+            {[
+              { id: "list", Icon: List, title: "List view" },
+              { id: "grid", Icon: LayoutGrid, title: "Card view" },
+            ].map((v, idx) => {
+              const activeView = view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => changeView(v.id)}
+                  title={v.title}
+                  className={cn(
+                    "relative isolate grid h-10 w-10 place-items-center transition-colors duration-200",
+                    idx > 0 && "border-l border-gray-200",
+                    activeView ? "text-white" : "text-text-muted hover:text-accent",
+                  )}
+                >
+                  {activeView && (
+                    <motion.span
+                      layoutId="donationsViewActive"
+                      className="absolute inset-0 -z-10 bg-accent"
+                      transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                    />
+                  )}
+                  <v.Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Status pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          {statusPills.map((p) => {
+            const active = statusFilter === p.value;
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => setStatusFilter(p.value)}
+                className={cn(
+                  "relative isolate inline-flex items-center gap-1.5 border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200",
+                  active
+                    ? "border-accent text-accent"
+                    : "border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="donationsStatusActive"
+                    className="absolute inset-0 -z-10 bg-accent/10"
+                    transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                {p.label}
+                <span className={cn("text-xs", active ? "text-accent/70" : "text-gray-400")}>{p.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        {paginated.length === 0 ? (
+          <motion.div
+            key="empty"
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="border border-gray-100 bg-white p-12 text-center shadow-sm"
+          >
+            <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+              <Gift className="h-6 w-6" />
+            </span>
+            <p className="font-semibold text-gray-800">{rows.length === 0 ? "No donations yet" : "No matching donations"}</p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
+              {rows.length === 0 ? "Donations will appear here as they come in." : "Try a different search term or filter."}
+            </p>
+          </motion.div>
+        ) : view === "grid" ? (
+          <motion.div
+            key={`grid-${currentPage}`}
+            variants={gridContainer}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+          >
+            {paginated.map((d) => (
+              <DonationCard key={d.id} item={d} onView={openDetail} onProcess={openProcess} />
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`list-${currentPage}`}
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="overflow-hidden border border-gray-100 bg-white shadow-sm"
+          >
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
+                    <th className="px-4 py-3.5">Donor</th>
+                    <th className="px-4 py-3.5">Donation</th>
+                    <th className="px-4 py-3.5">Amount</th>
+                    <th className="px-4 py-3.5">Type</th>
+                    <th className="px-4 py-3.5">Method</th>
+                    <th className="px-4 py-3.5">Date</th>
+                    <th className="px-4 py-3.5">Status</th>
+                    <th className="px-4 py-3.5 text-right">View</th>
+                  </tr>
+                </thead>
+                <motion.tbody variants={listContainer}>
+                  {paginated.map((d) => (
+                    <DonationRow key={d.id} item={d} onView={openDetail} onProcess={openProcess} />
+                  ))}
+                </motion.tbody>
+              </table>
+            </div>
+            <motion.div variants={listContainer} className="divide-y divide-gray-50 md:hidden">
+              {paginated.map((d) => (
+                <DonationMobile key={d.id} item={d} onView={openDetail} onProcess={openProcess} />
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <span className="text-xs text-text-muted">
+            Showing {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filtered.length)} of {filtered.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pg;
+              if (totalPages <= 5) pg = i + 1;
+              else if (currentPage <= 3) pg = i + 1;
+              else if (currentPage >= totalPages - 2) pg = totalPages - (4 - i);
+              else pg = currentPage - 2 + i;
+              return (
+                <button
+                  key={pg}
+                  type="button"
+                  onClick={() => setCurrentPage(pg)}
+                  className={cn(
+                    "h-8 w-8 text-xs font-medium transition-colors",
+                    currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100",
+                  )}
+                >
+                  {pg}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Cancellation Request Dialog */}
@@ -885,24 +773,20 @@ const AdminDonationsList = () => {
         description="Review the cancellation request and choose to approve or reject it."
       >
         <div className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-4 rounded-token">
             <h4 className="font-medium text-gray-900">Donation Details</h4>
             <div className="mt-2 space-y-2 text-sm text-gray-600">
               <p>
-                <span className="font-medium">Donor:</span>{" "}
-                {selectedDonation?.donor}
+                <span className="font-medium">Donor:</span> {selectedDonation?.donor}
               </p>
               <p>
-                <span className="font-medium">Amount:</span> $
-                {selectedDonation?.amount}
+                <span className="font-medium">Amount:</span> ${selectedDonation?.amount}
               </p>
               <p>
-                <span className="font-medium">Type:</span>{" "}
-                {selectedDonation?.type}
+                <span className="font-medium">Type:</span> {selectedDonation?.type}
               </p>
               <p>
-                <span className="font-medium">Reason:</span>{" "}
-                {selectedDonation?.cancelReason}
+                <span className="font-medium">Reason:</span> {selectedDonation?.cancelReason || "—"}
               </p>
             </div>
           </div>
@@ -928,7 +812,7 @@ const AdminDonationsList = () => {
           </div>
         </div>
       </Modal>
-    </motion.div>
+    </div>
   );
 };
 

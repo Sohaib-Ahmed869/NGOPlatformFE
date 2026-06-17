@@ -19,6 +19,7 @@ import {
   LayoutGrid,
   List,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import SubscriptionService from "../../services/subscription.service";
 import DonationService from "../../services/donation.service.jsx";
@@ -48,6 +49,16 @@ const statusLabel = (s) =>
     : (s || "").split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 
 const ENDED = ["cancelled", "canceled", "failed", "ended"];
+
+// Per-type colour, so each plan is scannable at a glance (icon anchor + chip).
+const TYPE_STYLE = {
+  recurring: "bg-blue-50 text-blue-600",
+  installment: "bg-violet-50 text-violet-600",
+  installments: "bg-violet-50 text-violet-600",
+  single: "bg-accent/10 text-accent",
+  one_time: "bg-accent/10 text-accent",
+};
+const typeChip = (t) => TYPE_STYLE[t] || TYPE_STYLE.single;
 
 // Module-level "seen this session" gate. The donor's orders are cached globally
 // in DonationService and are often already warm here (My Payments / My Donations
@@ -224,32 +235,41 @@ function PlanActions({ item, past, busy, onExtend, onResume, onCancel, compact }
 }
 
 /* ── One subscription / installment row (desktop table) ───────────────── */
-function SubRow({ item, past, busy, onExtend, onResume, onCancel }) {
+function SubRow({ item, past, busy, onExtend, onResume, onCancel, index = 0 }) {
   const isInst = item.kind === "installment";
   const Icon = isInst ? Layers : Repeat;
+  const chip = typeChip(item.kind);
   return (
-    <tr className="border-b border-gray-50 transition-colors last:border-0 hover:bg-gray-50/60">
-      <td className="px-5 py-3.5">
+    <motion.tr
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index * 0.03, 0.3) }}
+      className="group border-b border-gray-50 transition-colors last:border-0 hover:bg-accent/[0.035]"
+    >
+      <td className="px-4 py-4">
         <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center bg-accent/10 text-accent"><Icon className="h-4 w-4" /></span>
+          <span className={cn("grid h-9 w-9 shrink-0 place-items-center", chip)}><Icon className="h-4 w-4" /></span>
           <div className="min-w-0">
-            <p className="truncate font-medium text-primary">{item.cause}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{isInst ? "Installment" : "Recurring"}</p>
+            <p className="truncate font-semibold text-primary">{item.cause}</p>
+            <span className={cn("mt-0.5 inline-flex items-center px-2 py-0.5 text-[10px] font-medium", chip)}>{isInst ? "Installment" : "Recurring"}</span>
           </div>
         </div>
       </td>
-      <td className="px-5 py-3.5 whitespace-nowrap">
-        <span className="font-semibold text-primary">{money(item.amount)}</span>
-        <span className="text-xs text-text-muted">/{isInst ? "installment" : (item.frequency || "monthly").toLowerCase()}</span>
+      <td className="px-4 py-4 whitespace-nowrap">
+        <span className="font-heading text-base font-bold tabular-nums text-primary">{money(item.amount)}</span>
+        <span className="text-xs font-normal text-text-muted">/{isInst ? "installment" : (item.frequency || "monthly").toLowerCase()}</span>
       </td>
-      <td className="px-5 py-3.5">
-        <span className={cn("inline-flex px-2 py-0.5 text-[10px] font-semibold", statusStyle(item.status))}>{statusLabel(item.status)}</span>
+      <td className="px-4 py-4">
+        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold", statusStyle(item.status))}>
+          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+          {statusLabel(item.status)}
+        </span>
       </td>
-      <td className="px-5 py-3.5"><NextOrProgress item={item} past={past} /></td>
-      <td className="px-5 py-3.5">
+      <td className="px-4 py-4"><NextOrProgress item={item} past={past} /></td>
+      <td className="px-4 py-4">
         <span className="text-sm capitalize text-text-muted">{item.paymentMethod}</span>
       </td>
-      <td className="px-5 py-3.5">
+      <td className="px-4 py-4">
         <div className="flex items-center justify-end gap-1">
           {item.receiptUrl && (
             <a href={item.receiptUrl} target="_blank" rel="noopener noreferrer" title="View receipt" className={iconBtn}>
@@ -260,29 +280,38 @@ function SubRow({ item, past, busy, onExtend, onResume, onCancel }) {
           {past && !item.receiptUrl && <span className="text-xs text-gray-300">—</span>}
         </div>
       </td>
-    </tr>
+    </motion.tr>
   );
 }
 
 /* ── One subscription / installment card (mobile) ─────────────────────── */
-function SubMobile({ item, past, busy, onExtend, onResume, onCancel }) {
+function SubMobile({ item, past, busy, onExtend, onResume, onCancel, index = 0 }) {
   const isInst = item.kind === "installment";
   const Icon = isInst ? Layers : Repeat;
+  const chip = typeChip(item.kind);
   const showActions = !past || item.receiptUrl;
   return (
-    <div className="p-4">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index * 0.03, 0.3) }}
+      className="p-4"
+    >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center bg-accent/10 text-accent"><Icon className="h-4 w-4" /></span>
+        <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center", chip)}><Icon className="h-4 w-4" /></span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="truncate font-medium text-primary">{item.cause}</p>
-            <span className="shrink-0 font-semibold text-primary">
+            <span className="shrink-0 font-heading text-base font-bold tabular-nums text-primary">
               {money(item.amount)}
               <span className="text-xs font-normal text-text-muted">/{isInst ? "inst." : (item.frequency || "monthly").toLowerCase().slice(0, 3)}</span>
             </span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-            <span className={cn("px-2 py-0.5 text-[10px] font-semibold", statusStyle(item.status))}>{statusLabel(item.status)}</span>
+            <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold", statusStyle(item.status))}>
+              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+              {statusLabel(item.status)}
+            </span>
             {isInst ? (
               <span>{item.paidInstallments}/{item.totalInstallments} paid</span>
             ) : !past ? (
@@ -303,26 +332,35 @@ function SubMobile({ item, past, busy, onExtend, onResume, onCancel }) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 /* ── One subscription / installment card (grid view) ──────────────────── */
-function SubCard({ item, past, busy, onExtend, onResume, onCancel }) {
+function SubCard({ item, past, busy, onExtend, onResume, onCancel, index = 0 }) {
   const st = (item.status || "").toLowerCase();
   const isInst = item.kind === "installment";
   const TIcon = isInst ? Layers : Repeat;
+  const chip = typeChip(item.kind);
   const pct = isInst && item.totalInstallments ? Math.round((item.paidInstallments / item.totalInstallments) * 100) : 0;
   const endedWithDate = past && (item.status === "cancelled" || item.status === "ended") && item.cancellationDate;
 
   return (
-    <div className="group flex flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut", delay: Math.min(index * 0.04, 0.32) }}
+      className="group flex flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md"
+    >
       {/* Header band */}
       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
-        <span className="inline-flex items-center gap-1.5 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
+        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide", chip)}>
           <TIcon className="h-3.5 w-3.5" /> {isInst ? "Installment" : "Recurring"}
         </span>
-        <span className={cn("shrink-0 px-2.5 py-1 text-[11px] font-semibold", statusStyle(item.status))}>{statusLabel(item.status)}</span>
+        <span className={cn("inline-flex shrink-0 items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold", statusStyle(item.status))}>
+          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+          {statusLabel(item.status)}
+        </span>
       </div>
 
       {/* Body */}
@@ -422,7 +460,7 @@ function SubCard({ item, past, busy, onExtend, onResume, onCancel }) {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -613,35 +651,54 @@ const Subscriptions = () => {
                 type="button"
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium transition-colors",
+                  "relative isolate inline-flex items-center gap-1.5 border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200",
                   activeTab
-                    ? "bg-accent text-white shadow-sm shadow-accent/25"
-                    : "border border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
+                    ? "border-accent text-accent"
+                    : "border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
                 )}
               >
+                {activeTab && (
+                  <motion.span
+                    layoutId="subsTabActive"
+                    className="absolute inset-0 -z-10 bg-accent/10"
+                    transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
                 {t.label}
-                <span className={cn("text-xs", activeTab ? "text-white/80" : "text-gray-400")}>{t.count}</span>
+                <span className={cn("text-xs", activeTab ? "text-accent/70" : "text-gray-400")}>{t.count}</span>
               </button>
             );
           })}
         </div>
         <div className="inline-flex border border-gray-200">
-          <button
-            type="button"
-            onClick={() => changeView("list")}
-            title="List view"
-            className={cn("grid h-9 w-9 place-items-center transition-colors", view === "list" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50")}
-          >
-            <List className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => changeView("grid")}
-            title="Card view"
-            className={cn("grid h-9 w-9 place-items-center transition-colors", view === "grid" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50")}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
+          {[
+            { id: "list", Icon: List, title: "List view" },
+            { id: "grid", Icon: LayoutGrid, title: "Card view" },
+          ].map((v, idx) => {
+            const activeView = view === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => changeView(v.id)}
+                title={v.title}
+                className={cn(
+                  "relative isolate grid h-9 w-9 place-items-center transition-colors duration-200",
+                  idx > 0 && "border-l border-gray-200",
+                  activeView ? "text-white" : "text-text-muted hover:text-accent",
+                )}
+              >
+                {activeView && (
+                  <motion.span
+                    layoutId="subsViewActive"
+                    className="absolute inset-0 -z-10 bg-accent"
+                    transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                <v.Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -658,41 +715,50 @@ const Subscriptions = () => {
               : "Set up a recurring gift or installment plan and it'll show here for you to manage."}
           </p>
         </div>
-      ) : view === "grid" ? (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <SubCard key={item.id} item={item} past={tab === "past"} busy={busy} onExtend={openExtend} onResume={handleResume} onCancel={openCancel} />
-          ))}
-        </div>
       ) : (
-        <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
-          {/* Desktop table */}
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                  <th className="px-5 py-3">Plan</th>
-                  <th className="px-5 py-3">Amount</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">{tab === "past" ? "Ended" : "Next / progress"}</th>
-                  <th className="px-5 py-3">Method</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <SubRow key={item.id} item={item} past={tab === "past"} busy={busy} onExtend={openExtend} onResume={handleResume} onCancel={openCancel} />
+        <motion.div
+          key={`${view}-${tab}`}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+        >
+          {view === "grid" ? (
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
+              {items.map((item, i) => (
+                <SubCard key={item.id} item={item} past={tab === "past"} busy={busy} onExtend={openExtend} onResume={handleResume} onCancel={openCancel} index={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+              {/* Desktop table */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
+                      <th className="px-4 py-3.5">Plan</th>
+                      <th className="px-4 py-3.5">Amount</th>
+                      <th className="px-4 py-3.5">Status</th>
+                      <th className="px-4 py-3.5">{tab === "past" ? "Ended" : "Next / progress"}</th>
+                      <th className="px-4 py-3.5">Method</th>
+                      <th className="px-4 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, i) => (
+                      <SubRow key={item.id} item={item} past={tab === "past"} busy={busy} onExtend={openExtend} onResume={handleResume} onCancel={openCancel} index={i} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Mobile cards */}
+              <div className="divide-y divide-gray-50 md:hidden">
+                {items.map((item, i) => (
+                  <SubMobile key={item.id} item={item} past={tab === "past"} busy={busy} onExtend={openExtend} onResume={handleResume} onCancel={openCancel} index={i} />
                 ))}
-              </tbody>
-            </table>
-          </div>
-          {/* Mobile cards */}
-          <div className="divide-y divide-gray-50 md:hidden">
-            {items.map((item) => (
-              <SubMobile key={item.id} item={item} past={tab === "past"} busy={busy} onExtend={openExtend} onResume={handleResume} onCancel={openCancel} />
-            ))}
-          </div>
-        </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
       )}
 
       {/* Cancel modal */}

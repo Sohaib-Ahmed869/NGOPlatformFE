@@ -36,7 +36,7 @@ function MoneyField({ icon: Icon, label, hint, value, onChange }) {
       <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
         {Icon && <Icon className="h-4 w-4 text-accent" />} {label}
       </label>
-      <div className="flex items-center gap-2 border border-gray-200 bg-white px-3 transition-colors focus-within:border-accent">
+      <div className="flex items-center gap-2 rounded-token-input border border-gray-200 bg-white px-3 transition-colors focus-within:border-accent">
         <span className="text-sm font-semibold text-gray-400">$</span>
         <input
           type="number"
@@ -130,7 +130,7 @@ const ZakatCalculator = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.5 }}
-            className="border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
+            className="rounded-token border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
           >
             <Eyebrow icon={Wallet}>Your assets</Eyebrow>
             <h2 className="mt-3 font-heading text-2xl font-bold text-primary">What you own</h2>
@@ -170,7 +170,7 @@ const ZakatCalculator = () => {
                         type="button"
                         onClick={() => set("nisab", key)}
                         className={
-                          "border px-3 py-2.5 text-left text-sm transition-colors " +
+                          "rounded-token-btn border px-3 py-2.5 text-left text-sm transition-colors " +
                           (active
                             ? "border-accent bg-accent text-white shadow-sm shadow-accent/25"
                             : "border-gray-200 bg-white text-gray-600 hover:border-accent/50")
@@ -188,7 +188,7 @@ const ZakatCalculator = () => {
             <button
               type="button"
               onClick={handleReset}
-              className="mt-7 inline-flex items-center gap-2 border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent"
+              className="mt-7 inline-flex items-center gap-2 rounded-token-btn border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent"
             >
               <RotateCcw className="h-4 w-4" /> Reset calculator
             </button>
@@ -202,7 +202,7 @@ const ZakatCalculator = () => {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="lg:sticky lg:top-32 lg:self-start"
           >
-            <div className="relative overflow-hidden border border-gray-100 bg-white shadow-xl">
+            <div className="relative overflow-hidden rounded-token border border-gray-100 bg-white shadow-xl">
               <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-accent/10 blur-3xl" />
 
               <div className="relative border-b border-gray-100 bg-primary px-6 py-5">
@@ -221,7 +221,7 @@ const ZakatCalculator = () => {
                 {result.hasInput && (
                   <div
                     className={
-                      "mt-2 flex items-start gap-2 border px-3 py-2.5 text-xs " +
+                      "mt-2 flex items-start gap-2 rounded-token border px-3 py-2.5 text-xs " +
                       (result.eligible
                         ? "border-accent/20 bg-accent/5 text-primary"
                         : "border-yellow-300 bg-yellow-50 text-yellow-800")
@@ -245,7 +245,7 @@ const ZakatCalculator = () => {
                   type="button"
                   onClick={handlePay}
                   disabled={payable <= 0}
-                  className="mt-3 flex h-12 w-full items-center justify-center gap-2 bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-token-btn bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <HandCoins className="h-4 w-4" />
                   Pay {payable > 0 ? `$${money(payable)}` : "your Zakat"}
@@ -264,7 +264,11 @@ const ZakatCalculator = () => {
       {/* ── How Zakat works ──────────────────────────────────────────────── */}
       <section className="bg-white px-6 py-16 lg:py-20">
         <div className="mx-auto max-w-6xl">
-          <SectionHeading icon={Info} eyebrow="How it works" title="Three steps to fulfil your Zakat" />
+          <SectionHeading
+            icon={Info}
+            eyebrow={content?.howItWorks?.eyebrow ?? "How it works"}
+            title={content?.howItWorks?.title ?? "Three steps to fulfil your Zakat"}
+          />
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {ZAKAT_STEPS.map((s, i) => {
               const Ic = icon(s.icon);
@@ -276,7 +280,7 @@ const ZakatCalculator = () => {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-60px" }}
                   transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: i * 0.1 }}
-                  className="group relative overflow-hidden border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+                  className="group relative overflow-hidden rounded-token border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
                 >
                   <span className="absolute right-5 top-4 font-heading text-4xl font-bold text-accent/10">{s.n}</span>
                   <span className="mb-4 grid h-12 w-12 place-items-center rounded-xl bg-accent/10 text-accent transition-all duration-300 group-hover:-rotate-6 group-hover:scale-110 group-hover:bg-accent group-hover:text-white">

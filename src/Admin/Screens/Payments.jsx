@@ -125,7 +125,7 @@ export default function Payments() {
 
       {/* Status banner */}
       <div
-        className={`rounded-2xl border p-4 mb-6 flex items-center gap-3 ${
+        className={`rounded-token border p-4 mb-6 flex items-center gap-3 ${
           config.enabled ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"
         }`}
       >
@@ -161,7 +161,7 @@ export default function Payments() {
       </div>
 
       {/* Keys form */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+      <div className="bg-white rounded-token border border-gray-100 shadow-sm p-6 space-y-5">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Publishable key</label>
           <input
@@ -169,7 +169,7 @@ export default function Payments() {
             value={publishableKey}
             onChange={(e) => setPublishableKey(e.target.value)}
             placeholder="pk_live_…"
-            className="w-full text-sm border border-gray-300 rounded-lg p-2.5 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            className="w-full text-sm border border-gray-300 rounded-token-input p-2.5 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
           />
         </div>
 
@@ -182,7 +182,7 @@ export default function Payments() {
             value={secretKey}
             onChange={(e) => setSecretKey(e.target.value)}
             placeholder={config.hasSecretKey ? "•••••••• (saved — leave blank to keep)" : "sk_live_…"}
-            className="w-full text-sm border border-gray-300 rounded-lg p-2.5 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            className="w-full text-sm border border-gray-300 rounded-token-input p-2.5 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
           />
         </div>
 
@@ -196,7 +196,7 @@ export default function Payments() {
             value={webhookSecret}
             onChange={(e) => setWebhookSecret(e.target.value)}
             placeholder={config.hasWebhookSecret ? "•••••••• (saved — leave blank to keep)" : "whsec_…"}
-            className="w-full text-sm border border-gray-300 rounded-lg p-2.5 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+            className="w-full text-sm border border-gray-300 rounded-token-input p-2.5 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
           />
           <p className="text-xs text-gray-400 mt-1">
             From your Stripe Dashboard → Developers → Webhooks. Used to verify donation events.
@@ -204,7 +204,7 @@ export default function Payments() {
         </div>
 
         {/* Webhook endpoint to register in Stripe */}
-        <div className="rounded-xl bg-primary/5 border border-primary/10 p-4">
+        <div className="rounded-token bg-primary/5 border border-primary/10 p-4">
           <p className="text-sm font-medium text-gray-700 mb-1">Your webhook endpoint URL</p>
           <p className="text-xs text-gray-500 mb-2">
             In Stripe → Developers → Webhooks, add an endpoint with this URL, then paste its signing
@@ -213,7 +213,7 @@ export default function Payments() {
             <code>customer.subscription.deleted</code>, <code>payment_intent.succeeded</code>.
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs bg-white border border-gray-200 rounded-lg p-2 break-all">
+            <code className="flex-1 text-xs bg-white border border-gray-200 rounded-token-input p-2 break-all">
               {webhookUrl}
             </code>
             <button

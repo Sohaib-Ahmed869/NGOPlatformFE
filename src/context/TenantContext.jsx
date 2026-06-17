@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import axiosInstance from "../services/axios";
 import siteService from "../services/site.service";
 import planLimitsConfig from "../config/planLimits";
+import { resolveDesign, FONT_MAP, ROUNDNESS_MAP, BORDER_WIDTH_MAP, SHADOW_MAP } from "../config/designTokens";
 
 const TenantContext = createContext(null);
 
@@ -58,35 +59,79 @@ function darkenHex(hex, percent) {
  * Inject CSS custom properties on <html> so ALL components can use them.
  * This applies theme colors to the entire portal: static pages, admin, donor pages.
  */
-function applyBrandingCSS(branding) {
+// Set all the tenant colour CSS vars (core + rgb + derived sidebar/light) from a
+// primary/accent/background triple. Shared by branding and the design system.
+function applyColorVars(primary, accent, bg) {
   const root = document.documentElement;
-  if (!branding) return;
-
-  const primary = branding.primaryColor || "#2C2418";
-  const accent = branding.accentColor || "#C9A84C";
-  const bg = branding.backgroundColor || "#FAF7F2";
-
-  // Core colors
   root.style.setProperty("--tenant-primary", primary);
   root.style.setProperty("--tenant-accent", accent);
   root.style.setProperty("--tenant-bg", bg);
-
-  // RGB variants for rgba() usage
   root.style.setProperty("--tenant-primary-rgb", hexToRgb(primary));
   root.style.setProperty("--tenant-accent-rgb", hexToRgb(accent));
   root.style.setProperty("--tenant-bg-rgb", hexToRgb(bg));
+  root.style.setProperty("--tenant-sidebar-top", darkenHex(primary, 10));
+  root.style.setProperty("--tenant-sidebar-bottom", darkenHex(primary, 20));
+  root.style.setProperty("--tenant-primary-light", darkenHex(primary, -15));
+  root.style.setProperty("--tenant-accent-light", darkenHex(accent, -15));
+}
 
-  // Derived colors for sidebars and dark surfaces
-  const sidebarTop = darkenHex(primary, 10);
-  const sidebarBottom = darkenHex(primary, 20);
-  root.style.setProperty("--tenant-sidebar-top", sidebarTop);
-  root.style.setProperty("--tenant-sidebar-bottom", sidebarBottom);
+function applyBrandingCSS(branding) {
+  if (!branding) return;
+  applyColorVars(
+    branding.primaryColor || "#2C2418",
+    branding.accentColor || "#C9A84C",
+    branding.backgroundColor || "#FAF7F2",
+  );
+}
 
-  // Light variants
-  const primaryLight = darkenHex(primary, -15);
-  root.style.setProperty("--tenant-primary-light", primaryLight);
-  const accentLight = darkenHex(accent, -15);
-  root.style.setProperty("--tenant-accent-light", accentLight);
+/** Load a Google font stylesheet once (no-op for the serif default / no web font). */
+function loadGoogleFont(font) {
+  if (!font || !font.google) return;
+  const id = `gfont-${font.id}`;
+  if (document.getElementById(id)) return;
+  const link = document.createElement("link");
+  link.id = id;
+  link.rel = "stylesheet";
+  link.href = `https://fonts.googleapis.com/css2?family=${font.google}&display=swap`;
+  document.head.appendChild(link);
+}
+
+/**
+ * Apply the tenant's per-tenant DESIGN (fonts + shape) as CSS vars on <html>.
+ * Fonts set --font-heading/body/nav for the PUBLIC site only (admin + user
+ * portals override these via [data-admin-theme]/[data-user-portal]). Shape sets
+ * the radius, border-width and card-shadow CSS vars. Empty design → baseline
+ * (serif + square), i.e. no change from today.
+ */
+function applyDesign(design) {
+  const root = document.documentElement;
+  const d = resolveDesign(design);
+
+  ["heading", "body", "nav"].forEach((role) => {
+    const font = FONT_MAP[d.fonts[role]] || FONT_MAP.serif;
+    if (font.id === "serif") {
+      // Fall back to the Tailwind serif default (keeps the current look).
+      root.style.removeProperty(`--font-${role}`);
+    } else {
+      root.style.setProperty(`--font-${role}`, font.stack);
+      loadGoogleFont(font);
+    }
+  });
+
+  const applyVars = (map, id) => {
+    const opt = map[id];
+    if (opt) Object.entries(opt.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  };
+  applyVars(ROUNDNESS_MAP, d.shape.roundness);
+  applyVars(BORDER_WIDTH_MAP, d.shape.borderWidth);
+  applyVars(SHADOW_MAP, d.shape.shadow);
+
+  // A template can carry a colour palette. On the public site this already lives
+  // in branding (publish writes it there), so this is a no-op match; in the
+  // design-preview iframe it's what makes the draft colours show.
+  if (d.colors && d.colors.primary && d.colors.accent && d.colors.bg) {
+    applyColorVars(d.colors.primary, d.colors.accent, d.colors.bg);
+  }
 }
 
 /**
@@ -129,6 +174,32 @@ export function TenantProvider({ children }) {
   const [organisation, setOrganisation] = useState(null);
   const [loading, setLoading] = useState(tenantMode === "tenant");
   const [error, setError] = useState(null);
+  // Platform-wide branding/contact for the public marketing site (bare/www).
+  const [platform, setPlatform] = useState(null);
+
+  // Design-preview mode: when the page is loaded in the admin's Design tab iframe
+  // (?designPreview=1), apply the unsaved DRAFT design posted from the parent so
+  // the real portal renders exactly as it would look once published.
+  const isDesignPreview =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("designPreview") === "1";
+  const [previewDesign, setPreviewDesign] = useState(null);
+  useEffect(() => {
+    if (!isDesignPreview) return;
+    const onMsg = (e) => {
+      if (e.data?.type === "design-preview" && e.data.design) {
+        setPreviewDesign(e.data.design);
+        applyDesign(e.data.design);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    // Tell the parent we're mounted so it sends the current draft.
+    try {
+      window.parent?.postMessage({ type: "design-preview-ready" }, "*");
+    } catch {
+      /* ignore */
+    }
+    return () => window.removeEventListener("message", onMsg);
+  }, [isDesignPreview]);
 
   useEffect(() => {
     if (tenantMode === "tenant" && slug) {
@@ -142,6 +213,7 @@ export function TenantProvider({ children }) {
           if (res.data.branding) {
             applyBrandingCSS(res.data.branding);
           }
+          applyDesign(res.data.design);
           applyTenantHead(res.data.branding, res.data.name);
           // Warm the CMS content cache for every enabled page in the background,
           // so navigating to any page is instant (no loading flash).
@@ -160,9 +232,46 @@ export function TenantProvider({ children }) {
     }
   }, [tenantMode, slug]);
 
+  // On the public marketing site, load the platform's own branding + contact so
+  // the navbar/footer/colours render dynamically (edited in SuperAdmin → Platform).
+  useEffect(() => {
+    if (tenantMode !== "public") return;
+    axiosInstance
+      .get("/platform/public")
+      .then((res) => {
+        setPlatform(res.data);
+        if (res.data?.name) document.title = res.data.name;
+        // Favicon: explicit favicon, else the dark icon (sits on a light tab), else the light icon.
+        const faviconUrl = res.data?.favicon || res.data?.iconLogoDark || res.data?.iconLogo || "";
+        if (faviconUrl) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
+          }
+          link.removeAttribute("type");
+          link.href = faviconUrl;
+        }
+      })
+      .catch((err) => console.error("Failed to load platform settings:", err));
+  }, [tenantMode]);
+
   const plan = organisation?.plan || null;
   const limits = plan ? planLimitsConfig[plan] : null;
-  const branding = organisation?.branding || null;
+  // In design-preview mode the posted draft wins so navbar/footer render their
+  // draft layout variants; otherwise the published design drives the site.
+  const design = isDesignPreview && previewDesign ? resolveDesign(previewDesign) : resolveDesign(organisation?.design);
+  const baseBranding = organisation?.branding || null;
+  // A template's colour palette is applied as CSS vars, but components that read
+  // branding.* hex directly (e.g. the home Hero, which computes gradients) won't
+  // see those. In preview, merge the draft palette into branding so JS-driven
+  // colours update too. (On the live site, publish writes design.colors →
+  // branding, so this is preview-only; a palette-less template keeps the tenant's.)
+  const branding =
+    isDesignPreview && design?.colors
+      ? { ...(baseBranding || {}), primaryColor: design.colors.primary, accentColor: design.colors.accent, backgroundColor: design.colors.bg }
+      : baseBranding;
   const pages = organisation?.pages || [];
 
   // Is a given route path an enabled page? Paths not managed by the CMS
@@ -179,8 +288,11 @@ export function TenantProvider({ children }) {
     plan,
     limits,
     branding,
+    design,
     pages,
     isPathEnabled,
+    isMuslimCharity: !!organisation?.isMuslimCharity,
+    platform,
     loading,
     error,
   };

@@ -124,7 +124,7 @@ function EventCard({ event, index, past, audiences }) {
       <Link
         to={`/events/${event._id}`}
         state={{ event }}
-        className="group relative flex h-full flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+        className="group relative flex h-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
       >
         {/* Image + overlays */}
         <div className="relative h-44 overflow-hidden bg-gray-100">
@@ -173,7 +173,7 @@ function EventCard({ event, index, past, audiences }) {
             {!past && event.registrationMode === "external" && event.registrationLink && <Badge tone="accent">Tickets</Badge>}
           </div>
 
-          <span className="mt-4 flex w-full items-center justify-center gap-2 border border-gray-200 py-2.5 text-sm font-semibold text-primary transition-colors group-hover:border-accent group-hover:text-accent">
+          <span className="mt-4 flex w-full items-center justify-center gap-2 rounded-token-btn border border-gray-200 py-2.5 text-sm font-semibold text-primary transition-colors group-hover:border-accent group-hover:text-accent">
             View details <ArrowRight className="h-4 w-4" />
           </span>
         </div>
@@ -190,7 +190,7 @@ function EventRow({ event, audiences, past }) {
     <Link
       to={`/events/${event._id}`}
       state={{ event }}
-      className="group flex items-stretch gap-4 border border-gray-100 bg-white p-3 shadow-sm transition-all hover:border-accent/30 hover:shadow-md sm:p-4"
+      className="group flex items-stretch gap-4 rounded-token border border-gray-100 bg-white p-3 shadow-sm transition-all hover:border-accent/30 hover:shadow-md sm:p-4"
     >
       {/* Date chip */}
       <div className="flex w-14 shrink-0 flex-col items-center justify-center bg-accent/5 py-2 text-center leading-none">
@@ -267,7 +267,7 @@ function WeekCalendar({ events, audiences, accent, weekStart, setWeekStart, onJu
   const legend = audiences.filter((a) => presentKeys.has(a.key));
 
   return (
-    <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm">
       {/* Header: navigation + range + today */}
       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-2">
@@ -390,6 +390,7 @@ const Events = () => {
   const { content, loading: contentLoading } = usePageContent("events");
   const { organisation, branding } = useTenant();
   const hero = content?.hero || {};
+  const intro = content?.intro || {};
   const reduce = useReducedMotion();
 
   const audiences = organisation?.eventAudiences || [];
@@ -488,7 +489,7 @@ const Events = () => {
       <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
 
       {/* ── HERO ─────────────────────────────────────────────────────── */}
-      <div ref={heroRef} data-hero className="relative overflow-hidden py-36 lg:py-44">
+      <div ref={heroRef} data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-36 lg:py-44">
         <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
           <img src={hero.image ?? "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80"} alt="" className="h-full w-full object-cover" />
           <HeroOverlay />
@@ -510,7 +511,7 @@ const Events = () => {
             </>
           )}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="mt-8 flex justify-center">
-            <motion.button type="button" onClick={scrollToGrid} whileHover={{ y: -3 }} className="inline-flex items-center gap-2 bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light">
+            <motion.button type="button" onClick={scrollToGrid} whileHover={{ y: -3 }} className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light">
               See what's on
               <motion.span animate={reduce ? {} : { y: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
                 <ArrowDown className="h-4 w-4" />
@@ -525,8 +526,8 @@ const Events = () => {
         <div className="mx-auto max-w-6xl">
           {/* Upcoming heading */}
           <motion.div {...reveal()} className="mb-6">
-            <Eyebrow icon={Sparkles}>What's on</Eyebrow>
-            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Events calendar</h2>
+            <Eyebrow icon={Sparkles}>{intro.eyebrow ?? "What's on"}</Eyebrow>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">{intro.heading ?? "Events calendar"}</h2>
           </motion.div>
 
           {/* Filter bar */}
@@ -640,7 +641,7 @@ const Events = () => {
           {loading ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="border border-gray-100 bg-white shadow-sm">
+                <div key={i} className="rounded-token border border-gray-100 bg-white shadow-sm">
                   <div className="h-44 animate-pulse bg-gray-100" />
                   <div className="space-y-3 p-5">
                     <div className="h-5 w-2/3 animate-pulse bg-gray-100" />
@@ -651,9 +652,9 @@ const Events = () => {
               ))}
             </div>
           ) : error ? (
-            <div className="border border-red-100 bg-red-50/60 px-6 py-10 text-center text-sm text-red-600">{error}</div>
+            <div className="rounded-token border border-red-100 bg-red-50/60 px-6 py-10 text-center text-sm text-red-600">{error}</div>
           ) : events.length === 0 ? (
-            <div className="border border-gray-100 bg-white px-6 py-16 text-center shadow-sm">
+            <div className="rounded-token border border-gray-100 bg-white px-6 py-16 text-center shadow-sm">
               <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-xl bg-accent/10 text-accent">
                 <Calendar className="h-7 w-7" />
               </span>
@@ -735,7 +736,7 @@ const Events = () => {
 /* ── shared empty state for grid/list filters ─────────────────────────── */
 function EmptyFilter({ hasFilters, onClear }) {
   return (
-    <div className="border border-gray-100 bg-white px-6 py-14 text-center shadow-sm">
+    <div className="rounded-token border border-gray-100 bg-white px-6 py-14 text-center shadow-sm">
       <p className="font-heading text-base font-semibold text-primary">
         {hasFilters ? "No events match your filters" : "No upcoming events right now"}
       </p>

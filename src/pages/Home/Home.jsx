@@ -1,46 +1,35 @@
-import { Link } from "react-router-dom";
-import { Heart, ArrowRight } from "lucide-react";
+import { useEffect } from "react";
+import { motion } from "framer-motion";
+import usePageContent from "../../hooks/usePageContent";
+import PageSections from "../../components/PageSections";
 import Hero from "./Hero";
-import InitiativesSection from "./Initiative/initiative";
-import DonationCTA from "./DonationCTA";
 import Events from "./Events";
 import Testimonials from "./Testimonials";
 import NewsletterSection from "./Newsletter/newsletter";
-import { CTABand } from "../../components/giving";
-import { useTenant } from "../../context/TenantContext";
 
+/**
+ * Home is a hybrid section-based page. The hero keeps its original bespoke
+ * design (the <Hero/> component, edited via the page's fixed hero fields), the
+ * mid-page marketing (causes, CTA) are editable blocks (content.sections), and
+ * the live Events feed + Testimonials carousel stay as fixed widgets.
+ */
 const Home = () => {
-  const { organisation } = useTenant();
-  const orgName = organisation?.name || "us";
+  const { content } = usePageContent("home");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  const sections = Array.isArray(content?.sections) ? content.sections : [];
 
   return (
-    <div className="bg-background">
+    <motion.div className="bg-background" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <Hero />
-      <InitiativesSection />
-      <DonationCTA />
+      <PageSections sections={sections} />
       <Events />
       <Testimonials />
-
-      <CTABand
-        title="Ready to make a difference?"
-        text={`Join the community of donors changing lives with ${orgName}. Every gift, big or small, creates lasting impact.`}
-      >
-        <Link
-          to="/donate"
-          className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light"
-        >
-          Donate now <Heart className="h-4 w-4" />
-        </Link>
-        <Link
-          to="/initiatives"
-          className="inline-flex items-center gap-2 border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-        >
-          Explore our work <ArrowRight className="h-4 w-4" />
-        </Link>
-      </CTABand>
-
       <NewsletterSection />
-    </div>
+    </motion.div>
   );
 };
 

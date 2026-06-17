@@ -187,7 +187,7 @@ const QuickDonate = ({ programs }) => {
   }
 
   return (
-    <section ref={heroRef} className="relative overflow-hidden pb-16 pt-24 lg:pb-24 lg:pt-28">
+    <section ref={heroRef} className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden pb-16 pt-24 lg:pb-24 lg:pt-28">
       {/* Emotional background image with parallax + dark overlays for legibility */}
       <motion.div style={{ y: bgY, scale: bgScale }} className="absolute -inset-y-[8%] inset-x-0 will-change-transform">
         <img src={hero.image ?? DONATE_IMG} alt="" className="h-full w-full object-cover" />
@@ -217,7 +217,7 @@ const QuickDonate = ({ programs }) => {
                     key={s.label}
                     whileHover={reduce ? {} : { y: -4 }}
                     transition={{ type: "spring", stiffness: 400, damping: 24 }}
-                    className="flex items-center gap-3 border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm"
+                    className="flex items-center gap-3 rounded-token border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm"
                   >
                     <span className="grid h-10 w-10 shrink-0 place-items-center bg-accent/20 text-accent">
                       <s.icon className="h-4 w-4" />
@@ -234,7 +234,7 @@ const QuickDonate = ({ programs }) => {
 
           {/* Right — the give form (premium donation card, floats on the image) */}
           <motion.div
-            className="relative overflow-hidden border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl"
+            className="relative overflow-hidden rounded-token border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.12 }}
@@ -288,10 +288,10 @@ const QuickDonate = ({ programs }) => {
                     <div className="mb-2 h-3 w-28 rounded bg-gray-200" />
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {[...Array(6)].map((_, i) => (
-                        <div key={i} className="h-11 bg-gray-200" />
+                        <div key={i} className="h-11 rounded-token-btn bg-gray-200" />
                       ))}
                     </div>
-                    <div className="mt-6 h-12 w-full bg-gray-200" />
+                    <div className="mt-6 h-12 w-full rounded-token-btn bg-gray-200" />
                   </motion.div>
                 ) : hasTypes && step === 1 ? (
                   /* ── Step 1 — choose a cause ─────────────────────────── */
@@ -315,7 +315,7 @@ const QuickDonate = ({ programs }) => {
                             transition={{ type: "spring", stiffness: 400, damping: 24 }}
                             onClick={() => setDonationType(t.donationType)}
                             className={cn(
-                              "border px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                              "rounded-token-btn border px-3 py-2.5 text-left text-sm font-medium transition-colors",
                               active
                                 ? "border-accent bg-accent text-white shadow-md shadow-accent/25"
                                 : "border-gray-200 bg-white text-gray-600 hover:border-accent/50 hover:text-primary",
@@ -332,7 +332,7 @@ const QuickDonate = ({ programs }) => {
                       disabled={!donationType}
                       whileHover={reduce ? {} : { scale: 1.01 }}
                       whileTap={reduce ? {} : { scale: 0.99 }}
-                      className="mt-6 flex h-12 w-full items-center justify-center gap-2 bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-token-btn bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Continue
                       <ArrowRight className="h-4 w-4" />
@@ -371,7 +371,7 @@ const QuickDonate = ({ programs }) => {
                             transition={{ type: "spring", stiffness: 400, damping: 24 }}
                             onClick={() => { setAmount(val); setCustomAmount(""); }}
                             className={cn(
-                              "border py-3 text-sm font-semibold transition-colors",
+                              "rounded-token-btn border py-3 text-sm font-semibold transition-colors",
                               active
                                 ? "border-accent bg-accent text-white shadow-md shadow-accent/25"
                                 : "border-gray-200 bg-white text-gray-600 hover:border-accent/50",
@@ -384,7 +384,7 @@ const QuickDonate = ({ programs }) => {
                     </div>
 
                     {/* Custom amount */}
-                    <div className="mb-5 flex items-center gap-2 border border-gray-200 px-3 transition-colors focus-within:border-accent">
+                    <div className="mb-5 flex items-center gap-2 rounded-token-input border border-gray-200 px-3 transition-colors focus-within:border-accent">
                       <span className="text-sm font-semibold text-gray-400">$</span>
                       <input
                         type="number"
@@ -397,7 +397,7 @@ const QuickDonate = ({ programs }) => {
                     </div>
 
                     {/* Impact summary */}
-                    <div className="mb-5 flex items-start gap-2.5 border border-accent/20 bg-accent/5 px-4 py-3">
+                    <div className="mb-5 flex items-start gap-2.5 rounded-token border border-accent/20 bg-accent/5 px-4 py-3">
                       <Heart className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                       <p className="text-sm text-gray-600">
                         You&apos;re giving <span className="font-bold text-primary">${activeAmount || 0}</span>
@@ -411,7 +411,7 @@ const QuickDonate = ({ programs }) => {
                       onClick={handleDonate}
                       whileHover={reduce ? {} : { scale: 1.01 }}
                       whileTap={reduce ? {} : { scale: 0.99 }}
-                      className="flex h-12 w-full items-center justify-center gap-2 bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                      className="flex h-12 w-full items-center justify-center gap-2 rounded-token-btn bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
                     >
                       Donate {activeAmount ? `$${activeAmount}` : "Now"}
                       <ArrowRight className="h-4 w-4" />
@@ -572,7 +572,7 @@ const ActivePrograms = ({ programs }) => {
           <div className="mt-8">
             <Link
               to="/programs"
-              className="inline-flex items-center gap-2 border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+              className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
             >
               View all programs <ArrowRight className="h-4 w-4" />
             </Link>

@@ -172,6 +172,17 @@ const SubscriptionService = {
       throw handleApiError(error);
     }
   },
+
+  // Admin: full subscription order (incl. recurringDetails.paymentHistory) for
+  // the individual detail page. Returns res.data ({ status, data: { subscription } }).
+  getAdminSubscriptionById: async (subscriptionId) => {
+    try {
+      const response = await axios.get(`/admin/subscriptions/${subscriptionId}`);
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
 };
 
 export default SubscriptionService;

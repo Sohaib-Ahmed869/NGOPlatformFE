@@ -8,16 +8,24 @@ import AutoPlayIframe from "../../Components/AutoPlayIframe";
 import NewsletterSection from "../Newsletter/newsletter";
 import usePageContent from "../../../hooks/usePageContent";
 import { useTenant } from "../../../context/TenantContext";
+import useDonationTypes from "../../Components/checkout/hooks/useDonationTypes";
 import { PageHero, GivingSubNav, SectionHeading, CTABand } from "../../../components/giving";
 import { RAMADAN_TEN_NIGHTS, RAMADAN_DAILY, GIVING_NAV, RAMADAN_HERO_IMG, RAMADAN_MISSION_IMG } from "../../../config/giving";
 
 /* ── Recurring (automated daily) donation modal ───────────────────────────── */
 const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
   const { addItem } = useCart();
+  const { donationTypes } = useDonationTypes();
   const [recurringAmount, setRecurringAmount] = useState(0);
   const [recurringEndDate, setRecurringEndDate] = useState("");
   const [totalRecurringPayments, setTotalRecurringPayments] = useState(0);
   const recurringFrequency = "daily"; // Ramadan giving is automated daily.
+  // Prefer the tenant's "Sadaqah" type if they have one; otherwise their first
+  // configured type, then a plain "Sadaqah" label as a last resort.
+  const ramadanDonationType =
+    donationTypes.find((t) => /sadaqah/i.test(t.donationType))?.donationType ||
+    donationTypes[0]?.donationType ||
+    "Sadaqah";
 
   useEffect(() => {
     if (donationDetails) {
@@ -46,7 +54,7 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
       title: donationDetails.amount,
       price: recurringAmount,
       image: donationDetails.image,
-      donationType: "Sadaqah",
+      donationType: ramadanDonationType,
       isRecurring: true,
       source: "ramadan",
       recurringDetails: {
@@ -73,7 +81,7 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
           onClick={onClose}
         >
           <motion.div
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto bg-white shadow-2xl"
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-token bg-white shadow-2xl"
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
@@ -99,7 +107,7 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
             </div>
 
             <div className="space-y-5 p-6">
-              <div className="flex items-start gap-2.5 border border-accent/20 bg-accent/5 px-4 py-3">
+              <div className="flex items-start gap-2.5 rounded-token border border-accent/20 bg-accent/5 px-4 py-3">
                 <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                 <div>
                   <p className="font-semibold text-primary">{donationDetails?.amount}</p>
@@ -112,13 +120,13 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
                   <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
                     <Repeat className="h-4 w-4 text-accent" /> Frequency
                   </label>
-                  <div className="flex items-center border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700">Daily</div>
+                  <div className="flex items-center rounded-token-input border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700">Daily</div>
                 </div>
                 <div>
                   <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-primary">
                     <Heart className="h-4 w-4 text-accent" /> Amount per night
                   </label>
-                  <div className="flex items-center gap-2 border border-gray-200 bg-white px-3 transition-colors focus-within:border-accent">
+                  <div className="flex items-center gap-2 rounded-token-input border border-gray-200 bg-white px-3 transition-colors focus-within:border-accent">
                     <span className="text-sm font-semibold text-gray-400">$</span>
                     <input
                       type="number"
@@ -141,12 +149,12 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
                     value={recurringEndDate}
                     onChange={(e) => setRecurringEndDate(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
-                    className="w-full border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent"
+                    className="w-full rounded-token-input border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent"
                   />
                 </div>
                 <div>
                   <span className="mb-1.5 block text-sm font-medium text-primary">Total nights</span>
-                  <div className="flex items-center justify-center border border-accent/30 bg-accent/10 px-3 py-2.5 text-sm font-bold text-primary">
+                  <div className="flex items-center justify-center rounded-token-input border border-accent/30 bg-accent/10 px-3 py-2.5 text-sm font-bold text-primary">
                     {totalRecurringPayments > 0 ? totalRecurringPayments : 0} nights
                   </div>
                 </div>
@@ -160,12 +168,12 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
               </div>
 
               <div className="flex justify-end gap-3">
-                <button onClick={onClose} className="border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50">
+                <button onClick={onClose} className="rounded-token-btn border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50">
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                  className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
                 >
                   <CheckCircle2 className="h-4 w-4" /> Confirm daily giving
                 </button>
@@ -179,12 +187,12 @@ const RecurringDonationModal = ({ isOpen, onClose, donationDetails }) => {
 };
 
 /* ── A single Ramadan giving card ─────────────────────────────────────────── */
-const GiveCard = ({ donation, onDonate, reduce }) => (
+const GiveCard = ({ donation, onDonate, reduce, buttonLabel }) => (
   <motion.div
     variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}
     whileHover={reduce ? {} : { y: -6 }}
     transition={{ type: "spring", stiffness: 300, damping: 24 }}
-    className="group relative flex h-full flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+    className="group relative flex h-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
   >
     <div className="relative h-56 overflow-hidden">
       <img
@@ -206,9 +214,9 @@ const GiveCard = ({ donation, onDonate, reduce }) => (
       <p className="mt-2 flex-1 text-sm leading-relaxed text-text-muted">{donation.description}</p>
       <button
         onClick={() => onDonate(donation)}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-token-btn bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
       >
-        Automate this gift <ArrowRight className="h-4 w-4" />
+        {buttonLabel} <ArrowRight className="h-4 w-4" />
       </button>
     </div>
   </motion.div>
@@ -225,6 +233,9 @@ const RamadanDonations = () => {
   const hero = content?.hero || {};
   const intro = content?.intro || {};
   const mission = content?.mission || {};
+  const tenNightsSection = content?.tenNightsSection || {};
+  const dailySection = content?.dailySection || {};
+  const zakatCta = content?.zakatCta || {};
   const orgName = organisation?.name || "our foundation";
 
   useEffect(() => {
@@ -273,13 +284,13 @@ const RamadanDonations = () => {
         <div className="mx-auto max-w-6xl">
           <SectionHeading
             icon={Sparkles}
-            eyebrow="The last 10 nights"
-            title="Targeted nightly giving"
-            intro="Pick a cause and let it give automatically every night of the final ten."
+            eyebrow={tenNightsSection.eyebrow ?? "The last 10 nights"}
+            title={tenNightsSection.title ?? "Targeted nightly giving"}
+            intro={tenNightsSection.intro ?? "Pick a cause and let it give automatically every night of the final ten."}
           />
           <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
             {tenNights.map((d, i) => (
-              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} />
+              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} buttonLabel={tenNightsSection.cardButton ?? "Automate this gift"} />
             ))}
           </motion.div>
         </div>
@@ -290,13 +301,13 @@ const RamadanDonations = () => {
         <div className="mx-auto max-w-6xl">
           <SectionHeading
             icon={Heart}
-            eyebrow="Flexible daily sadaqah"
-            title="Set an amount, give every night"
-            intro="Choose a nightly amount and we'll direct it where it's needed most."
+            eyebrow={dailySection.eyebrow ?? "Flexible daily sadaqah"}
+            title={dailySection.title ?? "Set an amount, give every night"}
+            intro={dailySection.intro ?? "Choose a nightly amount and we'll direct it where it's needed most."}
           />
           <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
             {daily.map((d, i) => (
-              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} />
+              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} buttonLabel={dailySection.cardButton ?? "Automate this gift"} />
             ))}
           </motion.div>
         </div>
@@ -310,7 +321,7 @@ const RamadanDonations = () => {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.6 }}
-            className="overflow-hidden border border-gray-100 shadow-md"
+            className="overflow-hidden rounded-token border border-gray-100 shadow-md"
           >
             {/* Show a video only when the tenant has set one in the CMS;
                 otherwise show an image so it's never a broken embed. */}
@@ -334,7 +345,7 @@ const RamadanDonations = () => {
           >
             <SectionHeading
               icon={Moon}
-              eyebrow="Our Ramadan mission"
+              eyebrow={mission.eyebrow ?? "Our Ramadan mission"}
               title={mission.title || "Supporting local communities in Ramadan"}
             />
             <p className="-mt-6 leading-relaxed text-text-muted">
@@ -346,9 +357,9 @@ const RamadanDonations = () => {
                 addItem({ id: `ramadan-sadaqah-${Date.now()}`, title: "Ramadan Sadaqah", price: 50, donationType: "Sadaqah", image: "" });
                 toast.success("$50 Ramadan Sadaqah added to your cart");
               }}
-              className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+              className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
             >
-              Give a one-off Sadaqah <Heart className="h-4 w-4" />
+              {mission.buttonLabel ?? "Give a one-off Sadaqah"} <Heart className="h-4 w-4" />
             </button>
           </motion.div>
         </div>
@@ -356,14 +367,14 @@ const RamadanDonations = () => {
 
       {/* ── Zakat CTA band ───────────────────────────────────────────────── */}
       <CTABand
-        title="Don't forget your Zakat this Ramadan"
-        text="Calculate exactly what you owe in seconds and fulfil your obligation with confidence."
+        title={zakatCta.title ?? "Don't forget your Zakat this Ramadan"}
+        text={zakatCta.text ?? "Calculate exactly what you owe in seconds and fulfil your obligation with confidence."}
       >
         <button
           onClick={() => navigate("/zakat/calculator")}
-          className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light"
+          className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light"
         >
-          Use our Zakat calculator <Calculator className="h-4 w-4" />
+          {zakatCta.buttonLabel ?? "Use our Zakat calculator"} <Calculator className="h-4 w-4" />
         </button>
       </CTABand>
 

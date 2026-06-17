@@ -18,6 +18,13 @@ class ProfileService {
     return _profileCache;
   }
 
+  // Drop the cache so the next getProfile() hits the API again. Used on dev
+  // hot-reload so a fresh call repopulates state (no-op/stripped in production).
+  static clearCache() {
+    _profileCache = null;
+    _inFlight = null;
+  }
+
   static async getProfile({ force = false } = {}) {
     if (_profileCache && !force) return _profileCache;
     if (_inFlight && !force) return _inFlight;

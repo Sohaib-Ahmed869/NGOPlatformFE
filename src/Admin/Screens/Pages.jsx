@@ -21,6 +21,10 @@ import {
   Smartphone,
   ExternalLink,
   Pencil,
+  EyeOff,
+  Globe,
+  Clock,
+  RotateCcw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import siteService from "../../services/site.service";
@@ -29,6 +33,7 @@ import { RichTextEditor } from "../../components/RichTextEditor";
 import { useAdminUi } from "../../context/AdminUiContext";
 import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
+import { sectionIcon } from "../../config/sectionTypes";
 
 /* ── design tokens (shared with Branding / Settings / Profile) ── */
 const labelCls = "mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500";
@@ -180,6 +185,21 @@ function SchemaField({ field, basePath, content, setContent, pageKey }) {
       </div>
     );
   }
+  if (field.type === "select") {
+    return (
+      <div>
+        <label className={labelCls}>{field.label}</label>
+        <div className={lineWrap}>
+          <select value={value || ""} onChange={(e) => set(e.target.value)} className={`${lineInput} cursor-pointer`}>
+            {(field.options || []).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+        {field.help && <p className="mt-1.5 text-xs text-gray-400">{field.help}</p>}
+      </div>
+    );
+  }
   if (field.type === "list") {
     const items = Array.isArray(value) ? value : [];
     const blank = (field.itemFields || []).reduce((a, f) => ((a[f.name] = ""), a), {});
@@ -263,7 +283,7 @@ const PagePreview = React.memo(function PagePreview({ pageKey, path, content }) 
   const left = Math.max(0, (size.w - targetW * scale) / 2);
 
   return (
-    <div className="flex h-[560px] flex-col overflow-hidden rounded-xl border border-gray-100 bg-gray-100 shadow-sm dark:border-white/10 dark:bg-white/5 lg:h-[calc(100vh-8rem)]">
+    <div className="flex h-[560px] flex-col overflow-hidden rounded-token border border-gray-100 bg-gray-100 shadow-sm dark:border-white/10 dark:bg-white/5 lg:h-[calc(100vh-8rem)]">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 py-2 dark:border-white/10 dark:bg-[var(--admin-elevated)]">
         <span className="truncate text-[11px] text-gray-400">{path}</span>
         <div className="flex items-center gap-1">
@@ -291,11 +311,158 @@ const PagePreview = React.memo(function PagePreview({ pageKey, path, content }) 
   );
 });
 
+/* ── one section row in the builder (drag handle + archive + edit) ── */
+function SectionRow({ section, index, label, Icon, schema, expanded, onToggleExpand, onToggleArchive, onDelete, content, setContent, pageKey }) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item value={section.id} dragListener={false} dragControls={controls} as="div" className="border border-gray-200 bg-white">
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <button
+          type="button"
+          onPointerDown={(e) => controls.start(e)}
+          className="cursor-grab touch-none p-1 text-gray-300 transition-colors hover:text-gray-500 active:cursor-grabbing"
+          title="Drag to reorder"
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <span className={cn("grid h-8 w-8 shrink-0 place-items-center bg-accent/10 text-accent", section.archived && "opacity-40")}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <button type="button" onClick={onToggleExpand} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <span className={cn("truncate text-sm font-semibold", section.archived ? "text-gray-400 line-through" : "text-gray-800")}>{label}</span>
+          {section.archived && <span className="shrink-0 bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">Archived</span>}
+        </button>
+        <button type="button" onClick={onToggleArchive} title={section.archived ? "Unarchive (show on the page)" : "Archive (hide from the page)"} className="p-1.5 text-gray-400 transition-colors hover:text-accent">
+          {section.archived ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+        <button type="button" onClick={onDelete} title="Delete section" className="p-1.5 text-gray-400 transition-colors hover:text-red-500">
+          <Trash2 className="h-4 w-4" />
+        </button>
+        <button type="button" onClick={onToggleExpand} title={expanded ? "Collapse" : "Edit"} className="p-1.5 text-gray-400 transition-colors hover:text-accent">
+          <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
+        </button>
+      </div>
+      {expanded && (
+        <div className="space-y-5 border-t border-gray-100 bg-gray-50/40 p-4">
+          {(schema || []).length ? (
+            (schema || []).map((field) => (
+              <SchemaField key={field.name} field={field} basePath={`sections.${index}.data`} content={content} setContent={setContent} pageKey={pageKey} />
+            ))
+          ) : (
+            <p className="text-sm text-gray-400">This block has no editable fields.</p>
+          )}
+        </div>
+      )}
+    </Reorder.Item>
+  );
+}
+
+/* ── section (block) builder for section-based pages ── */
+function SectionBuilder({ content, setContent, pageKey }) {
+  const [catalog, setCatalog] = useState([]);
+  const [expanded, setExpanded] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    siteService.getSectionTypes().then(setCatalog).catch(() => {});
+  }, []);
+
+  const sections = Array.isArray(content.sections) ? content.sections : [];
+  const setSections = (next) => setContent({ ...content, sections: next });
+  const catMap = {};
+  catalog.forEach((c) => { catMap[c.type] = c; });
+
+  const addSection = (type) => {
+    const def = catMap[type];
+    const id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `sec-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    setSections([...sections, { id, type, archived: false, data: JSON.parse(JSON.stringify(def?.defaults || {})) }]);
+    setAddOpen(false);
+    setExpanded(id);
+  };
+
+  const reorder = (ids) => {
+    const byId = {};
+    sections.forEach((s) => { byId[s.id] = s; });
+    setSections(ids.map((id) => byId[id]).filter(Boolean));
+  };
+
+  return (
+    <div className="space-y-4">
+      <Reorder.Group axis="y" values={sections.map((s) => s.id)} onReorder={reorder} as="div" className="space-y-2">
+        {sections.map((s, i) => {
+          const def = catMap[s.type];
+          return (
+            <SectionRow
+              key={s.id}
+              section={s}
+              index={i}
+              label={def?.label || s.type}
+              Icon={sectionIcon(s.type)}
+              schema={def?.schema}
+              expanded={expanded === s.id}
+              onToggleExpand={() => setExpanded(expanded === s.id ? null : s.id)}
+              onToggleArchive={() => setSections(sections.map((x) => (x.id === s.id ? { ...x, archived: !x.archived } : x)))}
+              onDelete={() => { setSections(sections.filter((x) => x.id !== s.id)); if (expanded === s.id) setExpanded(null); }}
+              content={content}
+              setContent={setContent}
+              pageKey={pageKey}
+            />
+          );
+        })}
+      </Reorder.Group>
+
+      {sections.length === 0 && (
+        <p className="border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center text-sm text-gray-400">
+          No sections yet — add your first block below.
+        </p>
+      )}
+
+      {/* Add section */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setAddOpen((v) => !v)}
+          className="inline-flex w-full items-center justify-center gap-1.5 border border-dashed border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:border-accent hover:text-accent"
+        >
+          <Plus className="h-4 w-4" /> Add section
+        </button>
+        {addOpen && (
+          <div className="absolute z-20 mt-1.5 grid w-full grid-cols-2 gap-1 border border-gray-100 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-[var(--admin-elevated)] sm:grid-cols-3">
+            {catalog.map((c) => {
+              const Ic = sectionIcon(c.type);
+              return (
+                <button
+                  key={c.type}
+                  type="button"
+                  onClick={() => addSection(c.type)}
+                  className="flex items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-accent/10 hover:text-accent dark:text-gray-200"
+                >
+                  <Ic className="h-4 w-4 shrink-0" /> <span className="truncate">{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── full-page editor: editor (left) + live preview (right) ── */
 function PageEditorView({ page, onBack, onStatusChange, onRename, onSaved }) {
   const [content, setContent] = useState(page.content || {});
   const [navLabel, setNavLabel] = useState(page.navLabel || "");
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [unpublished, setUnpublished] = useState(!!page.hasUnpublishedChanges);
+  const [publishedAt, setPublishedAt] = useState(page.publishedAt || null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [revisions, setRevisions] = useState([]);
+  const [revLoading, setRevLoading] = useState(false);
 
   // Commit a name change (the navbar item label). Persists on its own so it
   // also works for plan-locked pages, whose content save button is hidden.
@@ -319,18 +486,77 @@ function PageEditorView({ page, onBack, onStatusChange, onRename, onSaved }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Save the working copy as a DRAFT (does not change the live site).
   const save = async () => {
     setSaving(true);
     try {
-      // The menu label saves on its own (on blur); the Save button persists
-      // the page's content, which is the plan-gated part.
       const res = await siteService.updatePage(page.key, { content });
-      toast.success("Page saved");
-      onSaved(res.data.page);
+      const updated = res.data.page;
+      onSaved(updated);
+      setUnpublished(updated?.hasUnpublishedChanges ?? true);
+      toast.success("Draft saved");
     } catch {
       toast.error("Save failed");
     } finally {
       setSaving(false);
+    }
+    return true;
+  };
+
+  // Save the current draft, then publish it → the changes go live.
+  const publish = async () => {
+    setPublishing(true);
+    try {
+      await siteService.updatePage(page.key, { content });
+      const data = await siteService.publishPage(page.key);
+      setUnpublished(false);
+      setPublishedAt(data.publishedAt || new Date().toISOString());
+      onSaved({ ...page, content, hasUnpublishedChanges: false, publishedAt: data.publishedAt });
+      toast.success("Published — your changes are now live");
+    } catch (e) {
+      toast.error(e.response?.data?.error || "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // Drop the unpublished draft and revert the editor to the live version.
+  const discard = async () => {
+    if (!window.confirm("Discard your unpublished changes and revert to the live version?")) return;
+    try {
+      const data = await siteService.discardDraft(page.key);
+      setContent(data.content || {});
+      setUnpublished(false);
+      onSaved({ ...page, content: data.content, hasUnpublishedChanges: false });
+      toast.success("Draft discarded");
+    } catch {
+      toast.error("Failed to discard draft");
+    }
+  };
+
+  const openHistory = async () => {
+    setShowHistory(true);
+    setRevLoading(true);
+    try {
+      setRevisions(await siteService.getRevisions(page.key));
+    } catch {
+      toast.error("Failed to load history");
+    } finally {
+      setRevLoading(false);
+    }
+  };
+
+  // Load a past published version into the draft (review, then Publish).
+  const restore = async (revId) => {
+    try {
+      const data = await siteService.restoreRevision(page.key, revId);
+      setContent(data.content || {});
+      setUnpublished(true);
+      setShowHistory(false);
+      onSaved({ ...page, content: data.content, hasUnpublishedChanges: true });
+      toast.success("Revision loaded into your draft — review and publish");
+    } catch {
+      toast.error("Failed to restore revision");
     }
   };
 
@@ -350,10 +576,34 @@ function PageEditorView({ page, onBack, onStatusChange, onRename, onSaved }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold text-primary">{page.navLabel}</h1>
+            {publishedAt && (
+              <p className="mt-0.5 text-xs text-text-muted">Last published {new Date(publishedAt).toLocaleString()}</p>
+            )}
           </div>
-          <button onClick={save} disabled={saving || page.locked} className="hidden items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50 sm:inline-flex">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save changes
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {unpublished ? (
+              <span className="inline-flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Unpublished changes
+              </span>
+            ) : publishedAt ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                <Check className="h-3.5 w-3.5" /> Live
+              </span>
+            ) : null}
+            <button onClick={openHistory} className="inline-flex items-center gap-1.5 border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-accent/50 hover:text-accent">
+              <Clock className="h-4 w-4" /> History
+            </button>
+            {!page.locked && (
+              <>
+                <button onClick={save} disabled={saving || publishing} className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save draft
+                </button>
+                <button onClick={publish} disabled={publishing || saving} className="inline-flex items-center gap-2 bg-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
+                  {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />} Publish
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -394,6 +644,18 @@ function PageEditorView({ page, onBack, onStatusChange, onRename, onSaved }) {
                 <Lock className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>Editing this page's content requires the <span className="font-semibold">{planLabel}</span> plan. You can still rename it and change its visibility.</p>
               </div>
+            ) : page.sectionBased ? (
+              <div className="space-y-8">
+                {page.hasFixedContent && (page.schema || []).length > 0 && (
+                  <div className="space-y-6 border-b border-gray-100 pb-8">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">Hero · fixed section</p>
+                    {(page.schema || []).map((field) => (
+                      <SchemaField key={field.name} field={field} basePath="" content={content} setContent={setContent} pageKey={page.key} />
+                    ))}
+                  </div>
+                )}
+                <SectionBuilder content={content} setContent={setContent} pageKey={page.key} />
+              </div>
             ) : hasContent ? (
               <div className="space-y-6">
                 {(page.schema || []).map((field) => (
@@ -415,13 +677,58 @@ function PageEditorView({ page, onBack, onStatusChange, onRename, onSaved }) {
         </div>
       </div>
 
-      {/* Sticky save bar */}
+      {/* Sticky action bar */}
       {!page.locked && (
-        <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]">
-          <button onClick={onBack} className="rounded-lg px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 dark:hover:bg-white/10">Cancel</button>
-          <button onClick={save} disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save changes
+        <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-token border border-gray-200 bg-white px-3 py-2.5 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]">
+          <button onClick={onBack} className="rounded-token-btn px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 dark:hover:bg-white/10">Close</button>
+          {unpublished && (
+            <button onClick={discard} className="inline-flex items-center gap-1.5 rounded-token-btn px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
+              <RotateCcw className="h-4 w-4" /> Discard
+            </button>
+          )}
+          <button onClick={save} disabled={saving || publishing} className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Save draft
           </button>
+          <button onClick={publish} disabled={publishing || saving} className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
+            {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />} Publish
+          </button>
+        </div>
+      )}
+
+      {/* Version history */}
+      {showHistory && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowHistory(false)} />
+          <div className="relative w-full max-w-lg border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <h3 className="inline-flex items-center gap-2 font-heading text-base font-bold text-primary">
+                <Clock className="h-4 w-4 text-accent" /> Version history
+              </h3>
+              <button onClick={() => setShowHistory(false)} className="p-1 text-gray-400 transition-colors hover:text-gray-600" aria-label="Close">
+                <span aria-hidden className="text-lg leading-none">×</span>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto">
+              {revLoading ? (
+                <div className="p-8 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-accent" /></div>
+              ) : revisions.length === 0 ? (
+                <p className="p-8 text-center text-sm text-text-muted">No previous versions yet — a version is saved each time you publish.</p>
+              ) : (
+                revisions.map((r) => (
+                  <div key={r._id} className="flex items-center justify-between gap-3 border-b border-gray-50 px-5 py-3 last:border-0 dark:border-white/5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{new Date(r.createdAt).toLocaleString()}</p>
+                      {r.note ? <p className="truncate text-xs text-text-muted">{r.note}</p> : null}
+                    </div>
+                    <button onClick={() => restore(r._id)} className="inline-flex shrink-0 items-center gap-1.5 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent">
+                      <RotateCcw className="h-3.5 w-3.5" /> Restore
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="border-t border-gray-100 px-5 py-2.5 text-[11px] text-text-muted">Restoring loads that version into your draft — review it, then Publish to go live.</p>
+          </div>
         </div>
       )}
     </motion.div>
@@ -626,8 +933,9 @@ export default function Pages() {
         onStatusChange={(opt) => setStatus(editingPage.key, opt)}
         onRename={(label) => setNavLabel(editingPage.key, label)}
         onSaved={(updated) => {
+          // Merge changes into the list cache but keep the editor open — the
+          // admin can save a draft and then publish without losing their place.
           setPages((prev) => prev.map((p) => (p.key === updated.key ? { ...p, ...updated } : p)));
-          setEditingKey(null);
         }}
       />
     );

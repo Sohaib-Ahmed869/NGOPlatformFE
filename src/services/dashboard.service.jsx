@@ -62,6 +62,12 @@ const dashboardService = {
               totalDonations: s.totalDonations || 0,
               monthlyTrend: s.monthlyTrend || [],
               recentDonations: s.recentDonations || [],
+              // enriched
+              uniqueDonors: s.uniqueDonors || 0,
+              completedDonations: s.completedDonations || 0,
+              statusBreakdown: s.statusBreakdown || {},
+              paymentMethods: s.paymentMethods || [],
+              topCauses: s.topCauses || [],
             },
             subscriptionStats: subscriptionStats.data.data.stats,
             topDonors: topDonors.data.topDonors,

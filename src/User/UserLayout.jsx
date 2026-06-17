@@ -1,13 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import UserSidebar from "./sidebar";
 import UserTopbar from "./UserTopbar";
+import { useAuth } from "../context/AuthContext";
+import ProfileService from "../services/profile.service";
 import { cn } from "../utils/cn";
 
 // Auth + temporary-password gating is handled by <ProtectedRoute> which wraps
 // this layout, so the shell just renders instantly — no loading screen.
 const UserLayout = () => {
+  const { user, setUser } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // The login / cached user may not carry the profile photo. Hydrate it once
+  // from the profile endpoint so the topbar (and any avatar reading
+  // user.profileImage) shows the real image instead of falling back to initials.
+  useEffect(() => {
+    if (!user || user.profileImage !== undefined) return;
+    let cancelled = false;
+    ProfileService.getProfile()
+      .then((p) => {
+        if (!cancelled && p) setUser((prev) => ({ ...prev, profileImage: p.profileImage || "" }));
+      })
+      .catch(() => {
+        if (!cancelled) setUser((prev) => ({ ...prev, profileImage: "" }));
+      });
+    return () => { cancelled = true; };
+  }, [user, setUser]);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("userSidebarCollapsed") === "1";

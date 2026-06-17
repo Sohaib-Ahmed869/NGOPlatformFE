@@ -806,7 +806,7 @@ export default function Programs() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
                     <th className="px-4 py-3">Program</th>
                     <th className="w-56 px-4 py-3">Progress</th>
                     <th className="px-4 py-3">Donors</th>

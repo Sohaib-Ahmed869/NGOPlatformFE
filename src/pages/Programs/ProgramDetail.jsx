@@ -126,7 +126,7 @@ export default function ProgramDetail() {
       <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
 
       {/* ── HERO — dark cover banner with parallax ────────────────────── */}
-      <div ref={heroRef} data-hero className="relative overflow-hidden py-32 lg:py-40">
+      <div ref={heroRef} data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-32 lg:py-40">
         {coverUrl ? (
           <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
             <img src={coverUrl} alt="" className="h-full w-full object-cover" />
@@ -241,7 +241,7 @@ export default function ProgramDetail() {
                     {[...program.followUpUpdates]
                       .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))
                       .map((update, i) => (
-                        <div key={i} className="border border-gray-100 border-l-2 border-l-accent bg-white p-4 shadow-sm">
+                        <div key={i} className="rounded-token border border-gray-100 border-l-2 border-l-accent bg-white p-4 shadow-sm">
                           <p className="text-sm leading-relaxed text-primary">{update.text}</p>
                           {update.images?.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -265,7 +265,7 @@ export default function ProgramDetail() {
             {/* Right — sticky donate card */}
             <motion.div {...reveal(0.1)} className="lg:col-span-2">
               <div className="lg:sticky lg:top-24">
-                <div className="relative overflow-hidden border border-gray-100 bg-white shadow-sm">
+                <div className="relative overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm">
                   {/* progress summary */}
                   <div className="border-b border-gray-100 p-6">
                     <div className="mb-2 flex items-end justify-between">
@@ -284,7 +284,7 @@ export default function ProgramDetail() {
                         { icon: Heart, value: `$${money(remaining)}`, label: "Remaining" },
                         { icon: Calendar, value: new Date(program.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short" }), label: "Started" },
                       ].map((s) => (
-                        <div key={s.label} className="border border-gray-100 p-2.5">
+                        <div key={s.label} className="rounded-token border border-gray-100 p-2.5">
                           <s.icon className="mx-auto mb-1 h-4 w-4 text-accent" />
                           <p className="text-sm font-semibold text-primary">{s.value}</p>
                           <p className="text-[10px] text-text-muted">{s.label}</p>
@@ -311,7 +311,7 @@ export default function ProgramDetail() {
                               transition={{ type: "spring", stiffness: 400, damping: 24 }}
                               onClick={() => { setDonateAmount(String(amt)); setCustomAmount(""); }}
                               className={cn(
-                                "border py-2.5 text-sm font-semibold transition-colors",
+                                "rounded-token-btn border py-2.5 text-sm font-semibold transition-colors",
                                 active ? "border-accent bg-accent text-white shadow-md shadow-accent/25" : "border-gray-200 bg-white text-primary hover:border-accent/50",
                               )}
                             >
@@ -321,7 +321,7 @@ export default function ProgramDetail() {
                         })}
                       </div>
 
-                      <div className="mb-5 flex items-center gap-2 border border-gray-200 px-3 transition-colors focus-within:border-accent">
+                      <div className="mb-5 flex items-center gap-2 rounded-token-input border border-gray-200 px-3 transition-colors focus-within:border-accent">
                         <span className="text-sm font-semibold text-gray-400">$</span>
                         <input
                           type="number"
@@ -338,7 +338,7 @@ export default function ProgramDetail() {
                         onClick={handleDonate}
                         whileHover={reduce ? {} : { scale: 1.01 }}
                         whileTap={reduce ? {} : { scale: 0.99 }}
-                        className="flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                        className="flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
                       >
                         <Heart className="h-4 w-4" /> Donate {activeAmount ? `$${activeAmount}` : "now"} <ArrowRight className="h-4 w-4" />
                       </motion.button>
@@ -356,7 +356,7 @@ export default function ProgramDetail() {
                         {program.status === "completed" ? "Program completed" : "Program unavailable"}
                       </p>
                       <p className="mt-1 text-xs text-text-muted">This program is no longer accepting donations. Thank you to everyone who gave.</p>
-                      <Link to="/programs" className="mt-5 inline-flex items-center gap-2 border border-gray-200 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
+                      <Link to="/programs" className="mt-5 inline-flex items-center gap-2 rounded-token-btn border border-gray-200 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
                         Explore other programs <ArrowRight className="h-4 w-4" />
                       </Link>
                     </div>

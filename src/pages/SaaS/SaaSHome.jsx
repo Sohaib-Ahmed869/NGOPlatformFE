@@ -7,16 +7,18 @@ import {
   BarChart3, LifeBuoy, Quote, HandHeart,
 } from "lucide-react";
 
-/* ── Emerald charity palette ── */
+/* ── Brand palette, driven by the platform design tokens (set in App.jsx
+   PLATFORM_VARS). Neutrals stay literal; brand hues resolve to the shared
+   --tenant-* vars so the whole page themes consistently. ── */
 const V = {
-  bg: "#F3F8F5", surface: "#FFFFFF", surface2: "#E7F2EC",
-  line: "rgba(6,40,30,.10)", line2: "rgba(6,40,30,.05)",
-  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "#047857", primary2: "#065F46",
-  accent: "#F59E0B", accentSoft: "#FEF3C7", accentGlow: "rgba(245,158,11,.22)",
+  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "#E7F2EC",
+  line: "rgba(var(--tenant-primary-rgb), .10)", line2: "rgba(var(--tenant-primary-rgb), .05)",
+  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)",
+  accent: "var(--pf-gold, #F59E0B)", accentSoft: "var(--pf-gold-soft, #FEF3C7)", accentGlow: "rgba(245,158,11,.22)",
   success: "#059669",
 };
-const font = "'Times New Roman', Tinos, Times, serif";
+const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 
 /* ── Animation helpers ── */
 const Reveal = ({ children, delay = 0, className = "", style = {} }) => {
@@ -64,19 +66,19 @@ const MagneticBtn = ({ children, className = "", style = {}, as: Tag = "a", ...p
 /* ── Injected CSS ── */
 const css = `
 .saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{
-  font-family:'Times New Roman',Tinos,Times,serif !important;
+  font-family:var(--font-heading,'Outfit',system-ui,sans-serif) !important;
 }
 @keyframes saas-float1{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes saas-float2{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}
 .saas-card{transition:transform .4s ease,border-color .4s ease,box-shadow .4s ease}
-.saas-card:hover{transform:translateY(-4px);border-color:rgba(4,120,87,.28);box-shadow:0 18px 40px -16px rgba(4,120,87,.22)}
+.saas-card:hover{transform:translateY(-4px);border-color:rgba(var(--tenant-accent-rgb),.28);box-shadow:0 18px 40px -16px rgba(var(--tenant-accent-rgb),.22)}
 .saas-btn-primary{position:relative;overflow:hidden}
 .saas-btn-primary::before{content:"";position:absolute;inset:0;
   background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 65%);
   transform:translateX(-120%);transition:transform 1s cubic-bezier(.2,.8,.2,1);pointer-events:none}
 .saas-btn-primary:hover::before{transform:translateX(120%)}
 .saas-step{transition:transform .4s ease,box-shadow .4s ease}
-.saas-step:hover{transform:translateY(-4px);box-shadow:0 18px 40px -16px rgba(4,120,87,.2)}
+.saas-step:hover{transform:translateY(-4px);box-shadow:0 18px 40px -16px rgba(var(--tenant-accent-rgb),.2)}
 .saas-faq summary::-webkit-details-marker{display:none}
 .saas-faq-plus{transition:transform .3s,background .3s,color .3s}
 details[open] .saas-faq-plus{transform:rotate(45deg);background:${V.primary};color:#fff;border-color:transparent}
@@ -162,9 +164,9 @@ export default function SaaSHome() {
       <style>{css}</style>
 
       {/* ══ HERO ══ */}
-      <section className="relative overflow-hidden" style={{ padding: "150px 0 90px" }}>
+      <section data-hero className="relative overflow-hidden" style={{ padding: "150px 0 90px" }}>
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute rounded-full" style={{ top: "-12%", left: "8%", width: 620, height: 620, filter: "blur(110px)", background: "radial-gradient(circle, rgba(4,120,87,.28), transparent 65%)" }} />
+          <div className="absolute rounded-full" style={{ top: "-12%", left: "8%", width: 620, height: 620, filter: "blur(110px)", background: "radial-gradient(circle, rgba(var(--tenant-accent-rgb),.28), transparent 65%)" }} />
           <div className="absolute rounded-full" style={{ top: "10%", right: "-8%", width: 520, height: 520, filter: "blur(110px)", background: "radial-gradient(circle, rgba(245,158,11,.22), transparent 65%)" }} />
         </div>
 
@@ -189,7 +191,7 @@ export default function SaaSHome() {
                 <div className="flex flex-wrap gap-3 mt-9">
                   <MagneticBtn as="link" to="/plans"
                     className="saas-btn-primary group inline-flex items-center gap-2.5 px-6 py-3.5 rounded-full text-[15px] font-semibold text-white"
-                    style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 14px 30px -10px rgba(4,120,87,.55)` }}>
+                    style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 14px 30px -10px rgba(var(--tenant-accent-rgb),.55)` }}>
                     Start your charity portal
                     <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
                   </MagneticBtn>
@@ -499,7 +501,7 @@ export default function SaaSHome() {
                 style={{
                   background: V.surface,
                   border: plan.popular ? `2px solid ${V.primary}` : `1px solid ${V.line}`,
-                  boxShadow: plan.popular ? "0 28px 60px -24px rgba(4,120,87,.4)" : "none",
+                  boxShadow: plan.popular ? "0 28px 60px -24px rgba(var(--tenant-accent-rgb),.4)" : "none",
                 }}>
                 {plan.popular && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-[11.5px] font-bold text-white"

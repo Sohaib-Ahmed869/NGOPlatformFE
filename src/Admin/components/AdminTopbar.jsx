@@ -107,7 +107,7 @@ function NotificationsBell() {
         <Bell className="h-5 w-5" />
       </button>
       {open ? (
-        <div className="absolute right-0 z-40 mt-2 w-72 overflow-hidden rounded-xl border border-gray-100 bg-white text-text-dark shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)] dark:text-white">
+        <div className="absolute right-0 z-40 mt-2 w-72 overflow-hidden rounded-token border border-gray-100 bg-white text-text-dark shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)] dark:text-white">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-white/10">
             <p className="text-sm font-semibold text-primary dark:text-white">Notifications</p>
           </div>
@@ -172,7 +172,7 @@ function UserMenu() {
         <ChevronDown className={cn('hidden h-4 w-4 shrink-0 text-white/40 transition-transform duration-200 sm:block', open && 'rotate-180')} />
       </button>
       {open ? (
-        <div className="absolute right-0 z-40 mt-2 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)]">
+        <div className="absolute right-0 z-40 mt-2 w-64 overflow-hidden rounded-token border border-gray-100 bg-white shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)]">
           <div className="border-b border-gray-100 px-4 py-3 dark:border-white/10">
             <p className="truncate text-sm font-semibold text-primary dark:text-white">{displayName}</p>
             <p className="truncate text-[12px] text-text-muted dark:text-white/55">{user?.email}</p>

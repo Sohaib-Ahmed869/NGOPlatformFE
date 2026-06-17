@@ -1,4 +1,4 @@
-import { Mail, Phone, MapPin, HeartHandshake, ArrowRight, ArrowUpRight } from "lucide-react";
+import { Mail, Phone, MapPin, HeartHandshake, ArrowRight, ArrowUpRight, LifeBuoy } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaXTwitter, FaLinkedinIn, FaWhatsapp } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
@@ -15,8 +15,9 @@ const SOCIAL_ICONS = {
 };
 
 const Footer = () => {
-  const { organisation, branding, pages, isPathEnabled } = useTenant();
+  const { organisation, branding, pages, isPathEnabled, design } = useTenant();
   const reduce = useReducedMotion();
+  const footerVariant = design?.variants?.footer || "classic";
 
   const orgName = organisation?.name || "";
   const year = new Date().getFullYear();
@@ -84,6 +85,94 @@ const Footer = () => {
         </div>
       )}
 
+      {footerVariant === "compact" ? (
+        <div className="relative mx-auto w-full max-w-screen-2xl px-6 py-10 lg:px-10">
+          <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
+            <div className="flex items-center gap-2.5">
+              {branding?.logo || branding?.logoDark ? (
+                <img src={branding.logo || branding.logoDark} alt={orgName} className="h-9 w-auto max-w-[170px] object-contain" />
+              ) : (
+                <span className="font-heading text-lg font-bold text-white">{orgName}</span>
+              )}
+            </div>
+            <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {navLinks.map((l) => (
+                <Link key={l.to} to={l.to} className="font-body text-sm text-white/60 transition-colors hover:text-accent">
+                  {l.label}
+                </Link>
+              ))}
+              <Link to="/support/new" className="font-body text-sm text-white/60 transition-colors hover:text-accent">
+                Support
+              </Link>
+            </nav>
+            {socialList.length > 0 && (
+              <div className="flex items-center gap-2.5">
+                {socialList.map((s) => {
+                  const Icon = SOCIAL_ICONS[s.key];
+                  return (
+                    <a
+                      key={s.key}
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={s.label}
+                      className="flex h-9 w-9 items-center justify-center border border-white/15 text-white/60 transition-all hover:border-accent hover:bg-accent hover:text-white"
+                    >
+                      {Icon ? <Icon className="h-4 w-4" /> : null}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="mt-6 border-t border-white/10 pt-5 text-center font-body text-xs tracking-wide text-white/30">
+            &copy; {year} {orgName || "All rights reserved"}{orgName ? ". All rights reserved." : ""}
+          </div>
+        </div>
+      ) : footerVariant === "centered" ? (
+        <div className="relative mx-auto w-full max-w-3xl px-6 py-12 text-center lg:px-10">
+          <div className="flex flex-col items-center gap-5">
+            {branding?.logo || branding?.logoDark ? (
+              <img src={branding.logo || branding.logoDark} alt={orgName} className="h-10 w-auto max-w-[190px] object-contain" />
+            ) : (
+              <span className="font-heading text-xl font-bold text-white">{orgName}</span>
+            )}
+            <p className="max-w-xl font-body text-sm leading-relaxed text-white/60">{description}</p>
+            <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {navLinks.map((l) => (
+                <Link key={l.to} to={l.to} className="font-body text-sm text-white/60 transition-colors hover:text-accent">
+                  {l.label}
+                </Link>
+              ))}
+              <Link to="/support/new" className="font-body text-sm text-white/60 transition-colors hover:text-accent">
+                Support
+              </Link>
+            </nav>
+            {socialList.length > 0 && (
+              <div className="flex items-center justify-center gap-2.5">
+                {socialList.map((s) => {
+                  const Icon = SOCIAL_ICONS[s.key];
+                  return (
+                    <a
+                      key={s.key}
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={s.label}
+                      className="flex h-10 w-10 items-center justify-center border border-white/15 text-white/60 transition-all hover:border-accent hover:bg-accent hover:text-white"
+                    >
+                      {Icon ? <Icon className="h-[18px] w-[18px]" /> : null}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="mt-8 border-t border-white/10 pt-6 font-body text-xs tracking-wide text-white/30">
+            &copy; {year} {orgName || "All rights reserved"}{orgName ? ". All rights reserved." : ""}
+          </div>
+        </div>
+      ) : (
       <div className="relative mx-auto w-full max-w-screen-2xl px-6 pt-12 pb-6 sm:pt-16 sm:pb-8 lg:px-10 xl:px-16">
         {/* Top CTA bar — only when donations are enabled */}
         {showDonate && (
@@ -182,6 +271,17 @@ const Footer = () => {
           <div className="lg:col-span-4">
             <h4 className="mb-4 font-body text-xs font-semibold uppercase tracking-[0.2em] text-accent">Contact</h4>
             <ul className="space-y-4">
+              <li>
+                <Link to="/support/new" className="group flex items-center gap-3 font-body text-sm">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">
+                    <LifeBuoy className="h-4 w-4" />
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[10px] uppercase tracking-wider text-white/30">Need help?</span>
+                    <span className="text-white/60 transition-colors group-hover:text-accent">Submit a support request</span>
+                  </span>
+                </Link>
+              </li>
               {organisation?.contactEmail && (
                 <li>
                   <a href={`mailto:${organisation.contactEmail}`} className="group flex items-center gap-3 font-body text-sm">
@@ -236,6 +336,7 @@ const Footer = () => {
           </p>
         </div>
       </div>
+      )}
     </footer>
   );
 };

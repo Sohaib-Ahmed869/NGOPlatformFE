@@ -26,6 +26,7 @@ import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
 import newsletterService from "../../services/newsletter.service";
 import NewsletterCampaigns from "./NewsletterCampaigns";
+import MailboxSettings from "./MailboxSettings";
 
 const PER_PAGE = 15;
 
@@ -424,7 +425,7 @@ const NewsletterSubscribersScreen = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                  <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3">Joined</th>
                     <th className="px-4 py-3">Status</th>
@@ -584,6 +585,7 @@ function Newsletter() {
   const tabs = [
     { id: "subscribers", label: "Subscribers", icon: Users },
     { id: "campaigns", label: "Campaigns", icon: Send },
+    { id: "mailboxes", label: "Mailboxes", icon: Plug },
   ];
   return (
     <div className="w-full">
@@ -609,6 +611,8 @@ function Newsletter() {
       </div>
       {tab === "campaigns" ? (
         <NewsletterCampaigns />
+      ) : tab === "mailboxes" ? (
+        <MailboxSettings />
       ) : (
         <NewsletterSubscribersScreen />
       )}

@@ -22,6 +22,12 @@ function darken(hex, ratio) {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
+/** Convert a hex color to an rgba() string at the given alpha. */
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`;
+}
+
 const Hero = () => {
   const { branding, organisation } = useTenant();
   const { content } = usePageContent("home");
@@ -39,6 +45,11 @@ const Hero = () => {
   const accentDark = darken(accent, 0.35);  // dark accent for gradient text
 
   const orgName = organisation?.name || "";
+
+  // Optional admin-uploaded background photo. When set it sits behind the
+  // gradient (which becomes a translucent themed scrim so the dark text stays
+  // legible); when blank the hero looks exactly as before.
+  const heroImage = hero.image || "";
 
   // Content with fallbacks to the original copy (zero visual change until edited)
   const badge = hero.badge ?? "Empowering communities worldwide";
@@ -87,11 +98,19 @@ const Hero = () => {
     <section className="relative flex flex-col overflow-hidden will-change-auto" style={{ minHeight: "100dvh" }}>
       {/* === BACKGROUND — derived from tenant theme === */}
 
-      {/* Base gradient from bg color */}
+      {/* Optional admin-uploaded photo at the very back */}
+      {heroImage && (
+        <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ transform: "translateZ(0)" }} />
+      )}
+
+      {/* Base gradient from bg color — fully opaque normally; a translucent
+          themed scrim when a photo is set so the photo shows through. */}
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(165deg, ${gradBase} 0%, ${gradMid} 35%, ${gradBase} 65%, ${gradDark} 100%)`,
+          background: heroImage
+            ? `linear-gradient(165deg, ${hexToRgba(gradBase, 0.86)} 0%, ${hexToRgba(gradMid, 0.7)} 35%, ${hexToRgba(gradBase, 0.82)} 65%, ${hexToRgba(gradDark, 0.9)} 100%)`
+            : `linear-gradient(165deg, ${gradBase} 0%, ${gradMid} 35%, ${gradBase} 65%, ${gradDark} 100%)`,
           transform: "translateZ(0)",
         }}
       />
@@ -165,6 +184,8 @@ const Hero = () => {
               style={{
                 color: primary,
                 border: `1px solid ${primary}20`,
+                borderWidth: "var(--border-width)",
+                borderRadius: "var(--radius-btn)",
                 background: "linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.25) 100%)",
               }}
             >
@@ -207,6 +228,7 @@ const Hero = () => {
               style={{
                 color: primary,
                 background: `linear-gradient(180deg, ${lighten(accent, 0.15)} 0%, ${accent} 100%)`,
+                borderRadius: "var(--radius-btn)",
                 boxShadow: `0 4px 24px ${accent}4D, inset 0 1px 0 rgba(255,255,255,0.25)`,
               }}
             >
@@ -220,6 +242,8 @@ const Hero = () => {
               style={{
                 color: primary,
                 border: `1px solid ${primary}33`,
+                borderWidth: "var(--border-width)",
+                borderRadius: "var(--radius-btn)",
                 background: "linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 100%)",
               }}
             >
@@ -241,6 +265,8 @@ const Hero = () => {
                 className="relative text-center p-5 overflow-hidden"
                 style={{
                   border: "1px solid rgba(255,255,255,0.5)",
+                  borderWidth: "var(--border-width)",
+                  borderRadius: "var(--radius-card)",
                   background: "linear-gradient(145deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.3) 100%)",
                   boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
                 }}

@@ -135,7 +135,7 @@ const StripeCardForm = ({ onPaymentMethodCreated }) => {
           type="button"
           onClick={processCard}
           disabled={isVerifying || isVerified}
-          className="mt-3 inline-flex items-center gap-2 bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+          className="mt-3 inline-flex items-center gap-2 rounded-token-btn bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
         >
           {isVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : isVerified ? <Check className="h-4 w-4" /> : null}
           {isVerifying ? "Verifying…" : isVerified ? "Card verified" : "Verify card"}
@@ -286,7 +286,7 @@ function ProgramCheckoutInner() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {/* ── HERO (data-hero so the navbar measures it, not the body) ──── */}
-      <div data-hero className="relative overflow-hidden py-20 lg:py-28">
+      <div data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-20 lg:py-28">
         {coverImg ? (
           <div className="absolute inset-0">
             <img src={coverImg} alt="" className="h-full w-full object-cover" />
@@ -326,7 +326,7 @@ function ProgramCheckoutInner() {
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="lg:col-span-2"
           >
-            <div className="border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+            <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
               {/* Step indicator */}
               <div className="mb-7 flex items-center gap-2 sm:gap-3">
                 {STEPS.map((s, i) => (
@@ -389,7 +389,7 @@ function ProgramCheckoutInner() {
 
                   <button
                     onClick={goToPayment}
-                    className="mt-8 flex w-full items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                    className="mt-8 flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
                   >
                     Continue to payment <ArrowRight className="h-5 w-5" />
                   </button>
@@ -424,7 +424,7 @@ function ProgramCheckoutInner() {
                           setStripePaymentMethod(null);
                         }}
                         className={cn(
-                          "flex h-20 flex-col items-center justify-center gap-2 border text-sm font-semibold transition-all",
+                          "flex h-20 flex-col items-center justify-center gap-2 rounded-token-btn border text-sm font-semibold transition-all",
                           selectedPayment === key ? "border-accent bg-accent/5 text-accent ring-1 ring-accent/30" : "border-gray-200 text-gray-600 hover:border-accent/40",
                         )}
                       >
@@ -441,7 +441,7 @@ function ProgramCheckoutInner() {
                   )}
 
                   {selectedPayment === "bank" && (
-                    <div className="mt-4 border border-gray-200 bg-gray-50/60 p-4 text-sm">
+                    <div className="mt-4 rounded-token border border-gray-200 bg-gray-50/60 p-4 text-sm">
                       <p className="font-semibold text-primary">Bank transfer details</p>
                       <div className="mt-2 grid grid-cols-2 gap-3">
                         <div>
@@ -468,7 +468,7 @@ function ProgramCheckoutInner() {
                   <button
                     onClick={handleSubmit}
                     disabled={submitDisabled}
-                    className="mt-8 flex w-full items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-8 flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className="h-5 w-5" />}
                     {selectedPayment === "bank" ? "Confirm donation" : `Donate ${money(total)}`}
@@ -489,7 +489,7 @@ function ProgramCheckoutInner() {
             className="lg:col-span-1"
           >
             <div className="lg:sticky lg:top-24">
-              <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+              <div className="overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm">
                 {coverImg && (
                   <div className="relative h-36 w-full">
                     <img src={coverImg} alt="" className="h-full w-full object-cover" />
@@ -513,7 +513,7 @@ function ProgramCheckoutInner() {
                           <p className="text-sm text-text-muted">Admin contribution</p>
                           <p className="text-[11px] text-gray-400">Keeps our 100% donation policy</p>
                         </div>
-                        <div className="inline-flex shrink-0 items-center border border-gray-200">
+                        <div className="inline-flex shrink-0 items-center rounded-token-btn border border-gray-200">
                           <button
                             type="button"
                             onClick={() => setAdminPct(Math.max(0, adminPct - 1))}

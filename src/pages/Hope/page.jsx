@@ -128,7 +128,7 @@ function TileGroup({ options, selected, onToggle, ariaLabel, columns = "grid-col
             whileTap={reduce ? undefined : { scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 24 }}
             className={cn(
-              "border px-3 py-2.5 text-left text-sm font-medium transition-colors duration-200",
+              "rounded-token-btn border px-3 py-2.5 text-left text-sm font-medium transition-colors duration-200",
               on
                 ? "border-accent bg-accent text-white shadow-md shadow-accent/25"
                 : "border-gray-200 bg-white text-gray-600 hover:border-accent/60 hover:text-primary hover:shadow-sm",
@@ -292,7 +292,10 @@ const Hope = () => {
     setTimeout(scrollToForm, 50);
   };
 
-  const WHY = [
+  // Static defaults for the "Why volunteer" cards. Icons stay fixed in code
+  // (not editable); only each card's title + text are CMS-editable, merged by
+  // index over these defaults via the `why` list.
+  const whyDefaults = [
     {
       icon: HeartHandshake,
       title: "Make a real impact",
@@ -309,6 +312,10 @@ const Hope = () => {
       text: `Join a team of people who care, here at ${orgName}.`,
     },
   ];
+  const WHY = (Array.isArray(content?.why) && content.why.length ? content.why : whyDefaults).map((w, i) => {
+    const d = whyDefaults[i] || whyDefaults[whyDefaults.length - 1];
+    return { icon: d.icon, title: w.title ?? d.title, text: w.text ?? d.text };
+  });
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
@@ -319,7 +326,7 @@ const Hope = () => {
       />
 
       {/* Hero — parallax background + scroll-reactive content */}
-      <div ref={heroRef} data-hero className="relative overflow-hidden py-36 lg:py-44">
+      <div ref={heroRef} data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-36 lg:py-44">
         <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
           <img
             src={hero.image ?? "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1600&q=80"}
@@ -337,14 +344,14 @@ const Hope = () => {
             </div>
           ) : (
             <AnimatePresence mode="wait">
-              <motion.div key={hero.title ?? "Team Hope"}>
+              <motion.div key={hero.title ?? "Volunteer"}>
                 <motion.h1
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
                   className="font-heading text-4xl font-bold text-[#F5EDE0] md:text-5xl lg:text-6xl"
                 >
-                  {hero.title ?? "Team Hope"}
+                  {hero.title ?? "Volunteer"}
                 </motion.h1>
                 <motion.p
                   initial={{ opacity: 0, y: 20 }}
@@ -364,9 +371,9 @@ const Hope = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             whileHover={{ y: -3 }}
-            className="mt-8 inline-flex items-center gap-2 bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light"
+            className="mt-8 inline-flex items-center gap-2 rounded-token-btn bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light"
           >
-            Apply to volunteer
+            {hero.ctaLabel ?? "Apply to volunteer"}
             <motion.span
               animate={reduce ? {} : { y: [0, 4, 0] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
@@ -381,9 +388,11 @@ const Hope = () => {
       <section className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
         <motion.div {...sectionReveal} className="mb-10 text-center">
           <span className="inline-flex items-center gap-1.5 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
-            <Sparkles className="h-3.5 w-3.5" /> Why volunteer
+            <Sparkles className="h-3.5 w-3.5" /> {content?.whyEyebrow ?? "Why volunteer"}
           </span>
-          <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Give a little, change a lot</h2>
+          <h2 className="mt-3 font-heading text-3xl font-bold text-primary">
+            {content?.whyHeading ?? "Give a little, change a lot"}
+          </h2>
         </motion.div>
         <div className="grid gap-5 sm:grid-cols-3">
           {WHY.map((w, i) => (
@@ -394,7 +403,7 @@ const Hope = () => {
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: i * 0.12 }}
               whileHover={reduce ? {} : { y: -6 }}
-              className="group relative overflow-hidden border border-gray-100 bg-white text-center shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+              className="group relative overflow-hidden rounded-token border-token border-gray-100 bg-white text-center shadow-token transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
             >
               <CardHoverGlow />
               <div className="relative p-6">
@@ -420,7 +429,7 @@ const Hope = () => {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="relative border border-gray-100 bg-white p-10 text-center shadow-sm"
+                className="relative rounded-token border-token border-gray-100 bg-white p-10 text-center shadow-token"
               >
                 <CardTopLine delay={0.15} />
                 <motion.span
@@ -439,7 +448,7 @@ const Hope = () => {
                 <button
                   type="button"
                   onClick={resetAndApplyAgain}
-                  className="mt-6 inline-flex items-center gap-2 border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent hover:text-accent"
+                  className="mt-6 inline-flex items-center gap-2 rounded-token-btn border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent hover:text-accent"
                 >
                   Submit another response
                 </button>
@@ -452,7 +461,7 @@ const Hope = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                className="relative border border-gray-100 bg-white p-6 shadow-sm sm:p-8 lg:p-10"
+                className="relative rounded-token border-token border-gray-100 bg-white p-6 shadow-token sm:p-8 lg:p-10"
               >
                 <CardTopLine delay={0.2} />
                 <div className="mb-8 text-center">
@@ -460,7 +469,7 @@ const Hope = () => {
                     {content?.formHeading ?? "Join our team"}
                   </h2>
                   <p className="mt-2 text-sm text-text-muted">
-                    Fill in the form below — it only takes a couple of minutes.
+                    {content?.formSubtitle ?? "Fill in the form below — it only takes a couple of minutes."}
                   </p>
                 </div>
 
@@ -655,7 +664,7 @@ const Hope = () => {
                     disabled={submitting}
                     whileHover={submitting || reduce ? {} : { scale: 1.01 }}
                     whileTap={submitting ? {} : { scale: 0.99 }}
-                    className="inline-flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-md transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-md transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {submitting ? (
                       <>

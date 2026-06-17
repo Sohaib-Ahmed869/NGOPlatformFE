@@ -31,6 +31,9 @@ const newsletterCampaignsService = {
 
   // Send a preview of the content to the signed-in admin.
   test: (data) => axiosInstance.post(`/newsletter-campaigns/test`, data).then((r) => r.data),
+
+  // Recipients that didn't get the campaign (failed / bounced / skipped).
+  failures: (id) => axiosInstance.get(`/newsletter-campaigns/${id}/failures`).then((r) => r.data),
 };
 
 export default newsletterCampaignsService;

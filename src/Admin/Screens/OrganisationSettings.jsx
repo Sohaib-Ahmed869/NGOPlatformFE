@@ -25,7 +25,6 @@ import {
   AlertCircle,
   Lock,
   ArrowRight,
-  Send,
   Wallet,
   CalendarDays,
 } from "lucide-react";
@@ -33,7 +32,6 @@ import { toast } from "react-hot-toast";
 import settingsService from "../../services/settings.service";
 import paymentService from "../../services/payment.service";
 import EmailSettings from "./EmailSettings";
-import MailchimpSettings from "./MailchimpSettings";
 import PaypalSettings from "./PaypalSettings";
 import EventSettings from "./EventSettings";
 import { useTenant } from "../../context/TenantContext";
@@ -54,6 +52,7 @@ const FIELD_KEYS = [
   ...ADDRESS_KEYS,
   ...SOCIAL_FORM_KEYS,
   "bankName", "bsb", "accountNumber", "accountName",
+  "isMuslimCharity",
 ];
 const pickForm = (f) => FIELD_KEYS.reduce((acc, k) => ({ ...acc, [k]: f[k] }), {});
 
@@ -78,6 +77,7 @@ function toForm(d = {}) {
     contactEmail: d.contactEmail || "",
     contactPhone: d.contactPhone || "",
     website: d.website || "",
+    isMuslimCharity: !!d.isMuslimCharity,
     addrLine1: a.line1 || d.address || "", // migrate legacy single-line into line 1
     addrLine2: a.line2 || "",
     addrCity: a.city || "",
@@ -99,7 +99,6 @@ const TABS = [
   { id: "paypal", label: "PayPal", desc: "PayPal donations", icon: Wallet },
   { id: "bank", label: "Bank Transfer", desc: "Donor bank details", icon: Landmark },
   { id: "email", label: "Email", desc: "Send from your own SMTP", icon: Mail },
-  { id: "mailchimp", label: "Mailchimp", desc: "Newsletter audience", icon: Send },
   { id: "events", label: "Events", desc: "Audience labels & colours", icon: CalendarDays },
 ];
 
@@ -320,6 +319,7 @@ export default function OrganisationSettings() {
           accountNumber: form.accountNumber,
           accountName: form.accountName,
         },
+        isMuslimCharity: !!form.isMuslimCharity,
       });
       savedRef.current = pickForm(form);
       toast.success("Settings saved");
@@ -558,6 +558,35 @@ export default function OrganisationSettings() {
                       {/* Contact info */}
                       {contactSub === "info" && (
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                          {/* Charity type — toggles the Islamic giving pages site-wide */}
+                          <div className="border border-gray-100 bg-gray-50/60 p-4 sm:col-span-2">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-primary">Muslim charity</p>
+                                <p className="mt-0.5 text-xs text-text-muted">
+                                  Turns on the Islamic giving pages — Ways to Give, Zakat Calculator and Ramadan —
+                                  across your navigation, footer and site search. Leave off for a general charity.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={!!form.isMuslimCharity}
+                                onClick={() => up("isMuslimCharity", !form.isMuslimCharity)}
+                                className={cn(
+                                  "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
+                                  form.isMuslimCharity ? "bg-accent" : "bg-gray-300",
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform",
+                                    form.isMuslimCharity ? "translate-x-5" : "translate-x-0.5",
+                                  )}
+                                />
+                              </button>
+                            </div>
+                          </div>
                           <Field icon={Mail} label="Email address" type="email" value={form.contactEmail} onChange={(e) => up("contactEmail", e.target.value)} placeholder="info@yourcharity.org" />
                           <div>
                             <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Phone number</label>
@@ -826,9 +855,6 @@ export default function OrganisationSettings() {
               {/* ── EMAIL (per-tenant SMTP) ── */}
               {activeTab === "email" && <EmailSettings />}
 
-              {/* ── MAILCHIMP (newsletter audience) ── */}
-              {activeTab === "mailchimp" && <MailchimpSettings />}
-
               {/* ── EVENTS (public calendar audiences) ── */}
               {activeTab === "events" && <EventSettings />}
             </motion.div>
@@ -844,7 +870,7 @@ export default function OrganisationSettings() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 26 }}
-            className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]"
+            className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-token border border-gray-200 bg-white px-4 py-3 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]"
           >
             <span className="flex items-center gap-2 text-sm font-medium text-primary dark:text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />

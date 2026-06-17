@@ -1,24 +1,18 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { CreditCard, Building2, AlertTriangle, TrendingUp, DollarSign } from "lucide-react";
+import { CreditCard, Building2, AlertTriangle, DollarSign } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import SAPageHeader from "../components/SAPageHeader";
 import SALoader from "../SALoader";
 
-const V = {
-  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
-  surface: "#FFFFFF", surface2: "#E7F2EC", bg: "#F3F8F5",
-  line: "rgba(6,40,30,.08)",
-};
-const mono = "'JetBrains Mono', monospace";
-
 const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.5, delay: i * 0.06, ease: [0.2, 0.7, 0.2, 1] } }),
+  hidden: { opacity: 0, y: 18 },
+  visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.45, delay: i * 0.05, ease: [0.2, 0.7, 0.2, 1] } }),
 };
-const stagger = { visible: { transition: { staggerChildren: 0.06 } } };
+const stagger = { visible: { transition: { staggerChildren: 0.05 } } };
 
-const planColors = { basic: "#0891B2", professional: "#047857", enterprise: "#F59E0B" };
+const card = "rounded-xl border border-gray-100 bg-white shadow-sm";
+const planColors = { basic: "#06b6d4", professional: "#10b981", enterprise: "#f59e0b" };
 
 export default function Billing() {
   const [stats, setStats] = useState(null);
@@ -26,132 +20,127 @@ export default function Billing() {
 
   useEffect(() => {
     (async () => {
-      try { const res = await superadminService.getBillingStats(); setStats(res.data); }
-      catch (err) { console.error("Failed to fetch billing stats:", err); }
-      finally { setLoading(false); }
+      try {
+        const res = await superadminService.getBillingStats();
+        setStats(res.data);
+      } catch (err) {
+        console.error("Failed to fetch billing stats:", err);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
   if (loading) return <SALoader />;
 
-  const basic = stats?.byPlan?.basic || 0;
-  const pro = stats?.byPlan?.professional || 0;
-  const ent = stats?.byPlan?.enterprise || 0;
-  const mrr = basic * 200 + pro * 500 + ent * 1000;
+  // Dynamic plan breakdown (falls back to the legacy tiers pre-seed).
+  const planRowsRaw = stats?.plans?.length
+    ? stats.plans
+    : [
+        { code: "basic", name: "Basic", count: stats?.byPlan?.basic || 0, monthly: 200, color: planColors.basic },
+        { code: "professional", name: "Professional", count: stats?.byPlan?.professional || 0, monthly: 500, color: planColors.professional },
+        { code: "enterprise", name: "Enterprise", count: stats?.byPlan?.enterprise || 0, monthly: 1000, color: planColors.enterprise },
+      ];
+  const mrr = stats?.mrr ?? planRowsRaw.reduce((s, p) => s + (p.count || 0) * (p.monthly || 0), 0);
 
   const statCards = [
-    { title: "Active Subscriptions", value: stats?.activeSubscriptions || 0, icon: CreditCard, color: "#059669", bg: "rgba(5,150,105,.08)" },
-    { title: "Total Organisations", value: stats?.totalOrganisations || 0, icon: Building2, color: V.primary, bg: `${V.primary}08` },
-    { title: "Monthly Revenue", value: `$${mrr.toLocaleString()}`, icon: DollarSign, color: "#0891B2", bg: "rgba(8,145,178,.08)" },
-    { title: "Failed Payments", value: stats?.failedPayments || 0, icon: AlertTriangle, color: "#DC2626", bg: "rgba(220,38,38,.08)" },
+    { title: "Active Subscriptions", value: stats?.activeSubscriptions || 0, icon: CreditCard, color: "#10b981" },
+    { title: "Total Organisations", value: stats?.totalOrganisations || 0, icon: Building2, color: "#6366f1" },
+    { title: "Monthly Revenue", value: `$${mrr.toLocaleString()}`, icon: DollarSign, color: "#06b6d4" },
+    { title: "Failed Payments", value: stats?.failedPayments || 0, icon: AlertTriangle, color: (stats?.failedPayments || 0) > 0 ? "#ef4444" : "#10b981" },
   ];
 
-  const planData = [
-    { plan: "basic", label: "Basic", price: 200, count: basic, color: planColors.basic },
-    { plan: "professional", label: "Professional", price: 500, count: pro, color: planColors.professional },
-    { plan: "enterprise", label: "Enterprise", price: 1000, count: ent, color: planColors.enterprise },
-  ];
+  const planData = planRowsRaw.map((p) => ({
+    plan: p.code,
+    label: p.name,
+    price: p.monthly || 0,
+    count: p.count || 0,
+    color: p.color || "#10b981",
+  }));
   const totalSubs = stats?.activeSubscriptions || 1;
 
   return (
     <motion.div initial="hidden" animate="visible" variants={stagger}>
-      <motion.div variants={fadeUp} className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-medium" style={{ color: V.ink }}>Billing Overview</h1>
-          <p className="text-sm mt-1" style={{ color: V.inkFaint }}>Subscription revenue and payment health</p>
-        </div>
-      </motion.div>
+      <SAPageHeader eyebrow="Revenue" title="Billing Overview" subtitle="Subscription revenue and payment health across the platform." />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((card, i) => (
-          <motion.div key={card.title} variants={fadeUp} custom={i}
-            whileHover={{ y: -3, transition: { duration: 0.2 } }}
-            className="rounded-xl p-5 relative overflow-hidden"
-            style={{
-              background: `linear-gradient(135deg, rgba(255,255,255,.7), rgba(255,255,255,.4))`,
-              backdropFilter: "blur(20px) saturate(140%)",
-              border: `1px solid ${V.line}`,
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,.9), 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -8px rgba(15,23,42,.06)`,
-            }}>
-            <div className="absolute top-0 right-0 w-20 h-20 rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none"
-              style={{ background: `radial-gradient(circle, ${card.color}15, transparent 70%)` }} />
-            <div className="flex items-center gap-3 mb-3 relative">
-              <div className="w-10 h-10 rounded-xl grid place-items-center"
-                style={{ background: card.bg, border: `1px solid ${card.color}20` }}>
-                <card.icon className="w-5 h-5" style={{ color: card.color }} />
-              </div>
-              <span className="text-[11px] tracking-[.06em] uppercase" style={{ fontFamily: mono, color: V.inkFaint }}>{card.title}</span>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((c, i) => (
+          <motion.div
+            key={c.title}
+            variants={fadeUp}
+            custom={i}
+            className={`${card} p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5`}
+          >
+            <div className="mb-3 flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: `${c.color}14`, color: c.color }}>
+                <c.icon className="h-5 w-5" />
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-gray-400">{c.title}</span>
             </div>
-            <p className="text-[28px] font-medium tracking-tight leading-none relative" style={{ color: V.ink }}>{card.value}</p>
+            <p className="text-[26px] font-bold leading-none text-gray-900">{c.value}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Plan distribution */}
-      <motion.div variants={fadeUp} custom={5} className="rounded-xl p-6 mb-8"
-        style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
-        <h2 className="text-sm font-semibold mb-5" style={{ color: V.ink }}>Subscriptions by Plan</h2>
+      <motion.div variants={fadeUp} custom={5} className={`${card} mb-6 p-6`}>
+        <h2 className="mb-5 text-sm font-semibold text-gray-900">Subscriptions by Plan</h2>
         <div className="space-y-4">
           {planData.map((p, i) => {
             const pct = Math.round((p.count / totalSubs) * 100) || 0;
             return (
-              <motion.div key={p.plan}
-                initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + i * 0.1, duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }}>
-                <div className="flex justify-between text-sm mb-1.5">
+              <div key={p.plan}>
+                <div className="mb-1.5 flex justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} />
-                    <span className="capitalize font-medium" style={{ color: V.ink }}>{p.label}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ fontFamily: mono, color: p.color, background: `${p.color}10` }}>
-                      ${p.price}/mo
-                    </span>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
+                    <span className="font-medium capitalize text-gray-800">{p.label}</span>
+                    <span className="rounded px-1.5 py-0.5 font-mono text-[10px]" style={{ color: p.color, background: `${p.color}14` }}>${p.price}/mo</span>
                   </div>
-                  <span className="text-xs" style={{ fontFamily: mono, color: V.inkFaint }}>{p.count} ({pct}%)</span>
+                  <span className="font-mono text-xs text-gray-400">{p.count} ({pct}%)</span>
                 </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: V.surface2 }}>
-                  <motion.div className="h-full rounded-full"
-                    style={{ background: `linear-gradient(90deg, ${p.color}, ${p.color}cc)`, boxShadow: `0 0 8px ${p.color}30` }}
-                    initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                    transition={{ delay: 0.6 + i * 0.1, duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }} />
+                <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: p.color }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ delay: 0.4 + i * 0.1, duration: 0.8, ease: [0.2, 0.7, 0.2, 1] }}
+                  />
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
       </motion.div>
 
       {/* Recent signups */}
-      <motion.div variants={fadeUp} custom={6} className="rounded-xl p-6"
-        style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
-        <h2 className="text-sm font-semibold mb-5" style={{ color: V.ink }}>Recent Signups</h2>
+      <motion.div variants={fadeUp} custom={6} className={`${card} p-6`}>
+        <h2 className="mb-4 text-sm font-semibold text-gray-900">Recent Signups</h2>
         {stats?.recentSignups?.length > 0 ? (
           <div className="space-y-1">
-            {stats.recentSignups.map((org, i) => (
-              <motion.div key={org._id}
-                className="flex items-center justify-between py-3 px-3 rounded-lg transition-colors hover:bg-[#E7F2EC]/50"
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + i * 0.05 }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg grid place-items-center"
-                    style={{ background: `${planColors[org.plan] || V.primary}12`, border: `1px solid ${planColors[org.plan] || V.primary}20` }}>
-                    <span className="text-xs font-bold uppercase" style={{ color: planColors[org.plan] || V.primary }}>{org.name?.charAt(0)}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: V.ink }}>{org.name}</p>
-                    <p className="text-[11px]" style={{ fontFamily: mono, color: V.inkFaint }}>{org.slug}</p>
+            {stats.recentSignups.map((org) => (
+              <div key={org._id} className="flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-gray-50">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-bold uppercase" style={{ background: `${planColors[org.plan] || "#10b981"}14`, color: planColors[org.plan] || "#10b981" }}>
+                    {org.name?.charAt(0)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">{org.name}</p>
+                    <p className="truncate font-mono text-[11px] text-gray-400">{org.slug}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize"
-                    style={{ background: `${planColors[org.plan] || V.primary}10`, color: planColors[org.plan] || V.primary }}>{org.plan}</span>
-                  <span className="text-[10px]" style={{ fontFamily: mono, color: V.inkFaint }}>{new Date(org.createdAt).toLocaleDateString()}</span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize" style={{ background: `${planColors[org.plan] || "#10b981"}14`, color: planColors[org.plan] || "#10b981" }}>
+                    {org.plan}
+                  </span>
+                  <span className="font-mono text-[10px] text-gray-400">{new Date(org.createdAt).toLocaleDateString()}</span>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm py-8 text-center" style={{ color: V.inkFaint }}>No signups yet</p>
+          <p className="py-8 text-center text-sm text-gray-400">No signups yet</p>
         )}
       </motion.div>
     </motion.div>

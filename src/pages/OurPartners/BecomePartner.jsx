@@ -58,6 +58,7 @@ export default function BecomePartner() {
   const [sent, setSent] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState("");
+  const [consent, setConsent] = useState(false);
   const fileRef = useRef(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -91,6 +92,7 @@ export default function BecomePartner() {
       fd.append("website", form.website.trim());
       fd.append("partnershipType", form.partnershipType);
       fd.append("message", form.message.trim());
+      fd.append("consentToList", consent ? "true" : "false");
       if (logoFile) fd.append("logo", logoFile);
       await partnersService.apply(fd);
       setSent(true);
@@ -283,6 +285,21 @@ export default function BecomePartner() {
                       <label className="mb-1 block text-sm font-medium text-gray-700">How would you like to work together?</label>
                       <textarea rows={5} value={form.message} disabled={busy} onChange={(e) => set("message", e.target.value)} placeholder="Tell us about your organisation and how you'd like to partner…" className={cn(baseInput, "resize-none")} />
                     </div>
+
+                    {/* Optional consent — lets us list you publicly if you partner with us */}
+                    <label className="flex cursor-pointer items-start gap-3 border border-gray-100 bg-gray-50/60 p-3.5 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={consent}
+                        disabled={busy}
+                        onChange={(e) => setConsent(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--tenant-accent,#C9A84C)]"
+                      />
+                      <span>
+                        I'm authorised to share our logo and consent to {orgName} listing us as a partner on their website.
+                        <span className="mt-0.5 block text-xs text-text-muted">Optional — we'll only ever list you with your go-ahead.</span>
+                      </span>
+                    </label>
 
                     <button
                       type="submit"

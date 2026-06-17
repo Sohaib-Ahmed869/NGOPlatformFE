@@ -15,6 +15,7 @@ import DonationService from "../../services/donation.service.jsx";
 import GoFundMeService from "../../services/goFundMeService";
 import publicEventsService from "../../services/publicEvents.service";
 import { useAuth } from "../../context/AuthContext";
+import usePageContent from "../../hooks/usePageContent";
 import { cn } from "../../utils/cn";
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
@@ -26,6 +27,18 @@ const moneyShort = (n) => {
   return `$${Math.round(v)}`;
 };
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—");
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const getInitials = (name) => {
+  if (!name) return "U";
+  const p = name.trim().split(/\s+/);
+  return ((p[0]?.[0] || "") + (p[1]?.[0] || "")).toUpperCase() || "U";
+};
+const resolveAvatar = (path) => {
+  if (!path || path.includes("/api/placeholder")) return "";
+  if (/^https?:\/\//i.test(path) || path.startsWith("data:")) return path;
+  return `${API_BASE}/${String(path).replace(/\\/g, "/").replace(/^\/+/, "")}`;
+};
 
 const getThemeColor = (varName, fallback) => {
   if (typeof window === "undefined") return fallback;
@@ -235,6 +248,9 @@ let _dashCache = null;
 
 const UserDashboard = () => {
   const { user } = useAuth();
+  // Reuse the tenant's home-hero background image (cached/prefetched on tenant
+  // load) behind the dashboard header — no separate setting to maintain.
+  const { content: homeContent } = usePageContent("home");
   const cached = _dashCache;
   const [orders, setOrders] = useState(cached?.orders || DonationService.getCachedUserDonations()?.orders || []);
   const [campaignDonations, setCampaignDonations] = useState(cached?.campaignDonations || []);
@@ -381,6 +397,9 @@ const UserDashboard = () => {
   }
 
   const firstName = (user?.name || "").trim().split(/\s+/)[0] || "there";
+  const displayName = (user?.name || "").trim() || user?.email?.split("@")[0] || "Member";
+  const avatar = resolveAvatar(user?.profileImage);
+  const heroImage = homeContent?.hero?.image || "";
   const channelSegments = [
     { name: "Donations", value: d.donationPaid, color: CH_COLORS.donation },
     { name: "Fundraisers", value: d.campaignPaid, color: CH_COLORS.campaign },
@@ -401,13 +420,35 @@ const UserDashboard = () => {
       {/* Hero */}
       <motion.div variants={fadeUp} custom={0}>
         <Card className="overflow-hidden">
-          <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Welcome back</p>
-              <h1 className="mt-1 font-heading text-2xl font-bold text-white">Hi {firstName}, your impact so far</h1>
-              <p className="mt-1 text-sm text-white/80">Donations, fundraisers, events and programs — all in one place.</p>
+          <div
+            className="relative flex flex-wrap items-start justify-between gap-4 overflow-hidden px-6 py-7 sm:px-8"
+            style={heroImage ? undefined : { background: HEADER_GRADIENT }}
+          >
+            {heroImage && (
+              <>
+                <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                {/* Brand gradient kept as a translucent overlay so white text stays legible */}
+                <div className="absolute inset-0" style={{ background: HEADER_GRADIENT, opacity: 0.85 }} />
+              </>
+            )}
+            <div className="relative z-10 flex min-w-0 items-center gap-4">
+              {avatar ? (
+                <img src={avatar} alt={displayName} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white/40" />
+              ) : (
+                <span
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white ring-2 ring-white/40"
+                  style={{ background: "linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))" }}
+                >
+                  {getInitials(displayName)}
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Welcome back</p>
+                <h1 className="mt-1 font-heading text-2xl font-bold text-white">Hi {firstName}, your impact so far</h1>
+                <p className="mt-1 text-sm text-white/80">Donations, fundraisers, events and programs — all in one place.</p>
+              </div>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2">
+            <div className="relative z-10 flex shrink-0 flex-wrap gap-2">
               <Link to="/donate" className="inline-flex items-center gap-1.5 bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm transition-transform hover:-translate-y-0.5">
                 <Heart className="h-4 w-4" /> Donate
               </Link>

@@ -329,7 +329,7 @@ export default function EventPayments() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                      <tr className="bg-accent/5 border-b border-accent/10 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
                         <th className="px-4 py-3">Registrant</th>
                         <th className="px-4 py-3">Event</th>
                         <th className="px-4 py-3">Amount</th>

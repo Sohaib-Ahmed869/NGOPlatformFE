@@ -50,7 +50,7 @@ const HERO_FALLBACK_BG =
   "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-primary-light, #4A3C2A))";
 
 const inputCls =
-  "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-primary outline-none transition-all placeholder:text-gray-400 focus:border-accent focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:bg-gray-50";
+  "w-full rounded-token-input border border-gray-200 bg-white px-4 py-3 text-sm text-primary outline-none transition-all placeholder:text-gray-400 focus:border-accent focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:bg-gray-50";
 
 // Small eyebrow chip used to label each form block (matches EventDetail).
 function Eyebrow({ icon: Icon, children }) {
@@ -127,7 +127,7 @@ function QuestionField({ q, value, onChange, disabled }) {
             <label
               key={o}
               className={cn(
-                "flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+                "flex cursor-pointer items-center gap-2.5 rounded-token-btn border px-3 py-2.5 text-sm transition-colors",
                 picked.includes(o)
                   ? "border-accent bg-accent/5 text-primary"
                   : "border-gray-200 text-text-muted hover:border-accent/40",
@@ -193,7 +193,7 @@ function StripeCardStep({ eventId, total, currency, onDone }) {
       <button
         onClick={pay}
         disabled={paying || !stripe}
-        className="flex w-full items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
       >
         {paying ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
         Pay ${total.toFixed(2)} {currency} &amp; confirm
@@ -422,7 +422,7 @@ export default function EventRegister() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       {done && <Celebration />}
       {/* ── HERO ─────────────────────────────────────────────────────── */}
-      <div data-hero className="relative overflow-hidden py-20 lg:py-28">
+      <div data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-20 lg:py-28">
         {coverUrl ? (
           <div className="absolute inset-0">
             <img
@@ -503,7 +503,7 @@ export default function EventRegister() {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="lg:col-span-2"
                 >
-                  <div className="border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+                  <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
                     {/* Step indicator */}
                     {steps.length > 1 && (
                       <div className="mb-7 flex items-center gap-2 sm:gap-3">
@@ -569,7 +569,7 @@ export default function EventRegister() {
                               <label className="mb-1.5 block text-sm font-semibold text-primary">
                                 Bringing guests? <span className="font-normal text-text-muted">(up to {maxGuests})</span>
                               </label>
-                              <div className="inline-flex items-center gap-2 border border-gray-200 p-1.5">
+                              <div className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 p-1.5">
                                 <button
                                   type="button"
                                   disabled={locked || form.numberOfGuests <= 0}
@@ -643,7 +643,7 @@ export default function EventRegister() {
                               type="button"
                               onClick={goBack}
                               disabled={busy}
-                              className="inline-flex items-center gap-2 border border-gray-200 bg-white px-5 py-4 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
+                              className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 bg-white px-5 py-4 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
                             >
                               <ArrowLeft className="h-4 w-4" /> Back
                             </button>
@@ -652,7 +652,7 @@ export default function EventRegister() {
                             type="button"
                             onClick={goNext}
                             disabled={busy}
-                            className="flex flex-1 items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
+                            className="flex flex-1 items-center justify-center gap-2 rounded-token-btn bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
                           >
                             {busy ? (
                               <Loader2 className="h-5 w-5 animate-spin" />
@@ -690,7 +690,7 @@ export default function EventRegister() {
                   className="lg:col-span-1"
                 >
                   <div className="lg:sticky lg:top-24">
-                    <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+                    <div className="overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm">
                       {coverUrl && (
                         <div className="relative h-36 w-full">
                           <img
@@ -814,7 +814,7 @@ function SuccessPanel({ event, total, currency, paid, guests, receiptUrl, naviga
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-xl border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
+      className="mx-auto max-w-xl rounded-token border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
     >
       <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-emerald-50">
         <CheckCircle2 className="h-8 w-8 text-emerald-600" />
@@ -845,13 +845,13 @@ function SuccessPanel({ event, total, currency, paid, guests, receiptUrl, naviga
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <button
           onClick={() => navigate(`/events/${id}`, { state: { event } })}
-          className="bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+          className="rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
         >
           Back to event
         </button>
         <Link
           to="/events"
-          className="border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+          className="rounded-token-btn border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
         >
           Browse more events
         </Link>
@@ -879,7 +879,7 @@ function StatusPanel({ icon: Icon, tone, title, msg, id, event, navigate }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-xl border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
+      className="mx-auto max-w-xl rounded-token border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
     >
       <div className={cn("mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full", toneCls)}>
         <Icon className="h-8 w-8" />
@@ -889,13 +889,13 @@ function StatusPanel({ icon: Icon, tone, title, msg, id, event, navigate }) {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <button
           onClick={() => navigate(`/events/${id}`, { state: { event } })}
-          className="bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+          className="rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
         >
           Back to event
         </button>
         <Link
           to="/events"
-          className="border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+          className="rounded-token-btn border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
         >
           All events
         </Link>

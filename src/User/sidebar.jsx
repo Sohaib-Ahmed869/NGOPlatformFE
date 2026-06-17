@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Heart, Target, CreditCard, Clock, User, Wallet, Receipt, Megaphone, LogOut } from "lucide-react";
+import { LayoutDashboard, Heart, Target, CreditCard, Clock, User, Wallet, Receipt, Megaphone, LifeBuoy, LogOut } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import { useTenant } from "../context/TenantContext";
@@ -21,6 +21,7 @@ const NAV = [
       { label: "My Payments", path: "/user/payments", icon: Receipt },
       { label: "My Programs", path: "/user/programs", icon: Target },
       { label: "My Fundraisers", path: "/user/fundraisers", icon: Megaphone },
+      { label: "Support", path: "/user/support", icon: LifeBuoy },
     ],
   },
   {

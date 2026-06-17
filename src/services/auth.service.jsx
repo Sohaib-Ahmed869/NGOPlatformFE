@@ -5,6 +5,12 @@ function prefixKey(key) {
   return getStoragePrefix() + key;
 }
 
+// Session-scoped cache for the user's 2FA status + in-flight de-dupe, so the
+// Settings screen reads it at most once per page load instead of on every mount.
+// Enable/disable keep it in sync, and logout clears it.
+let _mfaStatusCache = null; // { enabled } | null
+let _mfaStatusInFlight = null;
+
 export default {
   async register(userData) {
     try {
@@ -71,6 +77,8 @@ export default {
     localStorage.removeItem(prefixKey("token"));
     localStorage.removeItem(prefixKey("user"));
     localStorage.removeItem(prefixKey("passwordChangeRequired"));
+    _mfaStatusCache = null;
+    _mfaStatusInFlight = null;
   },
 
   getCurrentUser() {
@@ -81,6 +89,48 @@ export default {
 
   async instagramFeed() {
     const response = await axios.get(`/users/instagram-feed`, {});
+    return response.data;
+  },
+
+  // ── Two-factor authentication ──
+  // Synchronous peek at the cached 2FA status (null until first load).
+  getCachedMfaStatus() {
+    return _mfaStatusCache;
+  },
+  // Drop the cached 2FA status so the next mfaStatus() hits the API again. Used
+  // on dev hot-reload so a fresh call repopulates state (stripped in production).
+  clearMfaStatusCache() {
+    _mfaStatusCache = null;
+    _mfaStatusInFlight = null;
+  },
+  async mfaStatus({ force = false } = {}) {
+    if (_mfaStatusCache && !force) return _mfaStatusCache;
+    if (_mfaStatusInFlight && !force) return _mfaStatusInFlight;
+    _mfaStatusInFlight = axios
+      .get("/users/mfa/status")
+      .then((response) => {
+        _mfaStatusCache = response.data;
+        _mfaStatusInFlight = null;
+        return _mfaStatusCache;
+      })
+      .catch((error) => {
+        _mfaStatusInFlight = null;
+        throw error;
+      });
+    return _mfaStatusInFlight;
+  },
+  async mfaSetup() {
+    const response = await axios.get("/users/mfa/setup");
+    return response.data;
+  },
+  async mfaEnable(code) {
+    const response = await axios.post("/users/mfa/enable", { code });
+    _mfaStatusCache = { ...(_mfaStatusCache || {}), enabled: true }; // keep cache in sync
+    return response.data;
+  },
+  async mfaDisable(code) {
+    const response = await axios.post("/users/mfa/disable", { code });
+    _mfaStatusCache = { ...(_mfaStatusCache || {}), enabled: false }; // keep cache in sync
     return response.data;
   },
 

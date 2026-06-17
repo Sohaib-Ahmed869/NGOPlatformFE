@@ -1,765 +1,650 @@
-import React, { useState, useEffect, useRef } from "react";
-import { CustomSelect } from "../../components/CustomSelect";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { toast } from "react-hot-toast";
 import {
   Search,
-  ChevronDown,
+  RefreshCw,
   ChevronLeft,
   ChevronRight,
-  Calendar,
-  Users,
+  Repeat,
   DollarSign,
+  Users,
   TrendingUp,
-  Clock,
-  RefreshCw,
-  AlertCircle,
-  PieChartIcon,
-  Loader2
+  Calendar,
+  LayoutGrid,
+  List,
+  Eye,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
-import axiosInstance from "../../services/axios";
-import SubscriptionService from "../../services/subscription.service";
-import toast from "react-hot-toast";
-import { motion } from "framer-motion";
-import Modal from "../../components/Modal";
-import KpiCard from "../../components/KpiCard";
 import { TabLoader } from "../../components/TabLoader";
 import { withMinDelay } from "../../utils/minDelay";
+import { cn } from "../../utils/cn";
+import SubscriptionService from "../../services/subscription.service";
+import {
+  HEADER_GRADIENT,
+  money,
+  fmtDate,
+  monthlyEquivalent,
+  statusLabel,
+  mapSubscriptionListItem,
+} from "./subscriptionUtils";
+import { HeaderStat, StatusBadge, FrequencyChip, Avatar } from "./subscriptionShared";
 
-const ITEMS_PER_PAGE = 10;
+const PER_PAGE = 12;
 
-// Colors for the pie chart
-const COLORS = ["#059669", "#10B981", "#34D399", "#6EE7B7"];
+const DEFAULT_STATS = { activeCount: 0, mrr: 0, total: 0, avgActive: 0 };
 
-// Loader Component
-const LoaderSpinner = ({ size = "default", className = "" }) => {
-  const sizeClasses = {
-    small: "w-4 h-4",
-    default: "w-6 h-6",
-    large: "w-8 h-8"
-  };
-
-  return (
-    <Loader2 className={`animate-spin ${sizeClasses[size]} ${className}`} />
-  );
+const fadeWrap = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.45, ease: "easeOut" } },
+  exit: { opacity: 0, transition: { duration: 0.28 } },
+};
+const gridContainer = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.08 } },
+  exit: { opacity: 0, transition: { duration: 0.28 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+};
+const listContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05, delayChildren: 0.08 } },
+};
+const rowVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
 };
 
-// PageLoader imported from shared components
+const computeStats = (items) => {
+  const active = items.filter((s) => (s.status || "").toLowerCase() === "active");
+  const mrr = active.reduce((sum, s) => sum + monthlyEquivalent(s.amount, s.frequency), 0);
+  return {
+    activeCount: active.length,
+    mrr,
+    total: items.length,
+    avgActive: active.length ? mrr / active.length : 0,
+  };
+};
 
-// Stats Card Loader
-const StatsCardLoader = () => (
-  <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-100 animate-pulse">
-    <div className="flex items-center justify-between">
-      <div className="flex-1">
-        <div className="h-3 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-6 bg-gray-200 rounded w-1/2 mb-2"></div>
-        <div className="h-2 bg-gray-200 rounded w-full"></div>
+/* ── One subscription (grid card) — donor "My Subscriptions" layout ──────── */
+function SubCard({ item, onView }) {
+  return (
+    <motion.div
+      variants={cardVariants}
+      onClick={() => onView(item)}
+      className="group flex cursor-pointer flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md"
+    >
+      {/* Header band */}
+      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
+        <FrequencyChip frequency={item.frequency} />
+        <StatusBadge status={item.status} />
       </div>
-      <div className="p-3 bg-gray-100 rounded-full">
-        <div className="w-6 h-6 bg-gray-200 rounded"></div>
-      </div>
-    </div>
-  </div>
-);
 
-// Chart Loader
-const ChartLoader = () => (
-  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100 animate-pulse">
-    <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-    <div className="h-64 bg-gray-100 rounded"></div>
-  </div>
-);
-
-// Table Loader
-const TableLoader = () => (
-  <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-    <div className="animate-pulse">
-      {/* Search and Filters Skeleton */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
-        <div className="flex gap-2 w-full md:w-auto">
-          <div className="h-10 bg-gray-200 rounded-lg w-64"></div>
-          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
-          <div className="h-10 bg-gray-200 rounded-lg w-32"></div>
-        </div>
-      </div>
-      
-      {/* Table Header Skeleton */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-7 gap-4">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} className="h-4 bg-gray-200 rounded"></div>
-          ))}
-        </div>
-        
-        {/* Table Rows Skeleton */}
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="grid grid-cols-7 gap-4 py-4 border-t border-gray-100">
-            {Array.from({ length: 7 }).map((_, j) => (
-              <div key={j} className="h-4 bg-gray-100 rounded"></div>
-            ))}
+      {/* Body */}
+      <div className="flex flex-1 flex-col p-5">
+        {/* Donor */}
+        <div className="flex items-center gap-2.5">
+          <Avatar name={item.donor} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-primary" title={item.donor}>
+              {item.donor}
+            </p>
+            <p className="truncate text-xs text-text-muted" title={item.email}>
+              {item.email}
+            </p>
           </div>
-        ))}
+        </div>
+
+        {/* Amount */}
+        <p className="mt-4 font-heading text-3xl font-bold leading-tight text-accent">
+          {money(item.amount)}
+          <span className="text-sm font-normal text-text-muted">/{(item.frequency || "monthly").toLowerCase()}</span>
+        </p>
+        <p className="mt-0.5 truncate text-xs text-text-muted">{item.cause || "Recurring donation"}</p>
+
+        {/* Meta — definition grid */}
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-100 pt-4 text-sm">
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Donation ID</dt>
+            <dd className="mt-0.5 truncate font-medium text-gray-800" title={item.donationId}>
+              {item.donationId || "—"}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Started</dt>
+            <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-gray-800">
+              <Calendar className="h-4 w-4 shrink-0 text-accent" /> {fmtDate(item.startDate)}
+            </dd>
+          </div>
+        </dl>
+
+        {/* Footer */}
+        <div className="mt-auto pt-5">
+          <span className="inline-flex w-full items-center justify-center gap-2 border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors group-hover:border-accent/50 group-hover:text-accent">
+            <Eye className="h-4 w-4" /> View details
+          </span>
+        </div>
       </div>
-    </div>
-  </div>
-);
+    </motion.div>
+  );
+}
+
+/* ── One subscription (desktop table row) ────────────────────────────────── */
+function SubRow({ item, onView }) {
+  return (
+    <motion.tr
+      variants={rowVariants}
+      onClick={() => onView(item)}
+      className="group cursor-pointer border-b border-gray-50 transition-colors last:border-0 hover:bg-accent/[0.035]"
+    >
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3">
+          <Avatar name={item.donor} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-primary">{item.donor}</p>
+            <p className="max-w-[200px] truncate text-xs text-text-muted">{item.email}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-4">
+        <p className="truncate text-sm text-primary">{item.cause || "Recurring donation"}</p>
+        <p className="truncate text-[11px] text-text-muted" title={item.donationId}>
+          {item.donationId}
+        </p>
+      </td>
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className="font-heading text-base font-bold tabular-nums text-primary">{money(item.amount)}</span>
+        <span className="text-xs font-normal text-text-muted">/{(item.frequency || "monthly").toLowerCase().slice(0, 3)}</span>
+      </td>
+      <td className="px-4 py-4">
+        <FrequencyChip frequency={item.frequency} />
+      </td>
+      <td className="px-4 py-4">
+        <StatusBadge status={item.status} />
+      </td>
+      <td className="whitespace-nowrap px-4 py-4 text-text-muted">{fmtDate(item.startDate)}</td>
+      <td className="px-4 py-4 text-right">
+        <button
+          type="button"
+          title="View details"
+          onClick={(e) => {
+            e.stopPropagation();
+            onView(item);
+          }}
+          className="grid h-8 w-8 place-items-center text-gray-400 transition-colors hover:bg-accent/5 hover:text-accent group-hover:text-accent"
+        >
+          <Eye className="h-4 w-4" />
+        </button>
+      </td>
+    </motion.tr>
+  );
+}
+
+/* ── One subscription (mobile card, used inside list view) ───────────────── */
+function SubMobile({ item, onView }) {
+  return (
+    <motion.div
+      variants={rowVariants}
+      onClick={() => onView(item)}
+      className="cursor-pointer p-4 transition-colors hover:bg-accent/[0.035]"
+    >
+      <div className="flex items-start gap-3">
+        <Avatar name={item.donor} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-primary">{item.donor}</p>
+              <p className="truncate text-xs text-text-muted">{item.cause || "Recurring donation"}</p>
+            </div>
+            <span className="shrink-0 text-right">
+              <span className="font-heading text-base font-bold tabular-nums text-primary">{money(item.amount)}</span>
+              <span className="text-xs font-normal text-text-muted">/{(item.frequency || "monthly").toLowerCase().slice(0, 3)}</span>
+            </span>
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FrequencyChip frequency={item.frequency} />
+              <StatusBadge status={item.status} />
+            </div>
+            <span className="text-xs text-text-muted">{fmtDate(item.startDate)}</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 const SubscriptionsPage = () => {
-  // Start from the cached default table load if present — the page loader only
-  // shows on the very first, uncached open; cached revisits render instantly.
-  const cachedList = SubscriptionService.getCachedAdminSubscriptions();
-  const firstLoadRef = useRef(!cachedList);
-
-  const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
+  const cached = SubscriptionService.getCachedAdminSubscriptions();
+  const cachedItems = cached?.data?.subscriptions ? cached.data.subscriptions.map(mapSubscriptionListItem) : [];
+  const [loading, setLoading] = useState(!cached);
+  const [refreshing, setRefreshing] = useState(false);
+  const [subs, setSubs] = useState(cachedItems);
+  const [stats, setStats] = useState(cached ? computeStats(cachedItems) : { ...DEFAULT_STATS });
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFrequency, setSelectedFrequency] = useState("All");
-  const [selectedStatus, setSelectedStatus] = useState("All");
-  const [sortConfig, setSortConfig] = useState({
-    key: "startDate",
-    direction: "desc",
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [view, setView] = useState(() => {
+    try {
+      return localStorage.getItem("adminSubsView") || "list";
+    } catch {
+      return "list";
+    }
   });
-  const [activeSubscription, setActiveSubscription] = useState([]);
-  
-  // State for API data
-  const [subscriptions, setSubscriptions] = useState(cachedList?.data?.subscriptions || []);
-  const [dashboardStats, setDashboardStats] = useState({
-    activeSubscriptions: 0,
-    monthlyRecurringRevenue: 0,
-    retentionRate: 0,
-    avgLifetimeValue: 0,
-    trendData: [],
-  });
-  const [isLoading, setIsLoading] = useState(!cachedList);
-  const [isStatsLoading, setIsStatsLoading] = useState(true);
-  const [isChartsLoading, setIsChartsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState(cachedList?.data?.pagination || {
-    total: 0,
-    pages: 0,
-    currentPage: 1,
-    perPage: ITEMS_PER_PAGE,
-  });
-  
-  // New state for subscription stats
-  const [subscriptionStats, setSubscriptionStats] = useState({
-    totalSubscriptions: 0,
-    dailySubscriptions: 0,
-    weeklySubscriptions: 0,
-    monthlySubscriptions: 0,
-    yearlySubscriptions: 0
-  });
+  const changeView = (v) => {
+    setView(v);
+    try {
+      localStorage.setItem("adminSubsView", v);
+    } catch {
+      /* ignore */
+    }
+  };
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // State for status distribution data
-  const [statusDistribution, setStatusDistribution] = useState([]);
-  const [allStatusDistribution, setAllStatusDistribution] = useState([]);
+  const openDetail = (item) => navigate(`/admin/subscriptions/${item.id}`, { state: { item } });
 
-  const [showCancelRequestDialog, setShowCancelRequestDialog] = useState(false);
-  const [selectedSubscription, setSelectedSubscription] = useState(null);
-  const [cancelAction, setCancelAction] = useState(null);
-
-  // Fetch dashboard stats
   useEffect(() => {
-    const fetchDashboardStats = async () => {
-      setIsStatsLoading(true);
-      try {
-        const response = await axiosInstance.get(
-          "/admin/subscriptions/dashboard/subscription-stats"
-        );
-        console.log("Stats response:", response.data);
-        if (response.data?.status === "Success") {
-          setDashboardStats(response.data.data.stats || {
-            activeSubscriptions: 0,
-            monthlyRecurringRevenue: 0,
-            retentionRate: 0,
-            avgLifetimeValue: 0,
-            trendData: [],
-          });
-        }
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats:", error);
-        setError("Failed to load dashboard statistics");
-      } finally {
-        setIsStatsLoading(false);
-      }
-    };
-
-    const fetchActiveSubscriptions = async () => {
-      try {
-        const response = await SubscriptionService.getActiveSubscriptions();
-
-        if (response.status === "Success") {
-          // Include all active, paused, and past_due subscriptions
-          const relevantSubs = response.subscriptions.filter(
-            (sub) =>
-              sub.status !== "cancelled" &&
-              sub.status !== "failed" &&
-              sub.status !== "canceled" &&
-              sub.status !== "ended"
-          );
-          setActiveSubscription(relevantSubs);
-          console.log("Subscriptions fetched:", relevantSubs);
-        }
-      } catch (error) {
-        console.error("Fetch error:", error);
-      }
-    };
-
-    fetchDashboardStats();
-    fetchActiveSubscriptions();
-    // Fetch frequency stats from all subscriptions, not just the paginated ones
-    fetchSubscriptionFrequencyStats();
-    // Fetch status distribution for all subscriptions
-    fetchAllSubscriptionStatusDistribution();
+    if (!SubscriptionService.getCachedAdminSubscriptions()) fetchSubscriptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  // New function to fetch status distribution for all subscriptions
-  const fetchAllSubscriptionStatusDistribution = async () => {
-    setIsChartsLoading(true);
-    try {
-      // Get all subscriptions without pagination for status distribution
-      const response = await axiosInstance.get("/admin/subscriptions", {
-        params: {
-          limit: 1000, // Set a high limit to get all subscriptions
-          page: 1
-        },
-      });
-      
-      if (response.data?.status === "Success") {
-        const allSubscriptions = response.data.data.subscriptions || [];
-        
-        // Calculate status distribution for pie chart from all subscriptions
-        const statusCounts = {};
-        allSubscriptions.forEach(sub => {
-          const status = sub.status || 'unknown';
-          statusCounts[status] = (statusCounts[status] || 0) + 1;
-        });
-        
-        // Convert to array format for recharts
-        const statusData = Object.keys(statusCounts).map(status => ({
-          name: status.charAt(0).toUpperCase() + status.slice(1),
-          value: statusCounts[status]
-        }));
-        
-        setAllStatusDistribution(statusData);
-      }
-    } catch (error) {
-      console.error("Failed to fetch all subscription status data:", error);
-    } finally {
-      setIsChartsLoading(false);
-    }
-  };
-  
-  // New function to fetch subscription frequency stats for all subscriptions
-  const fetchSubscriptionFrequencyStats = async () => {
-    try {
-      // This endpoint should return counts for all subscriptions grouped by frequency
-      const response = await axiosInstance.get("/admin/subscriptions/frequency-stats");
-      
-      if (response.data?.status === "Success") {
-        // Update the stats with the complete data
-        setSubscriptionStats({
-          totalSubscriptions: response.data.data.total || 0,
-          dailySubscriptions: response.data.data.daily || 0,
-          weeklySubscriptions: response.data.data.weekly || 0,
-          monthlySubscriptions: response.data.data.monthly || 0,
-          yearlySubscriptions: response.data.data.yearly || 0
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fetch subscription frequency stats:", error);
-      // If the endpoint doesn't exist, we can fallback to calculating from all pages
-      fetchAllSubscriptionsForStats();
-    }
-  };
-  
-  // Fallback method to get all subscriptions for accurate stats if the API endpoint doesn't exist
-  const fetchAllSubscriptionsForStats = async () => {
-    try {
-      // Get all subscriptions without pagination for accurate stats
-      const response = await axiosInstance.get("/admin/subscriptions", {
-        params: {
-          limit: 1000, // Set a high limit to get all subscriptions
-          page: 1
-        },
-      });
-      
-      if (response.data?.status === "Success") {
-        const allSubscriptions = response.data.data.subscriptions || [];
-        const totalCount = response.data.data.pagination?.total || allSubscriptions.length;
-        
-        // Count subscriptions by frequency
-        const dailyCount = allSubscriptions.filter(sub => 
-          sub.frequency?.toLowerCase() === 'daily').length;
-        const weeklyCount = allSubscriptions.filter(sub => 
-          sub.frequency?.toLowerCase() === 'weekly').length;
-        const monthlyCount = allSubscriptions.filter(sub => 
-          sub.frequency?.toLowerCase() === 'monthly').length;
-        const yearlyCount = allSubscriptions.filter(sub => 
-          sub.frequency?.toLowerCase() === 'yearly').length;
-          
-        setSubscriptionStats({
-          totalSubscriptions: totalCount,
-          dailySubscriptions: dailyCount,
-          weeklySubscriptions: weeklyCount,
-          monthlySubscriptions: monthlyCount,
-          yearlySubscriptions: yearlyCount
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fetch all subscriptions for stats:", error);
-    }
-  };
-  
-  // Fetch subscriptions with filters and pagination
+
   useEffect(() => {
-    const fetchSubscriptions = async () => {
-      const params = {
-        page: currentPage,
-        limit: ITEMS_PER_PAGE,
-        search: searchTerm,
-        frequency:
-          selectedFrequency !== "All"
-            ? selectedFrequency.toLowerCase()
-            : undefined,
-        status:
-          selectedStatus !== "All"
-            ? selectedStatus.toLowerCase()
-            : undefined,
-        sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction,
-      };
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
-      // The default (unfiltered, page 1, default sort) view is served from the
-      // service cache — don't flip the page loader back on for those revisits.
-      const isDefaultView =
-        currentPage === 1 &&
-        searchTerm === "" &&
-        selectedFrequency === "All" &&
-        selectedStatus === "All" &&
-        sortConfig.key === "startDate" &&
-        sortConfig.direction === "desc";
-      const fromCache =
-        isDefaultView && !!SubscriptionService.getCachedAdminSubscriptions();
-
-      if (!fromCache) setIsLoading(true);
-      try {
-        const call = SubscriptionService.getAdminSubscriptions(params);
-        // Min-delay only on the very first uncached load (while the loader shows).
-        const data =
-          firstLoadRef.current && !fromCache ? await withMinDelay(call) : await call;
-        firstLoadRef.current = false;
-        console.log("Subscriptions response:", data);
-        if (data?.status === "Success") {
-          const allSubscriptions = data.data.subscriptions || [];
-          setSubscriptions(allSubscriptions);
-          setPagination(data.data.pagination || {
-            total: 0,
-            pages: 0,
-            currentPage: 1,
-            perPage: ITEMS_PER_PAGE,
-          });
-
-          // Calculate status distribution for current page subscriptions
-          const statusCounts = {};
-          allSubscriptions.forEach(sub => {
-            const status = sub.status || 'unknown';
-            statusCounts[status] = (statusCounts[status] || 0) + 1;
-          });
-
-          // Convert to array format for recharts
-          const statusData = Object.keys(statusCounts).map(status => ({
-            name: status.charAt(0).toUpperCase() + status.slice(1),
-            value: statusCounts[status]
-          }));
-
-          setStatusDistribution(statusData);
-        }
-      } catch (error) {
-        console.error("Failed to fetch subscriptions:", error);
-        setError("Failed to load subscriptions");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(fetchSubscriptions, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [currentPage, searchTerm, selectedFrequency, selectedStatus, sortConfig]);
-
-  const handleSort = (key) => {
-    setSortConfig({
-      key,
-      direction:
-        sortConfig.key === key && sortConfig.direction === "asc"
-          ? "desc"
-          : "asc",
-    });
-  };
-
-  const handleProcessCancellationRequest = async (action) => {
+  const fetchSubscriptions = async ({ force = false } = {}) => {
+    if (force) setRefreshing(true);
     try {
-      if (!selectedSubscription) return;
-
-      await axiosInstance.post(
-        `/admin/subscriptions/${selectedSubscription.id}/process-cancellation`,
-        { action }
+      const req = SubscriptionService.getAdminSubscriptions(
+        { page: 1, limit: 10000, sortBy: "startDate", sortOrder: "desc" },
+        { force },
       );
-
-      toast.success(
-        `Cancellation request ${action === "approve" ? "approved" : "rejected"} successfully`
-      );
-      setShowCancelRequestDialog(false);
-      // Refresh subscriptions — force-refresh so the cache reflects the change.
-      const fetchSubscriptions = async () => {
-        setIsLoading(true);
-        try {
-          const params = {
-            page: currentPage,
-            limit: ITEMS_PER_PAGE,
-            search: searchTerm,
-            frequency:
-              selectedFrequency !== "All"
-                ? selectedFrequency.toLowerCase()
-                : undefined,
-            status:
-              selectedStatus !== "All"
-                ? selectedStatus.toLowerCase()
-                : undefined,
-            sortBy: sortConfig.key,
-            sortOrder: sortConfig.direction,
-          };
-          const data = await SubscriptionService.getAdminSubscriptions(params, { force: true });
-          if (data?.status === "Success") {
-            setSubscriptions(data.data.subscriptions || []);
-            setPagination(data.data.pagination || {
-              total: 0,
-              pages: 0,
-              currentPage: 1,
-              perPage: ITEMS_PER_PAGE,
-            });
-          }
-        } catch (error) {
-          console.error("Failed to fetch subscriptions:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchSubscriptions();
-    } catch (error) {
-      console.error("Process cancellation error:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to process cancellation request"
-      );
+      const res = await (loading ? withMinDelay(req) : req);
+      const items = (res?.data?.subscriptions || []).map(mapSubscriptionListItem);
+      setSubs(items);
+      setStats(computeStats(items));
+      if (force) toast.success("Refreshed");
+    } catch (err) {
+      toast.error(err?.message || "Failed to fetch subscriptions");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Custom renderer for the pie chart labels
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-    const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+  const filtered = useMemo(
+    () =>
+      subs.filter((s) => {
+        const q = searchTerm.toLowerCase();
+        const matchesSearch =
+          !q ||
+          s.donationId?.toLowerCase().includes(q) ||
+          s.donor?.toLowerCase().includes(q) ||
+          s.email?.toLowerCase().includes(q) ||
+          s.cause?.toLowerCase().includes(q) ||
+          s.frequency?.toLowerCase().includes(q);
+        const matchesStatus = statusFilter === "all" || (s.status || "").toLowerCase() === statusFilter;
+        return matchesSearch && matchesStatus;
+      }),
+    [subs, searchTerm, statusFilter],
+  );
 
-    return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor={x > cx ? 'start' : 'end'} 
-        dominantBaseline="central"
-        fontSize="12"
-        fontWeight="bold"
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
+  // Status pills — only surface statuses that exist, each with a live count.
+  const statusCounts = useMemo(() => {
+    const c = {};
+    subs.forEach((s) => {
+      const k = (s.status || "unknown").toLowerCase();
+      c[k] = (c[k] || 0) + 1;
+    });
+    return c;
+  }, [subs]);
+  const STATUS_ORDER = ["active", "paused", "pending_cancellation", "cancelled", "failed", "ended"];
+  const statusPills = [
+    { value: "all", label: "All", count: subs.length },
+    ...STATUS_ORDER.filter((s) => statusCounts[s]).map((s) => ({
+      value: s,
+      label: statusLabel(s),
+      count: statusCounts[s],
+    })),
+  ];
 
-  if (error) {
-    return (
-      <div className="p-6 text-red-600">
-        <p>Error: {error}</p>
-      </div>
-    );
-  }
+  // Lifecycle distribution for the donut.
+  const distribution = useMemo(() => {
+    const counts = { Active: 0, Paused: 0, Cancelled: 0, Failed: 0, Ended: 0 };
+    subs.forEach((s) => {
+      const st = (s.status || "").toLowerCase();
+      if (st === "paused") counts.Paused++;
+      else if (st === "cancelled" || st === "canceled") counts.Cancelled++;
+      else if (st === "failed") counts.Failed++;
+      else if (st === "ended") counts.Ended++;
+      else counts.Active++; // active + pending_cancellation
+    });
+    const COLORS = {
+      Active: "#10B981",
+      Paused: "#F59E0B",
+      Cancelled: "#F97316",
+      Failed: "#DC2626",
+      Ended: "var(--tenant-primary, #2C2418)",
+    };
+    return Object.keys(counts).map((name) => ({ name, value: counts[name], color: COLORS[name] }));
+  }, [subs]);
+  const distTotal = distribution.reduce((s, d) => s + d.value, 0);
 
-  // Show page loader only on initial load
-  if (isStatsLoading && isChartsLoading && isLoading) {
+  const totalPages = Math.ceil(filtered.length / PER_PAGE) || 1;
+  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+
+  if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <TabLoader />
+      <div className="flex h-[60vh] items-center justify-center">
+        <TabLoader label="Loading subscriptions…" />
       </div>
     );
   }
 
   return (
-    <motion.div className="lg:p-6 mt-20 lg:mt-0 space-y-6 bg-background/30 min-h-screen"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-heading font-bold text-primary">Subscriptions</h1>
-          <p className="text-sm text-text-muted mt-0.5">{pagination.total || 0} total subscriptions</p>
-        </div>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <KpiCard title="Total Subscriptions" value={subscriptionStats.totalSubscriptions} icon={Users} color="#059669" animate={false} />
-        <KpiCard title="Active Subscriptions" value={dashboardStats.activeSubscriptions || 0} icon={RefreshCw} color="#10B981" animate={false} />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard title="Daily" value={subscriptionStats.dailySubscriptions} icon={Clock} color="#059669" animate={false} />
-        <KpiCard title="Weekly" value={subscriptionStats.weeklySubscriptions} icon={Calendar} color="#10B981" animate={false} />
-        <KpiCard title="Monthly" value={subscriptionStats.monthlySubscriptions} icon={Calendar} color="#EC4899" animate={false} />
-        <KpiCard title="Yearly" value={subscriptionStats.yearlySubscriptions} icon={Calendar} color="#F59E0B" animate={false} />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Metrics Chart */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-          <h2 className="text-sm font-semibold text-primary mb-4">Subscription Metrics</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dashboardStats?.trendData || []} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false}
-                  tickFormatter={(m) => m?.substring(0, 3)} />
-                <YAxis yAxisId="left" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false}
-                  tickFormatter={(v) => `$${v}`} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }} />
-                <Line yAxisId="left" type="monotone" dataKey="subscribers" name="Count" stroke="#059669" strokeWidth={2.5}
-                  dot={{ fill: "#059669", r: 3 }} />
-                <Line yAxisId="right" type="monotone" dataKey="amount" name="Amount" stroke="#10B981" strokeWidth={2.5}
-                  dot={{ fill: "#10B981", r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+    <div className="w-full space-y-6">
+      {/* Header card with gradient band + integrated stats (My Subscriptions style) */}
+      <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+        <div className="flex items-start justify-between gap-4 px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Recurring giving</p>
+            <h1 className="mt-1 font-heading text-2xl font-bold text-white">Subscriptions</h1>
+            <p className="mt-1 text-sm text-white/80">Every recurring donation plan across your donors, in one place.</p>
           </div>
+          <button
+            type="button"
+            onClick={() => fetchSubscriptions({ force: true })}
+            disabled={refreshing}
+            className="inline-flex shrink-0 items-center gap-1.5 border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} /> Refresh
+          </button>
         </div>
+        <div className="grid grid-cols-2 divide-y divide-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+          <HeaderStat icon={Repeat} label="Active plans" value={stats.activeCount} />
+          <HeaderStat icon={DollarSign} label="Est. monthly revenue" value={money(stats.mrr)} />
+          <HeaderStat icon={Users} label="Total subscriptions" value={stats.total} />
+          <HeaderStat icon={TrendingUp} label="Avg. / active plan" value={money(stats.avgActive)} />
+        </div>
+      </div>
 
-        {/* Status Donut */}
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center">
-          <h2 className="text-sm font-semibold text-primary mb-4 self-start">Status Distribution</h2>
-          {(() => {
-            const DONUT_COLORS = ["#34D399", "#FB923C", "#818CF8", "#F472B6"];
-            const segments = allStatusDistribution.map((s, i) => ({ ...s, color: DONUT_COLORS[i % DONUT_COLORS.length] }));
-            const total = segments.reduce((s, seg) => s + seg.value, 0);
-            const r = 58, c = 2 * Math.PI * r, gap = 8;
-            let offset = 0;
-            return (
-              <>
-                <svg width={160} height={160} viewBox="0 0 140 140">
+      {/* Status distribution */}
+      {distTotal > 0 && (
+        <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+            <h2 className="text-sm font-semibold text-primary">Status distribution</h2>
+            <span className="text-xs text-text-muted">
+              {distTotal} {distTotal === 1 ? "plan" : "plans"}
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-6 p-5 sm:flex-row sm:gap-8">
+            {(() => {
+              const r = 58,
+                c = 2 * Math.PI * r,
+                gap = 8;
+              let offset = 0;
+              return (
+                <svg width={128} height={128} viewBox="0 0 140 140" className="shrink-0">
                   <circle cx="70" cy="70" r={r} fill="none" stroke="#f1f5f9" strokeWidth="16" />
-                  {total > 0 && segments.filter(s => s.value > 0).map((seg, i) => {
-                    const pct = seg.value / total;
-                    const dashLen = Math.max(0, pct * c - gap);
-                    const el = <circle key={i} cx="70" cy="70" r={r} fill="none" stroke={seg.color} strokeWidth="16"
-                      strokeLinecap="round" strokeDasharray={`${dashLen} ${c - dashLen}`}
-                      strokeDashoffset={-offset} transform="rotate(-90 70 70)" />;
-                    offset += pct * c;
-                    return el;
-                  })}
-                  <text x="70" y="66" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" className="text-primary">{total}</text>
-                  <text x="70" y="82" textAnchor="middle" fontSize="10" fill="#94a3b8">total</text>
+                  {distribution
+                    .filter((s) => s.value > 0)
+                    .map((seg, i) => {
+                      const pct = seg.value / distTotal;
+                      const dashLen = Math.max(0, pct * c - gap);
+                      const el = (
+                        <circle
+                          key={i}
+                          cx="70"
+                          cy="70"
+                          r={r}
+                          fill="none"
+                          stroke={seg.color}
+                          strokeWidth="16"
+                          strokeLinecap="round"
+                          strokeDasharray={`${dashLen} ${c - dashLen}`}
+                          strokeDashoffset={-offset}
+                          transform="rotate(-90 70 70)"
+                        />
+                      );
+                      offset += pct * c;
+                      return el;
+                    })}
+                  <text x="70" y="66" textAnchor="middle" fontSize="22" fontWeight="700" className="fill-primary">
+                    {distTotal}
+                  </text>
+                  <text x="70" y="83" textAnchor="middle" fontSize="10" fill="#94a3b8">
+                    plans
+                  </text>
                 </svg>
-                <div className="flex gap-4 mt-4 flex-wrap justify-center">
-                  {segments.filter(s => s.value > 0).map((s) => (
-                    <div key={s.name} className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />
-                      <span className="text-[11px] text-text-muted capitalize">{s.name} ({s.value})</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative">
-              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search subscriptions..."
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none w-56" />
-            </div>
-            <CustomSelect value={selectedFrequency} onChange={(value) => setSelectedFrequency(value)}
-              options={[
-                { value: "All", label: "All Frequencies" },
-                { value: "Daily", label: "Daily" },
-                { value: "Weekly", label: "Weekly" },
-                { value: "Monthly", label: "Monthly" },
-                { value: "Yearly", label: "Yearly" },
-              ]}
-              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
-            <CustomSelect value={selectedStatus} onChange={(value) => setSelectedStatus(value)}
-              options={[
-                { value: "All", label: "All Status" },
-                { value: "active", label: "Active" },
-                { value: "paused", label: "Paused" },
-                { value: "cancelled", label: "Cancelled" },
-                { value: "failed", label: "Failed" },
-                { value: "ended", label: "Ended" },
-              ]}
-              triggerClassName="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none" />
-          </div>
-        </div>
-
-        {subscriptions.length === 0 ? (
-          <div className="p-12 text-center">
-            <RefreshCw className="w-10 h-10 mx-auto mb-3 text-text-muted" />
-            <p className="text-primary font-medium mb-1">No subscriptions found</p>
-            <p className="text-sm text-text-muted">Try adjusting your filters</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  {[
-                    { label: "Donor", key: "donorName" }, { label: "Cause", key: "cause" },
-                    { label: "Amount", key: "amount" }, { label: "Frequency", key: "frequency" },
-                    { label: "Next Billing", key: "nextBilling" }, { label: "Status", key: "status" },
-                  ].map((h) => (
-                    <th key={h.key} onClick={() => handleSort(h.key)}
-                      className="px-4 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer hover:text-primary">
-                      {h.label} <ChevronDown className="w-3 h-3 inline ml-0.5" />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {subscriptions.map((sub) => {
-                  const statusMap = { active: "bg-green-50 text-green-700", paused: "bg-yellow-50 text-yellow-700", failed: "bg-red-50 text-red-700", ended: "bg-gray-100 text-gray-600", cancelled: "bg-gray-100 text-gray-600", pending_cancellation: "bg-orange-50 text-orange-700" };
-                  const freqMap = { Daily: "bg-emerald-50 text-emerald-700", Weekly: "bg-violet-50 text-violet-700", Monthly: "bg-pink-50 text-pink-700", Yearly: "bg-amber-50 text-amber-700" };
+              );
+            })()}
+            <div className="grid w-full flex-1 grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
+              {distribution
+                .filter((s) => s.value > 0)
+                .map((s) => {
+                  const pct = Math.round((s.value / distTotal) * 100);
                   return (
-                    <tr key={sub.id} className="border-b border-gray-50 last:border-0 hover:bg-background/50 transition-colors">
-                      <td className="px-4 py-3.5">
-                        <p className="text-sm font-medium text-primary">{sub.donorName || "Unknown"}</p>
-                        <p className="text-xs text-text-muted">{sub.donorEmail || ""}</p>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-text-muted">{sub.cause || "General"}</td>
-                      <td className="px-4 py-3.5 text-sm font-semibold text-primary">
-                        ${(sub.amount || 0).toLocaleString()}/{(sub.frequency || "month").toLowerCase()}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${freqMap[sub.frequency] || "bg-gray-100 text-gray-600"}`}>
-                          {sub.frequency || "Monthly"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-sm text-text-muted">
-                        {sub.nextBilling ? new Date(sub.nextBilling).toLocaleDateString() : sub.startDate ? new Date(sub.startDate).toLocaleDateString() : "N/A"}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${statusMap[sub.status] || "bg-gray-100 text-gray-600"}`}>
-                          {sub.status || "Unknown"}
-                        </span>
-                      </td>
-                    </tr>
+                    <div key={s.name}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                        <span className="text-sm text-text-muted">{s.name}</span>
+                        <span className="ml-auto text-sm font-bold text-primary">{s.value}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2.5">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.color }} />
+                        </div>
+                        <span className="w-8 shrink-0 text-right text-[11px] font-medium text-text-muted">{pct}%</span>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {(pagination.pages || 1) > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-text-muted">
-              {((pagination.currentPage || 1) - 1) * (pagination.perPage || ITEMS_PER_PAGE) + 1}–{Math.min((pagination.currentPage || 1) * (pagination.perPage || ITEMS_PER_PAGE), pagination.total || 0)} of {pagination.total || 0}
-            </p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage <= 1}
-                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronLeft className="w-4 h-4" /></button>
-              {Array.from({ length: Math.min(5, pagination.pages || 1) }, (_, i) => {
-                let pg;
-                const pages = pagination.pages || 1;
-                if (pages <= 5) pg = i + 1;
-                else if (currentPage <= 3) pg = i + 1;
-                else if (currentPage >= pages - 2) pg = pages - (4 - i);
-                else pg = currentPage - 2 + i;
-                return (
-                  <button key={i} onClick={() => setCurrentPage(pg)}
-                    className={`w-8 h-8 text-xs font-medium ${currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100"}`}>{pg}</button>
-                );
-              })}
-              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage >= (pagination.pages || 1)}
-                className="p-1.5 text-text-muted hover:bg-gray-100 disabled:opacity-30"><ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Controls — search + status pills + view toggle on one line */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative md:w-72 md:flex-1 lg:max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by ID, donor, email or cause…"
+            className="w-full border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent"
+          />
+        </div>
+
+        {/* Status pills */}
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {statusPills.map((p) => {
+            const active = statusFilter === p.value;
+            return (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => setStatusFilter(p.value)}
+                className={cn(
+                  "relative isolate inline-flex items-center gap-1.5 border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200",
+                  active
+                    ? "border-accent text-accent"
+                    : "border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="subsStatusActive"
+                    className="absolute inset-0 -z-10 bg-accent/10"
+                    transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                {p.label}
+                <span className={cn("text-xs", active ? "text-accent/70" : "text-gray-400")}>{p.count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* View toggle */}
+        <div className="inline-flex shrink-0 border border-gray-200">
+          {[
+            { id: "list", Icon: List, title: "List view" },
+            { id: "grid", Icon: LayoutGrid, title: "Card view" },
+          ].map((v, idx) => {
+            const activeView = view === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => changeView(v.id)}
+                title={v.title}
+                className={cn(
+                  "relative isolate grid h-9 w-9 place-items-center transition-colors duration-200",
+                  idx > 0 && "border-l border-gray-200",
+                  activeView ? "text-white" : "text-text-muted hover:text-accent",
+                )}
+              >
+                {activeView && (
+                  <motion.span
+                    layoutId="subsViewActive"
+                    className="absolute inset-0 -z-10 bg-accent"
+                    transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                <v.Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Cancellation Request Dialog */}
-      {showCancelRequestDialog && (
-        <Modal
-          isOpen={showCancelRequestDialog}
-          onClose={() => setShowCancelRequestDialog(false)}
-          title="Process Cancellation Request"
-          description="Review the cancellation request and choose to approve or reject it."
-        >
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900">Subscription Details</h4>
-              <div className="mt-2 space-y-2 text-sm text-gray-600">
-                <p>
-                  <span className="font-medium">Donor:</span>{" "}
-                  {selectedSubscription?.donorName}
-                </p>
-                <p>
-                  <span className="font-medium">Amount:</span> $
-                  {selectedSubscription?.amount}
-                </p>
-                <p>
-                  <span className="font-medium">Frequency:</span>{" "}
-                  {selectedSubscription?.frequency}
-                </p>
-                <p>
-                  <span className="font-medium">Reason:</span>{" "}
-                  {selectedSubscription?.cancelReason}
-                </p>
-              </div>
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        {paginated.length === 0 ? (
+          <motion.div
+            key="empty"
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="border border-gray-100 bg-white p-12 text-center shadow-sm"
+          >
+            <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
+              <Repeat className="h-6 w-6" />
+            </span>
+            <p className="font-semibold text-gray-800">
+              {subs.length === 0 ? "No subscriptions yet" : "No matching subscriptions"}
+            </p>
+            <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
+              {subs.length === 0
+                ? "Recurring donation plans will appear here as donors set them up."
+                : "Try a different search term or status filter."}
+            </p>
+          </motion.div>
+        ) : view === "grid" ? (
+          <motion.div
+            key={`grid-${currentPage}`}
+            variants={gridContainer}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+          >
+            {paginated.map((s) => (
+              <SubCard key={s.id} item={s} onView={openDetail} />
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={`list-${currentPage}`}
+            variants={fadeWrap}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className="overflow-hidden border border-gray-100 bg-white shadow-sm"
+          >
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
+                    <th className="px-4 py-3.5">Donor</th>
+                    <th className="px-4 py-3.5">Plan</th>
+                    <th className="px-4 py-3.5">Amount</th>
+                    <th className="px-4 py-3.5">Frequency</th>
+                    <th className="px-4 py-3.5">Status</th>
+                    <th className="px-4 py-3.5">Started</th>
+                    <th className="px-4 py-3.5 text-right">View</th>
+                  </tr>
+                </thead>
+                <motion.tbody variants={listContainer}>
+                  {paginated.map((s) => (
+                    <SubRow key={s.id} item={s} onView={openDetail} />
+                  ))}
+                </motion.tbody>
+              </table>
             </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowCancelRequestDialog(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleProcessCancellationRequest("reject")}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => handleProcessCancellationRequest("approve")}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                Approve
-              </button>
-            </div>
+            {/* Mobile cards */}
+            <motion.div variants={listContainer} className="divide-y divide-gray-50 md:hidden">
+              {paginated.map((s) => (
+                <SubMobile key={s.id} item={s} onView={openDetail} />
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <span className="text-xs text-text-muted">
+            Showing {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filtered.length)} of{" "}
+            {filtered.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pg;
+              if (totalPages <= 5) pg = i + 1;
+              else if (currentPage <= 3) pg = i + 1;
+              else if (currentPage >= totalPages - 2) pg = totalPages - (4 - i);
+              else pg = currentPage - 2 + i;
+              return (
+                <button
+                  key={pg}
+                  type="button"
+                  onClick={() => setCurrentPage(pg)}
+                  className={cn(
+                    "h-8 w-8 text-xs font-medium transition-colors",
+                    currentPage === pg ? "bg-accent text-white" : "text-text-muted hover:bg-gray-100",
+                  )}
+                >
+                  {pg}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
-        </Modal>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 

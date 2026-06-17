@@ -15,6 +15,16 @@
     --tenant-bg-rgb: 250, 247, 242;
     --tenant-sidebar-top: #4A3F30;
     --tenant-sidebar-bottom: #3D3226;
+
+    /* Design tokens (shape) — defaults reproduce the current square look.
+       Overridden per tenant by TenantContext.applyDesign(). */
+    --radius-card: 0px;
+    --radius-btn: 0px;
+    --radius-input: 0px;
+    --radius-pill: 9999px;
+    --border-width: 1px;
+    /* Matches Tailwind's shadow-sm exactly, so migrating cards is a no-op. */
+    --card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -53,9 +63,83 @@
   font-family: var(--font-body);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Per-tenant DESIGN shape — applied to EVERY surface & control the tenant owns:
+   the public site ([data-public-site]), the donor dashboard ([data-user-portal])
+   and the admin console ([data-admin-theme]). (Admin keeps its own Outfit UI
+   FONT; only shape + colours follow here.)
+
+   Any element that reads as a "surface" (has an all-sides border OR any shadow)
+   or a control (<button>/<input>/<select>/<textarea>) and has NOT opted into its
+   own radius gets the matching shape token: surfaces → --radius-card, buttons →
+   --radius-btn, inputs → --radius-input. The :not([class*="rounded"]) guard
+   preserves anything intentionally shaped (rounded-full pills, avatars, icon
+   tiles, and the rounded-token utilities). Defaults (radius 0 / 1px / soft
+   shadow) equal today's look, so nothing changes until a tenant picks a shape.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Border weight — all-sides borders follow the tenant's chosen border width. */
+[data-public-site] .border,
+[data-user-portal] .border,
+[data-admin-theme] .border {
+  border-width: var(--border-width, 1px);
+}
+
+/* Surfaces — any bordered OR elevated box rounds to the card radius. :where()
+   keeps the specificity low so the control rules below override it. */
+[data-public-site] :where(.border, .shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not([class*="rounded"]),
+[data-user-portal] :where(.border, .shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not([class*="rounded"]),
+[data-admin-theme] :where(.border, .shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not([class*="rounded"]) {
+  border-radius: var(--radius-card, 0px);
+}
+
+/* Form controls → input radius (checkboxes/radios excluded so they aren't reshaped). */
+[data-public-site] :is(input, select, textarea):not([class*="rounded"]):not([type="checkbox"]):not([type="radio"]),
+[data-user-portal] :is(input, select, textarea):not([class*="rounded"]):not([type="checkbox"]):not([type="radio"]),
+[data-admin-theme] :is(input, select, textarea):not([class*="rounded"]):not([type="checkbox"]):not([type="radio"]) {
+  border-radius: var(--radius-input, 0px);
+}
+
+/* Buttons → button radius. */
+[data-public-site] button:not([class*="rounded"]),
+[data-user-portal] button:not([class*="rounded"]),
+[data-admin-theme] button:not([class*="rounded"]) {
+  border-radius: var(--radius-btn, 0px);
+}
+
+/* Card shadow — normalise only .shadow-sm (don't flatten intentional elevation);
+   hover shadows preserved. */
+[data-public-site] .shadow-sm:not(:hover),
+[data-user-portal] .shadow-sm:not(:hover),
+[data-admin-theme] .shadow-sm:not(:hover) {
+  box-shadow: var(--card-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+}
+
 /* @mention chips, in the rich-text editor and in rendered message bodies. */
 .mention {
   color: var(--tenant-accent, #c9a84c);
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Checkout — tenant-adaptive accent glows. Tailwind can't apply an opacity
+   modifier to the CSS-variable accent for box-shadow colour, so we blend it
+   with color-mix here (the same result Tailwind compiles for bg-accent/NN).
+   A blue tenant glows blue, a gold tenant glows gold.
+   ───────────────────────────────────────────────────────────────────────── */
+.checkout-btn-glow {
+  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--tenant-accent, #c9a84c) 45%, transparent);
+}
+.checkout-btn-glow:hover:not(:disabled) {
+  box-shadow: 0 14px 30px -8px color-mix(in srgb, var(--tenant-accent, #c9a84c) 60%, transparent);
+}
+.checkout-btn-glow:disabled {
+  box-shadow: none;
+}
+.checkout-glow-sm {
+  box-shadow: 0 5px 14px -4px color-mix(in srgb, var(--tenant-accent, #c9a84c) 50%, transparent);
+}
+.checkout-glow-lg {
+  box-shadow: 0 12px 30px -8px color-mix(in srgb, var(--tenant-accent, #c9a84c) 50%, transparent);
 }

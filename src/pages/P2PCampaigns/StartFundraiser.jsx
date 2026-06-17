@@ -36,7 +36,7 @@ const URGENCIES = [
 
 // Underline fields, matching the Contact page (no box, accent on focus).
 const baseInput =
-  "w-full border-b border-gray-200 bg-transparent py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-accent disabled:opacity-60";
+  "w-full rounded-token-input border-b border-gray-200 bg-transparent py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-accent disabled:opacity-60";
 const labelCls = "mb-1 block text-sm font-medium text-gray-700";
 
 const STATUS_BADGE = {
@@ -151,17 +151,17 @@ export default function StartFundraiser() {
           </Link>
 
           {submitted ? (
-            <motion.div {...reveal()} className="mx-auto max-w-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
+            <motion.div {...reveal()} className="mx-auto max-w-2xl rounded-token border border-gray-100 bg-white p-10 text-center shadow-sm">
               <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-emerald-50"><CheckCircle className="h-9 w-9 text-emerald-600" /></div>
               <h2 className="font-heading text-2xl font-bold text-primary">Submitted for review 🎉</h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-muted">
                 Thank you! Our team will review your fundraiser shortly — you'll get an email the moment it's approved and live for donations.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <Link to="/p2p-campaigns" className="inline-flex items-center gap-2 bg-accent px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
+                <Link to="/p2p-campaigns" className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
                   Browse fundraisers
                 </Link>
-                <button onClick={resetForm} className="inline-flex items-center gap-2 border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent/50 hover:text-accent">
+                <button onClick={resetForm} className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent/50 hover:text-accent">
                   <Plus className="h-4 w-4" /> Start another
                 </button>
               </div>
@@ -170,7 +170,7 @@ export default function StartFundraiser() {
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
               {/* Form */}
               <motion.div {...reveal()} className="lg:col-span-3">
-                <form onSubmit={submit} className="relative overflow-hidden border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+                <form onSubmit={submit} className="relative overflow-hidden rounded-token border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
                   <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-accent to-accent/40" />
 
                   {/* Cover */}
@@ -242,7 +242,7 @@ export default function StartFundraiser() {
                       <textarea className={cn(baseInput, "resize-none")} rows={3} maxLength={1500} value={form.reasonForFunding} onChange={(e) => set("reasonForFunding", e.target.value)} placeholder="How will the funds be used?" />
                     </div>
 
-                    <button type="submit" disabled={submitting} className="flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50">
+                    <button type="submit" disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50">
                       {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Megaphone className="h-5 w-5" />} Submit for review
                     </button>
                     <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-text-muted">
@@ -256,7 +256,7 @@ export default function StartFundraiser() {
               <motion.div {...reveal(0.1)} className="lg:col-span-2">
                 <div className="lg:sticky lg:top-24 space-y-6">
                   {/* Tips */}
-                  <div className="border border-gray-100 bg-white p-6 shadow-sm">
+                  <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm">
                     <span className="inline-flex items-center gap-1.5 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
                       <Sparkles className="h-3.5 w-3.5" /> Tips for success
                     </span>
@@ -278,11 +278,11 @@ export default function StartFundraiser() {
 
                   {/* Your fundraisers */}
                   {mine.length > 0 && (
-                    <div className="border border-gray-100 bg-white p-6 shadow-sm">
+                    <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm">
                       <h3 className="mb-4 font-heading text-lg font-bold text-primary">Your fundraisers</h3>
                       <div className="space-y-2.5">
                         {mine.map((c) => (
-                          <div key={c._id} className="flex items-center gap-3 border border-gray-100 p-2.5">
+                          <div key={c._id} className="flex items-center gap-3 rounded-token border border-gray-100 p-2.5">
                             <img src={c.image} alt="" className="h-11 w-11 shrink-0 border border-gray-100 object-cover" />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-primary">{c.title}</p>

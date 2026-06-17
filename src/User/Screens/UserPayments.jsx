@@ -194,22 +194,32 @@ export default function UserPayments() {
 
       {/* Filter pills */}
       <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => setFilter(f.value)}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium transition-colors",
-              filter === f.value
-                ? "bg-accent text-white shadow-sm shadow-accent/25"
-                : "border border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
-            )}
-          >
-            {f.label}
-            <span className={cn("text-xs", filter === f.value ? "text-white/80" : "text-gray-400")}>{counts[f.value] ?? 0}</span>
-          </button>
-        ))}
+        {FILTERS.map((f) => {
+          const active = filter === f.value;
+          return (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFilter(f.value)}
+              className={cn(
+                "relative isolate inline-flex items-center gap-1.5 border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200",
+                active
+                  ? "border-accent text-accent"
+                  : "border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
+              )}
+            >
+              {active && (
+                <motion.span
+                  layoutId="paymentsFilterActive"
+                  className="absolute inset-0 -z-10 bg-accent/10"
+                  transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                />
+              )}
+              {f.label}
+              <span className={cn("text-xs", active ? "text-accent/70" : "text-gray-400")}>{counts[f.value] ?? 0}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* List */}
@@ -224,18 +234,24 @@ export default function UserPayments() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+        <motion.div
+          key={filter}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="overflow-hidden border border-gray-100 bg-white shadow-sm"
+        >
           {/* Desktop table */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                  <th className="px-5 py-3">Type</th>
-                  <th className="px-5 py-3">Payment</th>
-                  <th className="px-5 py-3">Amount</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3 text-right" />
+                <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
+                  <th className="px-4 py-3.5">Type</th>
+                  <th className="px-4 py-3.5">Payment</th>
+                  <th className="px-4 py-3.5">Amount</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Date</th>
+                  <th className="px-4 py-3.5 text-right" />
                 </tr>
               </thead>
               <tbody>
@@ -247,25 +263,35 @@ export default function UserPayments() {
                       key={r.id}
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
+                      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(i * 0.03, 0.3) }}
                       onClick={() => setDetail(r)}
-                      className="cursor-pointer border-b border-gray-50 transition-colors last:border-0 hover:bg-gray-50/60"
+                      className="group cursor-pointer border-b border-gray-100 transition-colors last:border-0 hover:bg-accent/[0.035]"
                     >
-                      <td className="px-5 py-3.5">
-                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold", t.cls)}>
+                      <td className="px-4 py-4">
+                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium", t.cls)}>
                           <t.icon className="h-3.5 w-3.5" /> {t.label}
                         </span>
                       </td>
-                      <td className="max-w-[260px] px-5 py-3.5">
-                        <p className="truncate font-medium text-primary">{r.title}</p>
+                      <td className="max-w-[280px] px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <span className={cn("grid h-9 w-9 shrink-0 place-items-center", t.cls)}>
+                            <t.icon className="h-4 w-4" />
+                          </span>
+                          <p className="truncate font-semibold text-primary" title={r.title}>{r.title}</p>
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5 font-semibold text-primary">{money(r.amount)}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={cn("inline-flex px-2 py-0.5 text-[10px] font-semibold", st.cls)}>{st.label}</span>
+                      <td className="px-4 py-4">
+                        <span className="font-heading text-base font-bold tabular-nums text-primary">{money(r.amount)}</span>
                       </td>
-                      <td className="px-5 py-3.5 text-text-muted">{formatDate(r.date)}</td>
-                      <td className="px-5 py-3.5 text-right">
-                        <ChevronRight className="ml-auto h-4 w-4 text-gray-300" />
+                      <td className="px-4 py-4">
+                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold", st.cls)}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                          {st.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-text-muted">{formatDate(r.date)}</td>
+                      <td className="px-4 py-4 text-right">
+                        <ChevronRight className="ml-auto h-4 w-4 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-accent" />
                       </td>
                     </motion.tr>
                   );
@@ -275,31 +301,41 @@ export default function UserPayments() {
           </div>
 
           {/* Mobile cards */}
-          <div className="divide-y divide-gray-50 md:hidden">
-            {visible.map((r) => {
+          <div className="divide-y divide-gray-100 md:hidden">
+            {visible.map((r, i) => {
               const t = TYPE_META[r.type];
               const st = statusMeta(r.status);
               return (
-                <button key={r.id} onClick={() => setDetail(r)} className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-gray-50/60">
+                <motion.button
+                  key={r.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(i * 0.03, 0.3) }}
+                  onClick={() => setDetail(r)}
+                  className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent/[0.035] active:scale-[0.99]"
+                >
                   <span className={cn("mt-0.5 grid h-9 w-9 shrink-0 place-items-center", t.cls)}>
                     <t.icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="truncate font-medium text-primary">{r.title}</p>
-                      <span className="shrink-0 font-semibold text-primary">{money(r.amount)}</span>
+                      <span className="shrink-0 font-heading font-bold tabular-nums text-primary">{money(r.amount)}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-                      <span className={cn("px-2 py-0.5 text-[10px] font-semibold", st.cls)}>{st.label}</span>
+                      <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold", st.cls)}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                        {st.label}
+                      </span>
                       <span>{t.label}</span>
                       <span>· {formatDate(r.date)}</span>
                     </div>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

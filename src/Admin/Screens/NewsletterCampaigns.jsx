@@ -23,6 +23,18 @@ import { CustomSelect } from "../../components/CustomSelect";
 import { TabLoader } from "../../components/TabLoader";
 import { cn } from "../../utils/cn";
 import service from "../../services/newsletterCampaigns.service";
+import { getSocket } from "../../services/socket";
+
+// Friendly labels for the per-recipient failure reasons.
+const FAILURE_LABEL = {
+  invalid_address: "Invalid address",
+  hard_bounce: "Bounced",
+  soft_bounce: "Temporary failure",
+  rate_limit: "Rate limited",
+  auth: "Mailbox auth failed",
+  quota_exhausted: "Quota reached",
+  unknown: "Failed",
+};
 
 const AUDIENCE_TYPES = [
   { value: "all_active", label: "All active subscribers" },
@@ -84,6 +96,11 @@ const NewsletterCampaigns = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // failure list modal
+  const [failuresFor, setFailuresFor] = useState(null);
+  const [failures, setFailures] = useState([]);
+  const [loadingFailures, setLoadingFailures] = useState(false);
+
   const load = useCallback(async () => {
     try {
       setCampaigns(await service.list());
@@ -98,12 +115,37 @@ const NewsletterCampaigns = () => {
     load();
   }, [load]);
 
-  // Refresh while anything is mid-send so the counters/status settle.
+  // Live send progress over the shared admin socket (the backend emits
+  // `campaign:progress` after every batch). The poll below stays as a fallback.
+  useEffect(() => {
+    const socket = getSocket();
+    const onProgress = (p) => {
+      setCampaigns((prev) => prev.map((c) => (c._id === p.campaignId ? { ...c, status: p.status, stats: p.stats } : c)));
+    };
+    socket.on("campaign:progress", onProgress);
+    return () => socket.off("campaign:progress", onProgress);
+  }, []);
+
+  // Refresh while anything is mid-send so the counters/status settle even if a
+  // socket event is missed (e.g. the screen was opened mid-send).
   useEffect(() => {
     if (!campaigns.some((c) => c.status === "sending")) return undefined;
     const t = setInterval(load, 4000);
     return () => clearInterval(t);
   }, [campaigns, load]);
+
+  const openFailures = async (c) => {
+    setFailuresFor(c);
+    setFailures([]);
+    setLoadingFailures(true);
+    try {
+      setFailures(await service.failures(c._id));
+    } catch (e) {
+      toast.error(e.response?.data?.error || "Failed to load the failure list");
+    } finally {
+      setLoadingFailures(false);
+    }
+  };
 
   const audience = useMemo(
     () => ({ type: audType, days: Number(audDays) || 30, source: audSource.trim() }),
@@ -319,7 +361,7 @@ const NewsletterCampaigns = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted dark:border-white/10">
+                <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent dark:border-white/10">
                   <th className="px-4 py-3">Subject</th>
                   <th className="px-4 py-3">Audience</th>
                   <th className="px-4 py-3">Status</th>
@@ -343,7 +385,15 @@ const NewsletterCampaigns = () => {
                       {c.status === "sent" ? (
                         <span>
                           {c.stats?.sent ?? 0}/{c.stats?.recipients ?? 0}
-                          {c.stats?.failed ? <span className="text-red-500"> · {c.stats.failed} failed</span> : null} · {fmtDateTime(c.sentAt)}
+                          {c.stats?.failed ? (
+                            <>
+                              {" · "}
+                              <button type="button" onClick={() => openFailures(c)} className="text-red-500 underline-offset-2 hover:underline">
+                                {c.stats.failed} failed
+                              </button>
+                            </>
+                          ) : null}{" "}
+                          · {fmtDateTime(c.sentAt)}
                         </span>
                       ) : c.status === "sending" ? (
                         <span className="inline-flex items-center gap-1.5">
@@ -643,6 +693,60 @@ const NewsletterCampaigns = () => {
                 >
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </Portal>
+
+      {/* Failure list */}
+      <Portal>
+      <AnimatePresence>
+        {failuresFor && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setFailuresFor(null)} />
+            <motion.div
+              className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]"
+              initial={{ scale: 0.96, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 16 }}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/10">
+                <div>
+                  <h3 className="text-base font-semibold text-primary">Didn't deliver</h3>
+                  <p className="truncate text-xs text-text-muted">{failuresFor.subject || "Untitled"}</p>
+                </div>
+                <button onClick={() => setFailuresFor(null)} className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary dark:hover:bg-white/10">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {loadingFailures ? (
+                  <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>
+                ) : failures.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-text-muted">No delivery failures recorded.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-50 dark:divide-white/5">
+                    {failures.map((r) => (
+                      <li key={r.email} className="flex items-center justify-between gap-3 py-2.5">
+                        <span className="min-w-0 truncate text-sm text-primary">{r.email}</span>
+                        <span
+                          className={cn(
+                            "inline-flex shrink-0 items-center px-2 py-0.5 text-[10px] font-semibold",
+                            r.status === "skipped" ? "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" : "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300",
+                          )}
+                          title={r.failureReason || ""}
+                        >
+                          {FAILURE_LABEL[r.failureCode] || FAILURE_LABEL.unknown}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="shrink-0 border-t border-gray-100 px-6 py-3 dark:border-white/10">
+                <p className="text-xs text-text-muted">{failures.length ? `${failures.length} recipient${failures.length === 1 ? "" : "s"} shown (max 1000).` : ""}</p>
               </div>
             </motion.div>
           </motion.div>

@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTenant } from "../../context/TenantContext";
 import { toast } from "react-hot-toast";
 import { Shield, Eye, EyeOff, ArrowRight, Loader2, Lock } from "lucide-react";
+import OtpInput from "../../components/OtpInput";
 
 function darken(hex, ratio) {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -25,30 +26,42 @@ const AdminLogin = () => {
   const { loginAdmin } = useAuth();
   const { branding, tenantMode } = useTenant();
   const isSaaS = tenantMode === "public" || tenantMode === "superadmin";
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ email: "", password: "", code: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
 
   const primary = branding?.primaryColor || "#102A23";
   const accent = branding?.accentColor || "#047857";
   const bg = branding?.backgroundColor || "#F3F8F5";
   const sidebarTop = darken(primary, -0.1) > primary ? primary : darken(primary, -0.05);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, codeOverride) => {
+    if (e && e.preventDefault) e.preventDefault();
     setLoading(true);
     try {
       if (!formData.email || !formData.password) {
         toast.error("Please fill in all fields");
         return;
       }
-      const response = await loginAdmin(formData);
+      const code = codeOverride != null ? codeOverride : formData.code;
+      if (mfaRequired && (!code || code.length !== 6)) {
+        toast.error("Enter your 6-digit authentication code");
+        return;
+      }
+      const response = await loginAdmin({ ...formData, code });
+      if (response.mfaRequired) {
+        setMfaRequired(true);
+        toast("Enter the 6-digit code from your authenticator app");
+        return;
+      }
       if (response.token) {
         toast.success("Login successful!");
         navigate(isSaaS ? "/dashboard" : "/admin/dashboard");
       }
     } catch (error) {
       toast.error(error.message || "Invalid admin credentials");
+      if (mfaRequired) setFormData((f) => ({ ...f, code: "" }));
     } finally {
       setLoading(false);
     }
@@ -139,6 +152,21 @@ const AdminLogin = () => {
               </div>
             </div>
 
+            {mfaRequired && (
+              <div>
+                <label className="block text-sm font-medium text-primary font-body mb-2">Authentication Code</label>
+                <OtpInput
+                  value={formData.code}
+                  onChange={(v) => setFormData((f) => ({ ...f, code: v }))}
+                  disabled={loading}
+                  autoFocus
+                  accent={accent}
+                  onComplete={(c) => handleSubmit(null, c)}
+                />
+                <p className="mt-2 text-xs text-text-muted font-body">Enter the current 6-digit code from your authenticator app.</p>
+              </div>
+            )}
+
             <button
               type="submit"
               className="w-full h-12 rounded-xl font-semibold font-body text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -146,9 +174,9 @@ const AdminLogin = () => {
               disabled={loading}
             >
               {loading ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /><span>Authenticating...</span></>
+                <><Loader2 className="w-5 h-5 animate-spin" /><span>{mfaRequired ? "Verifying..." : "Authenticating..."}</span></>
               ) : (
-                <><span>Sign in to Admin Panel</span><ArrowRight size={18} /></>
+                <><span>{mfaRequired ? "Verify & Sign In" : "Sign in to Admin Panel"}</span><ArrowRight size={18} /></>
               )}
             </button>
           </form>

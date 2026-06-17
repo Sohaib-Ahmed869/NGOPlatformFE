@@ -35,7 +35,7 @@ const HERO_FALLBACK_BG =
 
 // Underline field style — matches the Contact Us form.
 const fieldCls =
-  "w-full border-b border-gray-200 bg-transparent py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-accent disabled:opacity-60";
+  "w-full rounded-token-input border-b border-gray-200 bg-transparent py-2.5 text-sm text-gray-800 outline-none transition-colors placeholder:text-gray-400 focus:border-accent disabled:opacity-60";
 
 const STEPS = [
   { key: "amount", label: "Amount" },
@@ -115,7 +115,7 @@ function StripeCardStep({ value, onDone }) {
       <button
         onClick={pay}
         disabled={paying || !stripe}
-        className="flex w-full items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
       >
         {paying ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className="h-5 w-5" />}
         Confirm donation · {money(value)}
@@ -266,7 +266,7 @@ export default function GoFundMeDonate() {
       {/* ── HERO (full-height, parallax) — must be a <section> so the navbar's
             "collapse past the hero" measurement targets it (it queries the first
             <section>), not the body below. ─────────────────────────────────── */}
-      <section ref={heroRef} className="relative flex min-h-[80vh] items-center overflow-hidden py-28">
+      <section ref={heroRef} className="relative flex min-h-[100dvh] items-center overflow-hidden py-28">
         {campaign?.image ? (
           <motion.div style={{ y: heroY, scale: heroScale }} className="absolute -inset-y-[10%] inset-x-0 bg-primary will-change-transform">
             <img src={campaign.image} alt="" className="h-full w-full object-cover" />
@@ -339,7 +339,7 @@ export default function GoFundMeDonate() {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="lg:col-span-2"
                 >
-                  <div className="border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+                  <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
                     {/* Step indicator */}
                     <div className="mb-7 flex items-center gap-2 sm:gap-3">
                       {STEPS.map((s, i) => (
@@ -365,7 +365,7 @@ export default function GoFundMeDonate() {
                                 setCustom("");
                               }}
                               className={cn(
-                                "py-3 text-sm font-semibold transition-all",
+                                "rounded-token-btn py-3 text-sm font-semibold transition-all",
                                 amount === String(a) && !custom
                                   ? "bg-accent text-white shadow-sm shadow-accent/25"
                                   : "border border-gray-200 text-primary hover:border-accent/40",
@@ -428,7 +428,7 @@ export default function GoFundMeDonate() {
                               type="button"
                               onClick={() => setMethod("card")}
                               className={cn(
-                                "flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-all",
+                                "flex items-center justify-center gap-2 rounded-token-btn py-3 text-sm font-semibold transition-all",
                                 method === "card" ? "bg-accent/10 text-accent ring-1 ring-accent/30" : "border border-gray-200 text-gray-600 hover:border-accent/40",
                               )}
                             >
@@ -438,7 +438,7 @@ export default function GoFundMeDonate() {
                               type="button"
                               onClick={() => setMethod("paypal")}
                               className={cn(
-                                "flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-all",
+                                "flex items-center justify-center gap-2 rounded-token-btn py-3 text-sm font-semibold transition-all",
                                 method === "paypal" ? "bg-accent/10 text-accent ring-1 ring-accent/30" : "border border-gray-200 text-gray-600 hover:border-accent/40",
                               )}
                             >
@@ -502,7 +502,7 @@ export default function GoFundMeDonate() {
                             type="button"
                             onClick={goBack}
                             disabled={busy}
-                            className="inline-flex items-center gap-2 border border-gray-200 bg-white px-5 py-4 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
+                            className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 bg-white px-5 py-4 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent disabled:opacity-50"
                           >
                             <ArrowLeft className="h-4 w-4" /> Back
                           </button>
@@ -511,7 +511,7 @@ export default function GoFundMeDonate() {
                           type="button"
                           onClick={goNext}
                           disabled={busy}
-                          className="flex flex-1 items-center justify-center gap-2 bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
+                          className="flex flex-1 items-center justify-center gap-2 rounded-token-btn bg-accent py-4 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light disabled:opacity-50"
                         >
                           {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowRight className="h-5 w-5" />}
                           {current === "amount"
@@ -539,7 +539,7 @@ export default function GoFundMeDonate() {
                     this in a motion element that animates `y`. */}
                 <aside className="lg:col-span-1">
                   <div className="lg:sticky lg:top-24">
-                    <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+                    <div className="overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm">
                       {campaign.image && (
                         <div className="relative h-36 w-full">
                           <img src={campaign.image} alt="" className="h-full w-full object-cover" />
@@ -600,7 +600,7 @@ function SuccessPanel({ campaign, value, slug, receiptUrl, navigate }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-xl border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
+      className="mx-auto max-w-xl rounded-token border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
     >
       <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-emerald-50">
         <CheckCircle2 className="h-8 w-8 text-emerald-600" />
@@ -614,13 +614,13 @@ function SuccessPanel({ campaign, value, slug, receiptUrl, navigate }) {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <button
           onClick={() => navigate(`/p2p-campaigns/${slug}`)}
-          className="bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+          className="rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
         >
           Back to fundraiser
         </button>
         <Link
           to="/p2p-campaigns"
-          className="border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+          className="rounded-token-btn border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
         >
           Browse more fundraisers
         </Link>
@@ -647,7 +647,7 @@ function StatusPanel({ title, msg, slug, campaign, navigate }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-xl border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
+      className="mx-auto max-w-xl rounded-token border border-gray-100 bg-white p-8 text-center shadow-sm sm:p-10"
     >
       <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-emerald-50">
         <Heart className="h-8 w-8 text-emerald-600" />
@@ -657,13 +657,13 @@ function StatusPanel({ title, msg, slug, campaign, navigate }) {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
         <button
           onClick={() => navigate(`/p2p-campaigns/${slug}`, { state: { campaign } })}
-          className="bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+          className="rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
         >
           Back to fundraiser
         </button>
         <Link
           to="/p2p-campaigns"
-          className="border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+          className="rounded-token-btn border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
         >
           All fundraisers
         </Link>

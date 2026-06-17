@@ -213,7 +213,7 @@ const EventList = () => {
   const Th = ({ field, children, className }) => (
     <th
       className={cn(
-        "cursor-pointer select-none px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted transition-colors hover:text-primary",
+        "cursor-pointer select-none px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-current transition-colors hover:text-primary",
         className
       )}
       onClick={() => handleSort(field)}
@@ -304,13 +304,13 @@ const EventList = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100">
+                  <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
                     <Th field="title">Event</Th>
                     <Th field="eventType">Type</Th>
                     <Th field="date">Date</Th>
                     <Th field="status">Status</Th>
-                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Regs</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted">Actions</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-current">Regs</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-current">Actions</th>
                   </tr>
                 </thead>
                 <motion.tbody

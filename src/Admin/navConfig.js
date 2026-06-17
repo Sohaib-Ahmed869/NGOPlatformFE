@@ -17,6 +17,7 @@ import {
   Handshake,
   Contact,
   Mail,
+  LifeBuoy,
   Target,
   Megaphone,
   CalendarDays,
@@ -26,6 +27,7 @@ import {
   ShoppingBag,
   FileText,
   Paintbrush,
+  Type,
   Settings,
   UserCog,
 } from 'lucide-react'
@@ -56,6 +58,7 @@ export const NAV_GROUPS = [
       { label: 'Volunteers', path: '/admin/volunteers', icon: HeartHandshake },
       { label: 'Partners', path: '/admin/partners', icon: Handshake },
       { label: 'Contacts', path: '/admin/contacts', icon: Contact },
+      { label: 'Support Tickets', path: '/admin/support', icon: LifeBuoy },
       { label: 'Newsletter', path: '/admin/newsletter', icon: Mail },
     ],
   },
@@ -77,6 +80,7 @@ export const NAV_GROUPS = [
     items: [
       { label: 'Website Pages', path: '/admin/pages', icon: FileText },
       { label: 'Portal Branding', path: '/admin/branding', icon: Paintbrush },
+      { label: 'Design', path: '/admin/design', icon: Type },
     ],
   },
   {
@@ -102,6 +106,7 @@ export const BREADCRUMB_LABELS = {
   volunteers: 'Volunteers',
   partners: 'Partners',
   contacts: 'Contacts',
+  support: 'Support Tickets',
   newsletter: 'Newsletter',
   programs: 'Programs',
   'program-payments': 'Program Payments',
@@ -112,6 +117,7 @@ export const BREADCRUMB_LABELS = {
   products: 'Products',
   pages: 'Website Pages',
   branding: 'Portal Branding',
+  design: 'Design',
   settings: 'Organisation Settings',
   profile: 'Profile',
 }

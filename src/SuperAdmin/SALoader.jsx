@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import React from "react";
-const V = { primary: "#047857", accent: "#F59E0B" };
+import TabLoader from "../components/TabLoader";
+// Platform palette (emerald) — matches the shell's --tenant-accent.
+const V = { primary: "#10b981", accent: "#059669" };
 
 // ── Orbital ──────────────────────────────────────────────
 export function OrbitalLoader({ label = "Loading" }) {
@@ -149,11 +151,12 @@ const LOADERS = {
   typing: TypingLoader,
 };
 
-export default function SALoader() {
-  const Loader = LOADERS[DEFAULT_LOADER] || OrbitalLoader;
+export default function SALoader({ label = "Loading" }) {
+  // Unified loading across the whole console: the shared TabLoader (animated dots
+  // → name sweep) — the same loader used in the tenant admin and the contact inbox.
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-      <Loader />
+      <TabLoader label={label} />
     </div>
   );
 }

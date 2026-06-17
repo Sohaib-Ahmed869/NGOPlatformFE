@@ -39,7 +39,7 @@ function CauseSelect({ value, onChange, options, placeholder = "Select a cause" 
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "flex w-full items-center justify-between border bg-white py-2.5 pl-3 pr-3 text-left text-sm font-medium outline-none transition-colors",
+          "flex w-full items-center justify-between rounded-token-input border bg-white py-2.5 pl-3 pr-3 text-left text-sm font-medium outline-none transition-colors",
           value ? "text-gray-800" : "text-gray-400",
           open ? "border-accent" : "border-gray-200 hover:border-accent/50",
         )}
@@ -56,7 +56,7 @@ function CauseSelect({ value, onChange, options, placeholder = "Select a cause" 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: reduce ? 0 : 0.15, ease: "easeOut" }}
-            className="absolute z-40 mt-1.5 max-h-60 w-full overflow-y-auto border border-gray-100 bg-white py-1 shadow-xl"
+            className="absolute z-40 mt-1.5 max-h-60 w-full overflow-y-auto rounded-token border border-gray-100 bg-white py-1 shadow-xl"
           >
             {options.map((opt) => {
               const active = opt === value;
@@ -157,7 +157,7 @@ const QuickDonate = ({ image, title = "Make a Difference Today", subtitle, defau
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-        className="mx-auto grid max-w-6xl grid-cols-1 border border-gray-100 bg-white shadow-xl lg:grid-cols-2"
+        className="mx-auto grid max-w-6xl grid-cols-1 overflow-hidden rounded-token border border-gray-100 bg-white shadow-xl lg:grid-cols-2"
       >
         {/* Left — give form */}
         <div className="relative flex flex-col justify-center p-8 sm:p-10">
@@ -189,7 +189,7 @@ const QuickDonate = ({ image, title = "Make a Difference Today", subtitle, defau
                     whileTap={reduce ? undefined : { scale: 0.96 }}
                     onClick={() => { setAmount(val); setCustomAmount(""); }}
                     className={cn(
-                      "border py-2.5 text-sm font-semibold transition-colors",
+                      "rounded-token-btn border py-2.5 text-sm font-semibold transition-colors",
                       active
                         ? "border-accent bg-accent text-white shadow-md shadow-accent/25"
                         : "border-gray-200 bg-white text-gray-600 hover:border-accent/50",
@@ -203,7 +203,7 @@ const QuickDonate = ({ image, title = "Make a Difference Today", subtitle, defau
           </div>
 
           {/* Custom amount */}
-          <div className="mt-3 flex items-center gap-2 border border-gray-200 px-3 transition-colors focus-within:border-accent">
+          <div className="mt-3 flex items-center gap-2 rounded-token-input border border-gray-200 px-3 transition-colors focus-within:border-accent">
             <span className="text-sm font-semibold text-gray-400">$</span>
             <input
               type="number"
@@ -227,7 +227,7 @@ const QuickDonate = ({ image, title = "Make a Difference Today", subtitle, defau
           </div>
 
           {/* Impact line */}
-          <div className="mt-5 flex items-start gap-2.5 border border-accent/20 bg-accent/5 px-4 py-3">
+          <div className="mt-5 flex items-start gap-2.5 rounded-token border border-accent/20 bg-accent/5 px-4 py-3">
             <Heart className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
             <p className="text-sm text-gray-600">
               You&apos;re giving <span className="font-bold text-primary">${activeAmount || 0}</span>
@@ -240,7 +240,7 @@ const QuickDonate = ({ image, title = "Make a Difference Today", subtitle, defau
             onClick={handleDonate}
             whileHover={reduce ? {} : { scale: 1.01 }}
             whileTap={reduce ? {} : { scale: 0.99 }}
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-token-btn bg-accent text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
           >
             Donate {activeAmount ? `$${activeAmount}` : "Now"}
             <ArrowRight className="h-4 w-4" />

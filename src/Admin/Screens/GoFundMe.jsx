@@ -293,7 +293,7 @@ const GoFundMeAdmin = () => {
                     <p className="py-8 text-center text-sm text-text-muted">No donations yet.</p>
                   ) : (
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b border-gray-100 text-left text-[11px] uppercase tracking-wide text-text-muted"><th className="px-3 py-2">Donor</th><th className="px-3 py-2">Amount</th><th className="px-3 py-2">Method</th><th className="px-3 py-2">Date</th></tr></thead>
+                      <thead><tr className="bg-accent/5 border-b border-accent/10 text-left text-[11px] font-semibold uppercase tracking-wider text-accent"><th className="px-3 py-2">Donor</th><th className="px-3 py-2">Amount</th><th className="px-3 py-2">Method</th><th className="px-3 py-2">Date</th></tr></thead>
                       <tbody className="divide-y divide-gray-50">
                         {donors.map((d, i) => (
                           <tr key={i}>

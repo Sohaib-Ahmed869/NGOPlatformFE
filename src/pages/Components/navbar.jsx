@@ -1,12 +1,71 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { User, ShoppingCart, ChevronDown, Menu, X, HeartHandshake, ArrowRight } from "lucide-react";
+import { User, ShoppingCart, ChevronDown, Menu, X, HeartHandshake, ArrowRight, Search } from "lucide-react";
 import { useCart } from "./cart";
 import { useAuth } from "../../context/AuthContext";
 import { useTenant } from "../../context/TenantContext";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
+
+/* ── Command palette (⌘K) — quick-jump to any page, used by the "command" navbar
+   variant. A filterable list with arrow-key + Enter navigation. ── */
+const CommandPalette = ({ pages, onNavigate, onClose }) => {
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState(0);
+  const inputRef = useRef(null);
+  const query = q.trim().toLowerCase();
+  const results = query ? pages.filter((p) => p.label.toLowerCase().includes(query)) : pages;
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { setActive(0); }, [q]);
+
+  const onKey = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(i + 1, results.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (results[active]) onNavigate(results[active].path); }
+    else if (e.key === "Escape") { onClose(); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 p-4 pt-[12vh] backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg overflow-hidden rounded-token border border-black/10 bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 border-b border-gray-100 px-4">
+          <Search className="h-4 w-4 text-gray-400" />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKey}
+            placeholder="Search pages…"
+            className="w-full bg-transparent py-3.5 font-nav text-sm text-gray-800 outline-none placeholder:text-gray-400"
+          />
+          <kbd className="hidden rounded border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-400 sm:inline">Esc</kbd>
+        </div>
+        <div className="max-h-[50vh] overflow-auto py-2">
+          {results.length ? (
+            results.map((p, i) => (
+              <button
+                key={p.key}
+                onClick={() => onNavigate(p.path)}
+                onMouseEnter={() => setActive(i)}
+                className={cn(
+                  "flex w-full items-center gap-3 px-4 py-2.5 text-left font-nav text-sm transition-colors",
+                  i === active ? "bg-accent/10 text-primary" : "text-gray-600 hover:bg-gray-50",
+                )}
+              >
+                <ArrowRight className={cn("h-3.5 w-3.5 shrink-0", i === active ? "text-accent" : "text-gray-300")} />
+                {p.label}
+              </button>
+            ))
+          ) : (
+            <p className="px-4 py-6 text-center font-nav text-sm text-gray-400">No pages found.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* ── Mobile overlay motion ── */
 const overlayVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } };
@@ -21,9 +80,11 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [scrolled, setScrolled] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const { setIsOpen: setCartOpen, items } = useCart();
   const { user, logout } = useAuth();
-  const { organisation, branding, pages } = useTenant();
+  const { organisation, branding, pages, design } = useTenant();
+  const navVariant = design?.variants?.navbar || "classic";
   const navigate = useNavigate();
   const location = useLocation();
   const timeoutRef = useRef(null);
@@ -68,6 +129,22 @@ const Navbar = () => {
   }, [isOpen]);
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  // ⌘K / Ctrl+K opens the command palette (only for the "command" navbar variant).
+  useEffect(() => {
+    if (navVariant !== "command") return;
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navVariant]);
+
+  // Close the command palette on route change.
+  useEffect(() => { setCmdOpen(false); }, [location.pathname]);
 
   const toggleDropdown = (dropdown) => setOpenDropdown(openDropdown === dropdown ? null : dropdown);
   const handleMouseEnter = (key) => { clearTimeout(timeoutRef.current); setOpenDropdown(key); };
@@ -130,7 +207,7 @@ const Navbar = () => {
 
   const navLinkClass = (path) => {
     const active = isActive(path);
-    const base = "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-nav font-medium tracking-wide transition-all duration-200";
+    const base = "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-nav font-medium tracking-wide transition-all duration-200";
     if (onDarkText) {
       return cn(base, active ? "text-white bg-white/15" : "text-white/75 hover:text-white hover:bg-white/10");
     }
@@ -147,7 +224,7 @@ const Navbar = () => {
           <User size={20} />
           <ChevronDown className={cn("ml-0.5 h-4 w-4 transition-transform", open && "rotate-180")} />
         </button>
-        <div className={cn("absolute right-0 mt-2 w-48 border border-black/5 bg-white/95 py-2 shadow-xl backdrop-blur-xl", open ? "block" : "hidden")} onMouseLeave={() => setOpenDropdown(null)}>
+        <div className={cn("absolute right-0 mt-2 w-48 rounded-token border border-black/5 bg-white/95 py-2 shadow-xl backdrop-blur-xl", open ? "block" : "hidden")} onMouseLeave={() => setOpenDropdown(null)}>
           {user ? (
             <>
               <Link to="/user/dashboard" className="block px-4 py-2 font-nav text-sm text-gray-700 transition-colors hover:bg-background hover:text-primary" onClick={() => setOpenDropdown(null)}>Dashboard</Link>
@@ -160,6 +237,115 @@ const Navbar = () => {
       </div>
     );
   };
+
+  // Brand mark — shared by every navbar variant.
+  const brandLink = (
+    <Link to="/" className="flex shrink-0 items-center gap-2.5">
+      {navLogo ? (
+        <img
+          src={navLogo}
+          alt={organisation?.name || ""}
+          className={cn("w-auto object-contain object-left transition-all duration-500", scrolled ? "h-8 max-w-[140px]" : "h-9 max-w-[160px]")}
+        />
+      ) : (
+        <>
+          {organisation ? (
+            <div className="flex h-8 w-8 items-center justify-center rounded text-white" style={{ backgroundColor: accentColor }}>
+              <HeartHandshake className="h-[18px] w-[18px]" />
+            </div>
+          ) : null}
+          <span className={cn("whitespace-nowrap font-nav text-lg font-extrabold leading-tight tracking-tight transition-colors", onDarkText ? "text-white" : "text-primary")}>
+            {organisation?.name || ""}
+          </span>
+        </>
+      )}
+    </Link>
+  );
+
+  // A single top-level nav entry — a hover dropdown when it has children, else a link.
+  // (Flattened leaf items, e.g. from `flatNav`, carry no `children` — render as links.)
+  const renderNavItem = (item) =>
+    item.children?.length ? (
+      <div key={item.key} className="relative" onMouseEnter={() => handleMouseEnter(item.key)} onMouseLeave={handleMouseLeave}>
+        <Link to={item.path} className={navLinkClass(item.path)}>
+          {item.label}
+          <ChevronDown className={cn("h-3.5 w-3.5 opacity-70 transition-transform", openDropdown === item.key && "rotate-180")} />
+        </Link>
+        <div
+          className={cn("absolute left-1/2 z-50 mt-2 w-52 -translate-x-1/2 rounded-token border border-black/5 bg-white/95 py-2 shadow-xl backdrop-blur-xl", openDropdown === item.key ? "block" : "hidden")}
+          onMouseEnter={() => clearTimeout(timeoutRef.current)}
+          onMouseLeave={handleMouseLeave}
+        >
+          {item.children.map((c) => (
+            <Link key={c.key} to={c.path} className="block px-4 py-2 font-nav text-sm text-gray-700 transition-colors hover:bg-background hover:text-primary">{c.label}</Link>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <Link key={item.key} to={item.path} className={navLinkClass(item.path)}>{item.label}</Link>
+    );
+
+  // "allExpanded" flattens groups to their leaf links so the whole site map is one row.
+  const flatNav = navTree.flatMap((item) => (item.children.length ? item.children : [item]));
+
+  // Every enabled page, flat — feeds the "command" variant's ⌘K palette.
+  const commandPages = enabledNav.map((p) => ({ key: p.key, label: p.navLabel, path: p.path }));
+
+  // "mega": like classic, but a parent opens a full-width multi-column panel.
+  const renderMegaItem = (item) =>
+    item.children?.length ? (
+      <div key={item.key} className="static" onMouseEnter={() => handleMouseEnter(item.key)} onMouseLeave={handleMouseLeave}>
+        <Link to={item.path} className={navLinkClass(item.path)}>
+          {item.label}
+          <ChevronDown className={cn("h-3.5 w-3.5 opacity-70 transition-transform", openDropdown === item.key && "rotate-180")} />
+        </Link>
+        <div
+          className={cn("absolute inset-x-0 top-full z-50 mt-2 rounded-token border border-black/5 bg-white/95 p-5 shadow-2xl backdrop-blur-xl", openDropdown === item.key ? "block" : "hidden")}
+          onMouseEnter={() => clearTimeout(timeoutRef.current)}
+          onMouseLeave={handleMouseLeave}
+        >
+          <p className="mb-3 font-nav text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">{item.label}</p>
+          <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+            {item.children.map((c) => (
+              <Link key={c.key} to={c.path} className="block px-3 py-2 font-nav text-sm text-gray-700 transition-colors hover:bg-background hover:text-primary">{c.label}</Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <Link key={item.key} to={item.path} className={navLinkClass(item.path)}>{item.label}</Link>
+    );
+
+  // "centered" splits the top-level items into two balanced halves around the logo.
+  const centeredSplit = Math.ceil(navTree.length / 2);
+  const leftNav = navTree.slice(0, centeredSplit);
+  const rightNav = navTree.slice(centeredSplit);
+
+  // Right-side controls (account, cart, mobile toggle) — shared by every variant.
+  const rightCluster = (
+    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <div className={cn("hidden h-5 w-px lg:block", onDarkText ? "bg-white/20" : "bg-black/10")} />
+
+      <UserDropdown />
+
+      <button className={cn("relative transition-colors", iconColor)} onClick={() => setCartOpen(true)} aria-label="Shopping cart">
+        <ShoppingCart size={20} />
+        {items.length > 0 && (
+          <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-white">{items.length}</span>
+        )}
+      </button>
+
+      {/* Mobile toggle */}
+      <button
+        onClick={() => setIsOpen((v) => !v)}
+        aria-label={isOpen ? "Close menu" : "Open menu"}
+        aria-expanded={isOpen}
+        className={cn("inline-flex items-center justify-center rounded-full p-2 transition-colors lg:hidden", onDarkText ? "text-white hover:bg-white/10" : "text-primary hover:bg-primary/5")}
+      >
+        {isOpen ? <X size={22} /> : <Menu size={22} />}
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -177,85 +363,81 @@ const Navbar = () => {
         >
           <nav
             className={cn(
-              "flex items-center justify-between gap-3 px-4 transition-all duration-500 ease-out sm:px-6",
+              "relative flex items-center justify-between gap-3 px-4 transition-all duration-500 ease-out sm:px-6",
               scrolled
                 ? "h-14 rounded-full border border-black/[0.06] bg-background/90 shadow-lg shadow-black/[0.05] backdrop-blur-xl"
                 : "h-16 rounded-none border border-transparent bg-transparent",
             )}
           >
-            {/* Brand */}
-            <Link to="/" className="flex shrink-0 items-center gap-2.5">
-              {navLogo ? (
-                <img
-                  src={navLogo}
-                  alt={organisation?.name || ""}
-                  className={cn("w-auto object-contain object-left transition-all duration-500", scrolled ? "h-8 max-w-[140px]" : "h-9 max-w-[160px]")}
-                />
-              ) : (
-                <>
-                  {organisation ? (
-                    <div className="flex h-8 w-8 items-center justify-center rounded text-white" style={{ backgroundColor: accentColor }}>
-                      <HeartHandshake className="h-[18px] w-[18px]" />
-                    </div>
-                  ) : null}
-                  <span className={cn("whitespace-nowrap font-nav text-lg font-extrabold leading-tight tracking-tight transition-colors", onDarkText ? "text-white" : "text-primary")}>
-                    {organisation?.name || ""}
-                  </span>
-                </>
-              )}
-            </Link>
-
-            {/* Desktop nav — auto-generated from enabled pages */}
-            <div className="hidden shrink-0 items-center gap-0.5 lg:flex">
-              {navTree.map((item) =>
-                item.children.length ? (
-                  <div key={item.key} className="relative" onMouseEnter={() => handleMouseEnter(item.key)} onMouseLeave={handleMouseLeave}>
-                    <Link to={item.path} className={navLinkClass(item.path)}>
-                      {item.label}
-                      <ChevronDown className={cn("h-3.5 w-3.5 opacity-70 transition-transform", openDropdown === item.key && "rotate-180")} />
-                    </Link>
-                    <div
-                      className={cn("absolute left-1/2 z-50 mt-2 w-52 -translate-x-1/2 border border-black/5 bg-white/95 py-2 shadow-xl backdrop-blur-xl", openDropdown === item.key ? "block" : "hidden")}
-                      onMouseEnter={() => clearTimeout(timeoutRef.current)}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      {item.children.map((c) => (
-                        <Link key={c.key} to={c.path} className="block px-4 py-2 font-nav text-sm text-gray-700 transition-colors hover:bg-background hover:text-primary">{c.label}</Link>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <Link key={item.key} to={item.path} className={navLinkClass(item.path)}>{item.label}</Link>
-                ),
-              )}
-            </div>
-
-            {/* Right cluster */}
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <div className={cn("hidden h-5 w-px lg:block", onDarkText ? "bg-white/20" : "bg-black/10")} />
-
-              <UserDropdown />
-
-              <button className={cn("relative transition-colors", iconColor)} onClick={() => setCartOpen(true)} aria-label="Shopping cart">
-                <ShoppingCart size={20} />
-                {items.length > 0 && (
-                  <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-white">{items.length}</span>
-                )}
-              </button>
-
-              {/* Mobile toggle */}
-              <button
-                onClick={() => setIsOpen((v) => !v)}
-                aria-label={isOpen ? "Close menu" : "Open menu"}
-                aria-expanded={isOpen}
-                className={cn("inline-flex items-center justify-center rounded-full p-2 transition-colors lg:hidden", onDarkText ? "text-white hover:bg-white/10" : "text-primary hover:bg-primary/5")}
-              >
-                {isOpen ? <X size={22} /> : <Menu size={22} />}
-              </button>
-            </div>
+            {navVariant === "centered" ? (
+              /* Logo dead-centre with the links split into two equal halves either side. */
+              <>
+                <div className="hidden flex-1 items-center justify-end gap-0.5 lg:flex">
+                  {leftNav.map(renderNavItem)}
+                </div>
+                {brandLink}
+                <div className="flex flex-1 items-center">
+                  <div className="hidden items-center gap-0.5 lg:flex">{rightNav.map(renderNavItem)}</div>
+                  <div className="ml-auto">{rightCluster}</div>
+                </div>
+              </>
+            ) : navVariant === "allExpanded" ? (
+              /* Every page flattened onto one row — no dropdowns. */
+              <>
+                {brandLink}
+                <div className="hidden flex-1 items-center justify-center gap-0.5 lg:flex">
+                  {flatNav.map(renderNavItem)}
+                </div>
+                {rightCluster}
+              </>
+            ) : navVariant === "command" ? (
+              /* Logo left, a centred ⌘K search trigger, actions right. */
+              <>
+                {brandLink}
+                <div className="hidden flex-1 items-center justify-center lg:flex">
+                  <button
+                    type="button"
+                    onClick={() => setCmdOpen(true)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-full border px-4 py-1.5 font-nav text-sm transition-colors",
+                      onDarkText ? "border-white/25 text-white/80 hover:bg-white/10" : "border-black/10 text-primary/60 hover:border-black/25 hover:text-primary",
+                    )}
+                  >
+                    <Search className="h-4 w-4" />
+                    <span>Search pages…</span>
+                    <kbd className={cn("ml-2 rounded border px-1.5 text-[10px] opacity-70", onDarkText ? "border-white/30" : "border-black/15")}>⌘K</kbd>
+                  </button>
+                </div>
+                {rightCluster}
+              </>
+            ) : (
+              /* classic/mega = inline, split = centred, minimal = pushed to the right. */
+              <>
+                {brandLink}
+                <div
+                  className={cn(
+                    "hidden shrink-0 items-center gap-0.5 lg:flex",
+                    navVariant === "split" && "lg:absolute lg:left-1/2 lg:-translate-x-1/2",
+                    navVariant === "minimal" && "lg:ml-auto",
+                  )}
+                >
+                  {navTree.map(navVariant === "mega" ? renderMegaItem : renderNavItem)}
+                </div>
+                {rightCluster}
+              </>
+            )}
           </nav>
         </div>
       </motion.header>
+
+      {/* ── Command palette (⌘K) — "command" navbar variant ── */}
+      {cmdOpen && (
+        <CommandPalette
+          pages={commandPages}
+          onNavigate={(path) => { navigate(path); setCmdOpen(false); }}
+          onClose={() => setCmdOpen(false)}
+        />
+      )}
 
       {/* ── Mobile full-screen overlay ── */}
       <AnimatePresence>

@@ -50,11 +50,11 @@ function DetailSkeleton() {
         <div className="mx-auto -mt-14 max-w-6xl lg:-mt-20">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
             <div className="space-y-6 lg:col-span-2">
-              <div className="border border-gray-100 bg-white p-8 shadow-sm">
+              <div className="rounded-token border border-gray-100 bg-white p-8 shadow-sm">
                 <div className="h-4 w-24 animate-pulse bg-gray-100" />
                 <div className="mt-4 space-y-2"><div className="h-4 w-full animate-pulse bg-gray-100" /><div className="h-4 w-5/6 animate-pulse bg-gray-100" /></div>
               </div>
-              <div className="space-y-5 border border-gray-100 bg-white p-8 shadow-sm">
+              <div className="space-y-5 rounded-token border border-gray-100 bg-white p-8 shadow-sm">
                 {[0, 1, 2].map((i) => (
                   <div key={i}>
                     <div className="h-5 w-44 animate-pulse bg-gray-100" />
@@ -65,7 +65,7 @@ function DetailSkeleton() {
               </div>
             </div>
             <div className="lg:col-span-1">
-              <div className="border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm">
                 <div className="h-8 w-32 animate-pulse bg-gray-100" />
                 <div className="mt-3 h-2.5 w-full animate-pulse rounded-full bg-gray-100" />
                 <div className="mt-5 h-16 w-full animate-pulse bg-gray-100" />
@@ -178,10 +178,10 @@ export default function CampaignDetail() {
         <h2 className="font-heading text-xl font-bold text-primary">We couldn't load this fundraiser</h2>
         <p className="mt-1.5 max-w-sm text-sm text-text-muted">It may have been removed or completed, or there was a network hiccup.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <button onClick={retry} className="inline-flex items-center gap-2 bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
+          <button onClick={retry} className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
             <RefreshCw className="h-4 w-4" /> Try again
           </button>
-          <button onClick={() => navigate("/p2p-campaigns")} className="inline-flex items-center gap-2 border border-gray-200 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
+          <button onClick={() => navigate("/p2p-campaigns")} className="inline-flex items-center gap-2 rounded-token-btn border border-gray-200 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
             <ArrowLeft className="h-4 w-4" /> Back to fundraisers
           </button>
         </div>
@@ -201,7 +201,7 @@ export default function CampaignDetail() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="bg-background">
       {/* ── HERO — a <section> so the navbar's "collapse past the hero"
             measurement (it queries the first <section>) targets it. ────────── */}
-      <section ref={heroRef} className="relative overflow-hidden py-28 lg:py-36">
+      <section ref={heroRef} className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-28 lg:py-36">
         <motion.div style={{ y: bgY, scale: bgScale }} className="absolute -inset-y-[12%] inset-x-0 bg-primary will-change-transform">
           {campaign.image && (
             <img
@@ -253,12 +253,12 @@ export default function CampaignDetail() {
             {/* Main */}
             <div className="space-y-6 lg:col-span-2">
               {/* Summary card */}
-              <div className="border border-gray-100 bg-white p-6 shadow-sm lg:p-8">
+              <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm lg:p-8">
                 <div className="flex items-start justify-between gap-3">
                   <span className="inline-flex items-center gap-1.5 bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
                     <Heart className="h-3.5 w-3.5" /> The appeal
                   </span>
-                  <button onClick={share} className="inline-flex shrink-0 items-center gap-1.5 border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent/50 hover:text-accent">
+                  <button onClick={share} className="inline-flex shrink-0 items-center gap-1.5 rounded-token-btn border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent/50 hover:text-accent">
                     {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />} {copied ? "Copied" : "Share"}
                   </button>
                 </div>
@@ -266,7 +266,7 @@ export default function CampaignDetail() {
               </div>
 
               {/* Story sections */}
-              <div className="space-y-6 border border-gray-100 bg-white p-6 shadow-sm lg:p-8">
+              <div className="space-y-6 rounded-token border border-gray-100 bg-white p-6 shadow-sm lg:p-8">
                 {STORY_SECTIONS.map(({ key, icon: Icon, title }) =>
                   campaign[key] ? (
                     <div key={key}>
@@ -284,7 +284,7 @@ export default function CampaignDetail() {
 
               {/* Recent donations */}
               {recent.length > 0 && (
-                <div className="border border-gray-100 bg-white p-6 shadow-sm lg:p-8">
+                <div className="rounded-token border border-gray-100 bg-white p-6 shadow-sm lg:p-8">
                   <div className="mb-4 flex items-center gap-2.5">
                     <span className="grid h-9 w-9 shrink-0 place-items-center bg-accent/10 text-accent">
                       <Users className="h-[18px] w-[18px]" />
@@ -293,7 +293,7 @@ export default function CampaignDetail() {
                   </div>
                   <div className="space-y-3">
                     {recent.map((d, i) => (
-                      <div key={i} className="flex items-start gap-3 border border-gray-50 bg-gray-50/60 p-3">
+                      <div key={i} className="flex items-start gap-3 rounded-token border border-gray-50 bg-gray-50/60 p-3">
                         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent/10"><Heart className="h-4 w-4 text-accent" /></div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
@@ -313,7 +313,7 @@ export default function CampaignDetail() {
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <div className="lg:sticky lg:top-24">
-                <div className="border border-gray-100 bg-white p-6 shadow-lg shadow-black/5">
+                <div className="rounded-token border border-gray-100 bg-white p-6 shadow-lg shadow-black/5">
                   <div className="flex items-end justify-between gap-2">
                     <span className="font-heading text-3xl font-bold text-accent">{money(campaign.currentAmount)}</span>
                     <span className="pb-1 text-sm text-text-muted">of {money(campaign.targetAmount)}</span>
@@ -347,10 +347,10 @@ export default function CampaignDetail() {
 
                   {canDonate ? (
                     <>
-                      <button onClick={() => navigate(`/p2p-campaigns/${slug}/donate`, { state: { campaign } })} className="mt-5 flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light">
+                      <button onClick={() => navigate(`/p2p-campaigns/${slug}/donate`, { state: { campaign } })} className="mt-5 flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light">
                         <Heart className="h-5 w-5" /> Donate now
                       </button>
-                      <button onClick={share} className="mt-2.5 flex w-full items-center justify-center gap-2 border border-gray-200 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
+                      <button onClick={share} className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-token-btn border border-gray-200 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
                         {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />} {copied ? "Link copied" : "Share this fundraiser"}
                       </button>
                       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-text-muted">
@@ -358,18 +358,18 @@ export default function CampaignDetail() {
                       </p>
                     </>
                   ) : campaign.status === "completed" ? (
-                    <div className="mt-5 flex w-full items-center justify-center gap-2 bg-emerald-50 py-3.5 font-semibold text-emerald-700">
+                    <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-token-btn bg-emerald-50 py-3.5 font-semibold text-emerald-700">
                       <CheckCircle className="h-5 w-5" /> Goal reached — thank you!
                     </div>
                   ) : (
-                    <div className="mt-5 flex w-full items-center justify-center gap-2 bg-gray-100 py-3.5 font-medium text-gray-500">
+                    <div className="mt-5 flex w-full items-center justify-center gap-2 rounded-token-btn bg-gray-100 py-3.5 font-medium text-gray-500">
                       <AlertTriangle className="h-5 w-5" /> Not accepting donations
                     </div>
                   )}
                 </div>
 
                 {/* Organiser note */}
-                <div className="mt-4 flex items-center gap-3 border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="mt-4 flex items-center gap-3 rounded-token border border-gray-100 bg-white p-4 shadow-sm">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-sm font-semibold text-accent">
                     {creator.trim().charAt(0).toUpperCase()}
                   </span>

@@ -31,6 +31,7 @@ import Login from "./pages/Login/page";
 import SignUp from "./pages/Signup/page";
 import ChangePassword from "./pages/Login/change-password";
 import InitiativesSection from "./pages/Initiatives/page";
+import GetInvolved from "./pages/GetInvolved/page";
 import Events from "./pages/Events/page";
 import EventDetailPage from "./pages/Events/EventDetail";
 import EventRegisterPage from "./pages/Events/EventRegister";
@@ -55,13 +56,19 @@ import ResetPassword from "./pages/Login/reset-password";
 import AdminLayout from "./Admin/Layout";
 import AdminDashboard from "./Admin/Screens/dashboard";
 import DonationsPage from "./Admin/Screens/donations";
+import DonationDetail from "./Admin/Screens/DonationDetail";
 import DonorsPage from "./Admin/Screens/donors";
+import DonorDetail from "./Admin/Screens/DonorDetail";
 import SubscriptionsPage from "./Admin/Screens/subscriptions";
+import SubscriptionDetail from "./Admin/Screens/SubscriptionDetail";
 import EventsManagement from "./Admin/Screens/Events";
 import EventPaymentsPage from "./Admin/Screens/EventPayments";
 import CampaignPaymentsPage from "./Admin/Screens/CampaignPayments";
 import ProgramPaymentsPage from "./Admin/Screens/ProgramPayments";
 import AdminLogin from "./pages/AdminLogin/login";
+import SupportHandoff from "./pages/SupportHandoff";
+import SupportForm from "./pages/SupportForm";
+import SupportFeedback from "./pages/SupportFeedback";
 import Unsubscribe from "./pages/Unsubscribe";
 import JoinTeamAdmin from "./Admin/Screens/joinTeam";
 import PartnersAdmin from "./Admin/Screens/Partners";
@@ -72,10 +79,13 @@ import NewsletterScreen from "./Admin/Screens/newsletter";
 import CancellationRequests from "./Admin/Screens/CancellationRequests";
 import ProfileSetting from "./Admin/Screens/AdminProfile";
 import AdminInstallments from "./Admin/Screens/installments";
+import InstallmentDetail from "./Admin/Screens/InstallmentDetail";
 import DonationTypes from "./Admin/Screens/DonationTypes";
 import BrandingScreen from "./Admin/Screens/Branding";
+import AdminDesign from "./Admin/Screens/Design";
 import OrganisationSettings from "./Admin/Screens/OrganisationSettings";
 import AdminPages from "./Admin/Screens/Pages";
+import SupportTickets from "./Admin/Screens/SupportTickets";
 
 // User
 import UserLayout from "./User/UserLayout";
@@ -87,6 +97,7 @@ import PaymentMethods from "./User/Screens/payments";
 import ProfileSettings from "./User/Screens/profile";
 import UserDashboard from "./User/Screens/dashboard";
 import MyPrograms from "./User/Screens/MyPrograms";
+import UserSupport from "./User/Screens/Support";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Program pages
@@ -113,9 +124,18 @@ import ContactPage from "./pages/SaaS/ContactPage";
 import SuperAdminLayout from "./SuperAdmin/Layout";
 import SADashboard from "./SuperAdmin/Screens/Dashboard";
 import Organisations from "./SuperAdmin/Screens/Organisations";
+import OrganisationDetail from "./SuperAdmin/Screens/OrganisationDetail";
+import Plans from "./SuperAdmin/Screens/Plans";
+import Tickets from "./SuperAdmin/Screens/Tickets";
+import TicketDetail from "./SuperAdmin/Screens/TicketDetail";
+import KanbanBoard from "./SuperAdmin/Screens/KanbanBoard";
 import Billing from "./SuperAdmin/Screens/Billing";
+import Invoices from "./SuperAdmin/Screens/Invoices";
+import Coupons from "./SuperAdmin/Screens/Coupons";
 import BrandingRequests from "./SuperAdmin/Screens/BrandingRequests";
 import ContactQueries from "./SuperAdmin/Screens/ContactQueries";
+import SASettings from "./SuperAdmin/Screens/Settings";
+import PlatformSettings from "./SuperAdmin/Screens/PlatformSettings";
 import ProtectedSuperAdminRoute from "./components/ProtectedSuperAdminRoute";
 import TenantLoader from "./components/TenantLoader";
 
@@ -150,6 +170,7 @@ const TenantRoutes = () => (
     <Route path="/our-partners" element={<PageGate path="/our-partners"><PartnersSection /></PageGate>} />
     <Route path="/become-a-partner" element={<BecomePartner />} />
     <Route path="/initiatives" element={<PageGate path="/initiatives"><InitiativesSection /></PageGate>} />
+    <Route path="/get-involved" element={<PageGate path="/get-involved"><GetInvolved /></PageGate>} />
     <Route path="/initiative-1" element={<PageGate path="/initiative-1"><EducationInitiatives /></PageGate>} />
     <Route path="/initiative-2" element={<PageGate path="/initiative-2"><WaterInitiatives /></PageGate>} />
     <Route path="/initiative-3" element={<PageGate path="/initiative-3"><FoodInitiatives /></PageGate>} />
@@ -175,15 +196,26 @@ const TenantRoutes = () => (
     <Route path="/program-checkout" element={<ProgramCheckout />} />
     <Route path="/unsubscribe" element={<Unsubscribe />} />
 
+    {/* Platform-support impersonation handoff (token arrives via URL hash) */}
+    <Route path="/support-handoff" element={<SupportHandoff />} />
+
+    {/* Public support: submission form + post-resolution satisfaction rating */}
+    <Route path="/support/new" element={<SupportForm />} />
+    <Route path="/support/feedback/:id" element={<SupportFeedback />} />
+
     {/* Admin Routes */}
     <Route path="/admin/login" element={<AdminLogin />} />
     <Route path="/admin" element={<AdminLayout />}>
       <Route path="dashboard" element={<AdminDashboard />} />
       <Route path="donations" element={<DonationsPage />} />
+      <Route path="donations/:id" element={<DonationDetail />} />
       <Route path="donation-types" element={<DonationTypes />} />
       <Route path="donors" element={<DonorsPage />} />
+      <Route path="donors/:id" element={<DonorDetail />} />
       <Route path="subscriptions" element={<SubscriptionsPage />} />
+      <Route path="subscriptions/:id" element={<SubscriptionDetail />} />
       <Route path="installments" element={<AdminInstallments />} />
+      <Route path="installments/:id" element={<InstallmentDetail />} />
       <Route path="events/*" element={<EventsManagement />} />
       <Route path="event-payments" element={<EventPaymentsPage />} />
       <Route path="campaign-payments" element={<CampaignPaymentsPage />} />
@@ -191,6 +223,7 @@ const TenantRoutes = () => (
       <Route path="volunteers" element={<JoinTeamAdmin />} />
       <Route path="volunteers/:id" element={<VolunteerProfile />} />
       <Route path="contacts" element={<ContactRequestsAdmin />} />
+      <Route path="support" element={<SupportTickets />} />
       <Route path="partners" element={<PartnersAdmin />} />
       <Route path="newsletter" element={<NewsletterScreen />} />
       <Route path="profile" element={<ProfileSetting />} />
@@ -205,6 +238,7 @@ const TenantRoutes = () => (
       {/* Payments moved into Organisation Settings → Payments tab */}
       <Route path="payments" element={<Navigate to="/admin/settings?tab=payments" replace />} />
       <Route path="branding" element={<BrandingScreen />} />
+      <Route path="design" element={<AdminDesign />} />
       <Route path="settings" element={<OrganisationSettings />} />
     </Route>
 
@@ -221,6 +255,7 @@ const TenantRoutes = () => (
       <Route path="payments" element={<UserPayments />} />
       <Route path="fundraisers" element={<MyFundraisers />} />
       <Route path="programs" element={<MyPrograms />} />
+      <Route path="support" element={<UserSupport />} />
       <Route path="dashboard" element={<UserDashboard />} />
       {/* Unified subscriptions page (Active / Past tabs). Old split routes redirect in. */}
       <Route path="subscriptions" element={<Subscriptions />} />
@@ -265,9 +300,19 @@ const SuperAdminRoutes = () => (
     >
       <Route path="dashboard" element={<SADashboard />} />
       <Route path="organisations" element={<Organisations />} />
+      <Route path="organisations/:id" element={<OrganisationDetail />} />
+      <Route path="plans" element={<Plans />} />
+      <Route path="tickets" element={<Tickets />} />
+      <Route path="tickets/:id" element={<TicketDetail />} />
+      <Route path="kanban" element={<KanbanBoard />} />
       <Route path="billing" element={<Billing />} />
+      <Route path="invoices" element={<Invoices />} />
+      <Route path="coupons" element={<Coupons />} />
       <Route path="branding-requests" element={<BrandingRequests />} />
       <Route path="contact-queries" element={<ContactQueries />} />
+      <Route path="platform" element={<PlatformSettings />} />
+      <Route path="settings" element={<SASettings />} />
+      <Route path="profile" element={<SASettings />} />
       <Route index element={<Navigate to="dashboard" replace />} />
     </Route>
     <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -280,9 +325,84 @@ const SuperAdminRoutes = () => (
 // Shared state for loader completion — prevents footer flash
 const LoaderContext = React.createContext({ loaderDone: true });
 
+// Platform marketing-site brand, expressed through the shared design tokens so
+// the SaaS site (navbar, cards, forms, footer) themes consistently — emerald +
+// amber identity, rounded edges, modern Outfit type. The data-public-site scope
+// (see index.css) applies the shape tokens to every border/shadow/input/button.
+// Scoped to the public branch ONLY — tenant/admin/superadmin are untouched.
+const PLATFORM_VARS = {
+  "--tenant-primary": "#102A23",
+  "--tenant-primary-light": "#1C453A",
+  "--tenant-primary-rgb": "16, 42, 35",
+  "--tenant-accent": "#047857",
+  "--tenant-accent-light": "#059669",
+  "--tenant-accent-rgb": "4, 120, 87",
+  "--tenant-bg": "#F3F8F5",
+  "--tenant-bg-rgb": "243, 248, 245",
+  "--tenant-sidebar-top": "#0D241E",
+  "--tenant-sidebar-bottom": "#081712",
+  "--pf-accent-2": "#065F46",
+  "--pf-gold": "#F59E0B",
+  "--pf-gold-soft": "#FEF3C7",
+  "--radius-card": "16px",
+  "--radius-btn": "10px",
+  "--radius-input": "10px",
+  "--radius-pill": "9999px",
+  "--border-width": "1px",
+  "--card-shadow": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+  "--font-heading":
+    '"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  "--font-body":
+    '"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  "--font-nav":
+    '"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+};
+
+// hex → "r, g, b"; positive percent darkens, negative lightens (mirrors TenantContext).
+const _hexToRgb = (hex) => {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ""));
+  return m ? `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}` : "0, 0, 0";
+};
+const _shiftHex = (hex, percent) => {
+  const num = parseInt(String(hex || "").replace("#", ""), 16);
+  if (Number.isNaN(num)) return hex;
+  const amt = Math.round(2.55 * percent);
+  const R = Math.min(255, Math.max((num >> 16) - amt, 0));
+  const G = Math.min(255, Math.max(((num >> 8) & 0x00ff) - amt, 0));
+  const B = Math.min(255, Math.max((num & 0x0000ff) - amt, 0));
+  return "#" + ((1 << 24) | (R << 16) | (G << 8) | B).toString(16).slice(1);
+};
+
+// Merge the DB-driven platform brand colours (from SuperAdmin → Platform) over
+// the static PLATFORM_VARS defaults, deriving the sidebar/light/rgb variants the
+// same way TenantContext does — so editing the platform branding recolours the
+// whole marketing site. Falls back to the emerald defaults until settings load.
+function buildPlatformVars(platform) {
+  if (!platform || !platform.primaryColor || !platform.accentColor || !platform.backgroundColor) {
+    return PLATFORM_VARS;
+  }
+  const pr = platform.primaryColor;
+  const ac = platform.accentColor;
+  const bg = platform.backgroundColor;
+  return {
+    ...PLATFORM_VARS,
+    "--tenant-primary": pr,
+    "--tenant-primary-light": _shiftHex(pr, -15),
+    "--tenant-primary-rgb": _hexToRgb(pr),
+    "--tenant-accent": ac,
+    "--tenant-accent-light": _shiftHex(ac, -15),
+    "--tenant-accent-rgb": _hexToRgb(ac),
+    "--tenant-bg": bg,
+    "--tenant-bg-rgb": _hexToRgb(bg),
+    "--tenant-sidebar-top": _shiftHex(pr, 10),
+    "--tenant-sidebar-bottom": _shiftHex(pr, 20),
+    "--pf-accent-2": _shiftHex(ac, 12),
+  };
+}
+
 const AppLayout = ({ children }) => {
   const location = useLocation();
-  const { tenantMode, loading } = useTenant();
+  const { tenantMode, loading, platform } = useTenant();
   const { loaderDone } = React.useContext(LoaderContext);
 
   // SuperAdmin routes handle their own layout
@@ -312,35 +432,40 @@ const AppLayout = ({ children }) => {
     ].includes(location.pathname) ||
     location.pathname.startsWith("/reset-password") ||
     location.pathname.startsWith("/register");
-  // Note: /program-checkout now has its own full-bleed hero (data-hero), so it
-  // must NOT get the spacer — the hero sits under the transparent navbar.
-  const needsSpacer = ["/checkout", "/order-confirmation"].includes(location.pathname);
+  // Note: /program-checkout and /checkout have their own themed hero region
+  // (data-hero), so they must NOT get the spacer — the themed background sits
+  // under the transparent navbar and the bar collapses on scroll.
+  const needsSpacer = ["/order-confirmation"].includes(location.pathname);
 
   if (isAuth) {
     return <>{children}</>;
   }
 
-  // Public SaaS mode gets SaaS navbar/footer
+  // Public SaaS mode gets SaaS navbar/footer. The data-public-site wrapper +
+  // PLATFORM_VARS scope the platform brand and design-shape tokens to the
+  // marketing site so its navbar, cards, forms and footer theme consistently.
   if (tenantMode === "public") {
     return (
-      <>
+      <div data-public-site style={buildPlatformVars(platform)}>
         <SaaSNavbar />
         {children}
         <SaaSFooter />
-      </>
+      </div>
     );
   }
 
-  // Tenant mode gets the original charity navbar/footer
+  // Tenant mode gets the original charity navbar/footer. The data-public-site
+  // wrapper scopes the per-tenant design shape CSS (corners/borders/shadows) to
+  // the public site only — the admin + donor portals are never affected.
   return (
-    <>
+    <div data-public-site>
       <Navbar />
       <Cart />
       {needsSpacer && <div className="h-16" />}
       {children}
       <Footer />
       <BackToTop />
-    </>
+    </div>
   );
 };
 

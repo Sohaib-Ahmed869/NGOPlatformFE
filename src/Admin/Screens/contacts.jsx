@@ -409,7 +409,7 @@ const ContactRequestsAdmin = () => {
       {/* ── Left: inbox list ── */}
       <div
         className={cn(
-          "flex w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-white/10 lg:w-[360px] lg:shrink-0",
+          "flex w-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm dark:border-white/10 lg:w-[360px] lg:shrink-0",
           selectedId && "hidden lg:flex",
         )}
       >
@@ -528,7 +528,7 @@ const ContactRequestsAdmin = () => {
       {/* ── Right: conversation ── */}
       <div className={cn("min-w-0 flex-1 flex-col", selectedId ? "flex" : "hidden lg:flex")}>
         {!sel ? (
-          <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-white/40 text-center dark:border-white/10 dark:bg-white/5">
+          <div className="flex h-full flex-col items-center justify-center rounded-token border border-dashed border-gray-200 bg-white/40 text-center dark:border-white/10 dark:bg-white/5">
             <MessageSquare className="mb-3 h-10 w-10 text-text-muted" />
             <p className="text-sm font-medium text-primary">Select a request</p>
             <p className="mt-1 max-w-xs text-xs text-text-muted">
@@ -541,7 +541,7 @@ const ContactRequestsAdmin = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
-            className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-white/10"
+            className="flex h-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm dark:border-white/10"
           >
             {/* header */}
             <div className="shrink-0 border-b border-gray-100 p-4 dark:border-white/10">
@@ -602,7 +602,7 @@ const ContactRequestsAdmin = () => {
             {/* conversation */}
             <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50/40 p-4 dark:bg-transparent">
               {/* request meta */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-gray-100 bg-white p-3 text-xs dark:border-white/10 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-token border border-gray-100 bg-white p-3 text-xs dark:border-white/10 sm:grid-cols-3">
                 <Meta icon={Phone} label="Phone" value={sel.phoneNumber} />
                 <Meta icon={MapPin} label="City" value={sel.hostCity} />
                 <Meta icon={CheckCircle2} label="Purpose" value={sel.purpose} />
@@ -640,7 +640,7 @@ const ContactRequestsAdmin = () => {
 
             {/* composer */}
             <div className="shrink-0 border-t border-gray-100 p-3 dark:border-white/10">
-              <div className="mb-2 inline-flex overflow-hidden rounded-lg border border-gray-200 text-xs dark:border-white/10">
+              <div className="mb-2 inline-flex overflow-hidden rounded-token-btn border border-gray-200 text-xs dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => setComposerKind("note")}

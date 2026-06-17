@@ -31,6 +31,22 @@ export default {
         'warm-cream': '#F5EDE0',
         'warm-beige': '#EDE4D3',
       },
+      // Tokenized shape utilities — wired to the per-tenant design CSS vars
+      // (see src/config/designTokens.js). Defaults reproduce the square look,
+      // so shared primitives using these classes don't change until a tenant
+      // picks a different shape/template.
+      borderRadius: {
+        token: "var(--radius-card)",
+        "token-btn": "var(--radius-btn)",
+        "token-input": "var(--radius-input)",
+        "token-pill": "var(--radius-pill)",
+      },
+      boxShadow: {
+        token: "var(--card-shadow)",
+      },
+      borderWidth: {
+        token: "var(--border-width)",
+      },
       keyframes: {
         marquee: {
           '0%': { transform: 'translateX(0)' },

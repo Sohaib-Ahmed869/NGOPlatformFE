@@ -57,16 +57,16 @@ function HeaderStat({ icon: Icon, label, value }) {
 
 const catLabel = (f) => (f.category === "other" ? f.customCategory || "Other" : f.category);
 
-function FundraiserCard({ f }) {
+function FundraiserCard({ f, index = 0 }) {
   const pct = f.targetAmount > 0 ? Math.min(100, Math.round((f.currentAmount / f.targetAmount) * 100)) : 0;
   const st = statusMeta(f.status, f.isActive);
   const viewable = (f.status === "approved" || f.status === "completed") && f.slug;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.3, ease: "easeOut", delay: Math.min(index * 0.04, 0.32) }}
       className="flex flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="relative h-36 w-full bg-accent/10">
@@ -215,36 +215,53 @@ export default function MyFundraisers() {
         <>
           {/* Filter pills */}
           <div className="flex flex-wrap gap-2">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFilter(f.value)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium transition-colors",
-                  filter === f.value
-                    ? "bg-accent text-white shadow-sm shadow-accent/25"
-                    : "border border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
-                )}
-              >
-                {f.label}
-                <span className={cn("text-xs", filter === f.value ? "text-white/80" : "text-gray-400")}>{counts[f.value] ?? 0}</span>
-              </button>
-            ))}
+            {FILTERS.map((f) => {
+              const active = filter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setFilter(f.value)}
+                  className={cn(
+                    "relative isolate inline-flex items-center gap-1.5 border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200",
+                    active
+                      ? "border-accent text-accent"
+                      : "border-gray-200 text-text-muted hover:border-accent/40 hover:text-primary",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="fundraisersFilterActive"
+                      className="absolute inset-0 -z-10 bg-accent/10"
+                      transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                    />
+                  )}
+                  {f.label}
+                  <span className={cn("text-xs", active ? "text-accent/70" : "text-gray-400")}>{counts[f.value] ?? 0}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {visible.length === 0 ? (
-            <div className="border border-gray-100 bg-white p-12 text-center shadow-sm">
-              <CheckCircle className="mx-auto mb-3 h-10 w-10 text-text-muted" />
-              <p className="font-medium text-primary">Nothing in this category</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {visible.map((f) => (
-                <FundraiserCard key={f._id} f={f} />
-              ))}
-            </div>
-          )}
+          <motion.div
+            key={filter}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            {visible.length === 0 ? (
+              <div className="border border-gray-100 bg-white p-12 text-center shadow-sm">
+                <CheckCircle className="mx-auto mb-3 h-10 w-10 text-text-muted" />
+                <p className="font-medium text-primary">Nothing in this category</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {visible.map((f, i) => (
+                  <FundraiserCard key={f._id} f={f} index={i} />
+                ))}
+              </div>
+            )}
+          </motion.div>
         </>
       )}
     </div>

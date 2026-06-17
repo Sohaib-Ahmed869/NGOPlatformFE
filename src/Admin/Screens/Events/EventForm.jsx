@@ -925,7 +925,7 @@ export default function EventForm() {
       </div>
 
       {/* Sticky action bar */}
-      <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-2xl">
+      <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-token border border-gray-200 bg-white px-4 py-3 shadow-2xl">
         <Link to="/admin/events" className="px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100">Cancel</Link>
         <button type="submit" disabled={saving} className="inline-flex items-center gap-2 bg-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}

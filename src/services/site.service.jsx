@@ -10,6 +10,8 @@ import axiosInstance from "./axios";
  */
 let _pagesCache = null; // array of pages (admin)
 let _inFlight = null;
+let _sectionTypesCache = null; // array of section-type definitions (admin)
+let _sectionTypesInFlight = null;
 
 /* ── Public page-content cache (stale-while-revalidate) ──────────────────────
  * Public page content rarely changes, but the old code re-fetched on every
@@ -120,16 +122,72 @@ const siteService = {
 
   getPageAdmin: (key) => axiosInstance.get(`/admin/pages/${key}`),
 
+  // Admin — section (block) type catalog for the section builder. Cached for
+  // the session (it's static config).
+  getSectionTypes: () => {
+    if (_sectionTypesCache) return Promise.resolve(_sectionTypesCache);
+    if (_sectionTypesInFlight) return _sectionTypesInFlight;
+    _sectionTypesInFlight = axiosInstance
+      .get(`/admin/pages/section-types`)
+      .then((res) => {
+        _sectionTypesCache = res.data?.sectionTypes || [];
+        _sectionTypesInFlight = null;
+        return _sectionTypesCache;
+      })
+      .catch((err) => {
+        _sectionTypesInFlight = null;
+        throw err;
+      });
+    return _sectionTypesInFlight;
+  },
+
+  // Save edits to the DRAFT. Does NOT change the live site (no public-cache
+  // bust) — that happens on publish.
   updatePage: async (key, data) => {
     const res = await axiosInstance.put(`/admin/pages/${key}`, data);
     if (_pagesCache) {
       const updated = res.data?.page;
       _pagesCache = _pagesCache.map((p) => (p.key === key ? { ...p, ...(updated || data) } : p));
     }
-    // Drop the public content cache for this page so visitors revalidate to the
-    // freshly-saved content on their next view.
-    _invalidateContent(key);
     return res;
+  },
+
+  // Publish the draft → goes live. Busts the public content cache so visitors
+  // see the new version on their next view.
+  publishPage: async (key, note = "") => {
+    const res = await axiosInstance.post(`/admin/pages/${key}/publish`, { note });
+    if (_pagesCache) {
+      _pagesCache = _pagesCache.map((p) =>
+        p.key === key ? { ...p, hasUnpublishedChanges: false, publishedAt: res.data?.publishedAt, content: res.data?.content ?? p.content } : p,
+      );
+    }
+    _invalidateContent(key);
+    return res.data;
+  },
+
+  // Discard the unpublished draft and revert the editor to the published copy.
+  discardDraft: async (key) => {
+    const res = await axiosInstance.post(`/admin/pages/${key}/discard`);
+    if (_pagesCache) {
+      _pagesCache = _pagesCache.map((p) =>
+        p.key === key ? { ...p, hasUnpublishedChanges: false, content: res.data?.content ?? p.content } : p,
+      );
+    }
+    return res.data;
+  },
+
+  // Published-version history (newest first) for a page.
+  getRevisions: (key) => axiosInstance.get(`/admin/pages/${key}/revisions`).then((r) => r.data?.revisions || []),
+
+  // Load a past revision into the draft (review, then publish to go live).
+  restoreRevision: async (key, revId) => {
+    const res = await axiosInstance.post(`/admin/pages/${key}/revisions/${revId}/restore`);
+    if (_pagesCache) {
+      _pagesCache = _pagesCache.map((p) =>
+        p.key === key ? { ...p, hasUnpublishedChanges: res.data?.hasUnpublishedChanges, content: res.data?.content ?? p.content } : p,
+      );
+    }
+    return res.data;
   },
 
   uploadPageImage: (key, formData) =>

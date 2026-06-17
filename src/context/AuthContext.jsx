@@ -38,6 +38,8 @@ export const AuthProvider = ({ children }) => {
     },
     loginAdmin: async (credentials) => {
       const data = await AuthService.adminLogin(credentials);
+      // MFA challenge — not authenticated yet; let the login page collect a code.
+      if (data.mfaRequired) return data;
       setUser({ ...data, isAdmin: true });
       return data;
     },

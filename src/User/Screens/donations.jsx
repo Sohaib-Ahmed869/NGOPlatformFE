@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import {
   Calendar,
@@ -65,6 +66,15 @@ const TYPE_META = {
 };
 const typeMeta = (t) => TYPE_META[t] || TYPE_META.single;
 
+// Per-type colour, so each row is scannable at a glance (icon anchor + chip).
+const TYPE_STYLE = {
+  recurring: "bg-blue-50 text-blue-600",
+  installments: "bg-violet-50 text-violet-600",
+  single: "bg-accent/10 text-accent",
+  one_time: "bg-accent/10 text-accent",
+};
+const typeChip = (t) => TYPE_STYLE[t] || TYPE_STYLE.single;
+
 function paymentMethodLabel(d) {
   const pm = d.paymentMethod;
   if (pm?.type === "card" && pm?.card)
@@ -112,7 +122,7 @@ function StatTile({ icon: Icon, label, value, hint }) {
 }
 
 /* ── One donation card ────────────────────────────────────────────────── */
-function DonationCard({ donation, orgInfo, onView }) {
+function DonationCard({ donation, orgInfo, onView, index = 0 }) {
   const { label: tLabel, icon: TIcon } = typeMeta(donation.paymentType);
   const inst = donation.paymentType === "installments" ? donation.installmentDetails : null;
   const paid = inst?.installmentsPaid || 0;
@@ -138,7 +148,12 @@ function DonationCard({ donation, orgInfo, onView }) {
   const methodWide = !isOneTime && nextPayment;
 
   return (
-    <div className="group flex flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut", delay: Math.min(index * 0.04, 0.32) }}
+      className="group flex flex-col border border-gray-100 bg-white shadow-sm transition-all hover:border-accent/30 hover:shadow-md"
+    >
       {/* Header band */}
       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-3">
         <span className="inline-flex items-center gap-1.5 bg-accent/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
@@ -236,14 +251,16 @@ function DonationCard({ donation, orgInfo, onView }) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 /* ── One donation row (list view) ─────────────────────────────────────── */
-function DonationRow({ donation, orgInfo, onView, showNextPayment = true }) {
+function DonationRow({ donation, orgInfo, onView, showNextPayment = true, index = 0 }) {
   const { label: tLabel, icon: TIcon } = typeMeta(donation.paymentType);
   const inst = donation.paymentType === "installments" ? donation.installmentDetails : null;
+  const paid = inst?.installmentsPaid || 0;
+  const total = inst?.numberOfInstallments || 0;
   const extra = (donation.items?.length || 1) - 1;
   const closedOff = donation.donorUpdates?.some((u) => u.type === "close-off");
   const canReceipt = !["pending", "failed", "cancelled"].includes(donation.paymentStatus);
@@ -260,55 +277,72 @@ function DonationRow({ donation, orgInfo, onView, showNextPayment = true }) {
   };
 
   return (
-    <tr className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50/60">
+    <motion.tr
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index * 0.03, 0.3) }}
+      className="group border-b border-gray-100 transition-colors last:border-0 hover:bg-accent/[0.035]"
+    >
       {/* Cause */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900" title={donation.items?.[0]?.title}>
-            {donation.items?.[0]?.title || "Donation"}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3">
+          <span className={cn("grid h-9 w-9 shrink-0 place-items-center", typeChip(donation.paymentType))}>
+            <TIcon className="h-4 w-4" />
           </span>
-          {extra > 0 && <span className="text-xs text-accent">+{extra}</span>}
-          {closedOff && (
-            <span className="inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-              <CheckCircle2 className="h-3 w-3" /> Closed
-            </span>
-          )}
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-gray-900" title={donation.items?.[0]?.title}>
+              {donation.items?.[0]?.title || "Donation"}
+              {extra > 0 && <span className="ml-1.5 text-xs font-normal text-accent">+{extra}</span>}
+            </p>
+            {closedOff && (
+              <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700">
+                <CheckCircle2 className="h-3 w-3" /> Closed off
+              </span>
+            )}
+          </div>
         </div>
       </td>
       {/* Type */}
-      <td className="whitespace-nowrap px-4 py-3">
-        <span className="inline-flex items-center gap-1 text-sm text-text-muted">
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium", typeChip(donation.paymentType))}>
           <TIcon className="h-3.5 w-3.5" /> {tLabel}
         </span>
       </td>
       {/* Amount */}
-      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900">
-        {money(donation.totalAmount)}
-        {inst?.numberOfInstallments ? (
-          <span className="block text-[11px] font-normal text-text-muted">
-            {inst.installmentsPaid || 0}/{inst.numberOfInstallments} paid
-          </span>
+      <td className="whitespace-nowrap px-4 py-4 text-right">
+        <span className="font-heading text-base font-bold tabular-nums text-gray-900">{money(donation.totalAmount)}</span>
+        {total ? (
+          <span className="mt-0.5 block text-[11px] font-normal text-text-muted">{paid}/{total} paid</span>
         ) : null}
       </td>
       {/* Date */}
-      <td className="whitespace-nowrap px-4 py-3 text-sm text-text-muted">{fmtDate(donation.createdAt)}</td>
+      <td className="whitespace-nowrap px-4 py-4 text-sm text-text-muted">{fmtDate(donation.createdAt)}</td>
       {/* Next payment */}
       {showNextPayment && (
-        <td className="whitespace-nowrap px-4 py-3 text-sm text-text-muted">{!isOneTime && nextPayment ? fmtDate(nextPayment) : "—"}</td>
+        <td className="whitespace-nowrap px-4 py-4 text-sm">
+          {!isOneTime && nextPayment ? (
+            <span className="inline-flex items-center gap-1.5 text-gray-700">
+              <Repeat className="h-3.5 w-3.5 shrink-0 text-accent" /> {fmtDate(nextPayment)}
+            </span>
+          ) : (
+            <span className="text-text-muted/40">—</span>
+          )}
+        </td>
       )}
       {/* Status */}
-      <td className="whitespace-nowrap px-4 py-3">
-        <span className={cn("inline-flex px-2.5 py-0.5 text-[11px] font-semibold capitalize", statusStyle(donation.paymentStatus))}>
+      <td className="whitespace-nowrap px-4 py-4">
+        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold capitalize", statusStyle(donation.paymentStatus))}>
+          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
           {donation.paymentStatus || "—"}
         </span>
       </td>
       {/* Actions */}
-      <td className="whitespace-nowrap px-4 py-3">
+      <td className="whitespace-nowrap px-4 py-4">
         <div className="flex items-center justify-end gap-1.5">
           <button
             onClick={() => onView(donation)}
             title="View details"
-            className="inline-flex items-center gap-1.5 border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-accent/50 hover:text-accent"
+            className="inline-flex items-center gap-1.5 border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-600 transition-all hover:border-accent/50 hover:text-accent active:scale-95"
           >
             <FileText className="h-3.5 w-3.5" /> Details
           </button>
@@ -316,14 +350,14 @@ function DonationRow({ donation, orgInfo, onView, showNextPayment = true }) {
             <button
               onClick={handleReceipt}
               title="Download receipt"
-              className="inline-flex items-center gap-1.5 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/20"
+              className="inline-flex items-center gap-1.5 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent transition-all hover:bg-accent/20 active:scale-95"
             >
               <Download className="h-3.5 w-3.5" /> Receipt
             </button>
           )}
         </div>
       </td>
-    </tr>
+    </motion.tr>
   );
 }
 
@@ -663,12 +697,12 @@ function HistoryTable({ rows, kind }) {
   return (
     <div className="mt-4 overflow-hidden border border-gray-100">
       <table className="min-w-full divide-y divide-gray-100 text-sm">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">No.</th>
-            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Date</th>
-            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Amount</th>
-            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-text-muted">Status</th>
+        <thead>
+          <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-current">No.</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-current">Date</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-current">Amount</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-current">Status</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">
@@ -905,20 +939,30 @@ const UserDonations = () => {
       {/* Toolbar */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setSelectedType(f.id)}
-              className={cn(
-                "border px-3 py-1.5 text-sm font-medium transition-colors",
-                selectedType === f.id
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-gray-200 text-text-muted hover:border-accent/40 hover:text-primary",
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+          {FILTERS.map((f) => {
+            const active = selectedType === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setSelectedType(f.id)}
+                className={cn(
+                  "relative isolate border px-3 py-1.5 text-sm font-medium transition-colors duration-200",
+                  active
+                    ? "border-accent text-accent"
+                    : "border-gray-200 text-text-muted hover:border-accent/40 hover:text-primary",
+                )}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="donationsFilterActive"
+                    className="absolute inset-0 -z-10 bg-accent/10"
+                    transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                {f.label}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -946,26 +990,33 @@ const UserDonations = () => {
 
           {/* View toggle */}
           <div className="flex border border-gray-200">
-            <button
-              onClick={() => changeView("card")}
-              title="Card view"
-              className={cn(
-                "grid h-9 w-9 place-items-center transition-colors",
-                view === "card" ? "bg-accent text-white" : "text-gray-500 hover:text-accent",
-              )}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => changeView("list")}
-              title="List view"
-              className={cn(
-                "grid h-9 w-9 place-items-center border-l border-gray-200 transition-colors",
-                view === "list" ? "bg-accent text-white" : "text-gray-500 hover:text-accent",
-              )}
-            >
-              <ListIcon className="h-4 w-4" />
-            </button>
+            {[
+              { id: "card", Icon: LayoutGrid, title: "Card view" },
+              { id: "list", Icon: ListIcon, title: "List view" },
+            ].map((v, idx) => {
+              const active = view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => changeView(v.id)}
+                  title={v.title}
+                  className={cn(
+                    "relative isolate grid h-9 w-9 place-items-center transition-colors duration-200",
+                    idx > 0 && "border-l border-gray-200",
+                    active ? "text-white" : "text-gray-500 hover:text-accent",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="donationsViewActive"
+                      className="absolute inset-0 -z-10 bg-accent"
+                      transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                    />
+                  )}
+                  <v.Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -985,42 +1036,50 @@ const UserDonations = () => {
         </div>
       ) : (
         <>
-          {view === "card" ? (
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {paginated.map((donation) => (
-                <DonationCard key={donation._id} donation={donation} orgInfo={orgInfo} onView={setSelectedDonation} />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto border border-gray-100 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50 text-left">
-                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Cause</th>
-                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Type</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted">Amount</th>
-                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Date</th>
-                    {selectedType !== "single" && (
-                      <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Next payment</th>
-                    )}
-                    <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Status</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-text-muted">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((donation) => (
-                    <DonationRow
-                      key={donation._id}
-                      donation={donation}
-                      orgInfo={orgInfo}
-                      onView={setSelectedDonation}
-                      showNextPayment={selectedType !== "single"}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <motion.div
+            key={`${view}-${selectedType}-${sort}-${page}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            {view === "card" ? (
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {paginated.map((donation, i) => (
+                  <DonationCard key={donation._id} donation={donation} orgInfo={orgInfo} onView={setSelectedDonation} index={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-gray-100 bg-white shadow-sm">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-accent/10 bg-accent/5 text-left text-[11px] font-semibold uppercase tracking-wider text-accent">
+                      <th className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-current">Cause</th>
+                      <th className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-current">Type</th>
+                      <th className="px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wider text-current">Amount</th>
+                      <th className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-current">Date</th>
+                      {selectedType !== "single" && (
+                        <th className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-current">Next payment</th>
+                      )}
+                      <th className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-current">Status</th>
+                      <th className="px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wider text-current">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((donation, i) => (
+                      <DonationRow
+                        key={donation._id}
+                        donation={donation}
+                        orgInfo={orgInfo}
+                        onView={setSelectedDonation}
+                        showNextPayment={selectedType !== "single"}
+                        index={i}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
 
           {/* Pagination */}
           {totalPages > 1 && (

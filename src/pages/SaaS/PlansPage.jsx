@@ -4,13 +4,13 @@ import { Check, X, ChevronDown, Shield, Zap, Headphones } from "lucide-react";
 import PlanCard from "./PlanCard";
 
 const V = {
-  bg: "#F3F8F5", surface: "#FFFFFF", surface2: "#E7F2EC",
-  line: "rgba(6,40,30,.08)", line2: "rgba(6,40,30,.04)",
-  ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
+  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "#E7F2EC",
+  line: "rgba(var(--tenant-primary-rgb), .08)", line2: "rgba(var(--tenant-primary-rgb), .04)",
+  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", accent: "var(--pf-gold, #F59E0B)",
   success: "#059669",
 };
-const font = "'Times New Roman', Tinos, Times, serif";
+const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 const mono = "'JetBrains Mono', monospace";
 
 /* Scroll-reveal — same as homepage */
@@ -35,45 +35,45 @@ const fadeUpChild = {
 
 /* Injected CSS — hover effects + grid matching homepage */
 const css = `
-/* Override global index.css h1-h6 font-heading (Cormorant Garamond) */
+/* Headings follow the platform font token (Outfit) set on the public wrapper. */
 .saas-page h1, .saas-page h2, .saas-page h3, .saas-page h4, .saas-page h5, .saas-page h6 {
-  font-family: 'Times New Roman', Tinos, Times, serif !important;
+  font-family: var(--font-heading, 'Outfit', system-ui, sans-serif) !important;
 }
 
 /* Regular (non-featured) price cards */
 .saas-price-regular {
   border: 1px solid rgba(6,40,30,.08);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 4px 16px -4px rgba(4,120,87,.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 4px 16px -4px rgba(var(--tenant-accent-rgb),.06);
   transition: transform .4s ease, border-color .3s, box-shadow .4s ease;
 }
 .saas-price-regular:hover {
   transform: translateY(-4px);
-  border-color: rgba(4,120,87,.3);
+  border-color: rgba(var(--tenant-accent-rgb),.3);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.04),
-    0 0 0 1px rgba(4,120,87,.15),
-    0 8px 24px -4px rgba(4,120,87,.15),
-    0 20px 50px -12px rgba(4,120,87,.12);
+    0 0 0 1px rgba(var(--tenant-accent-rgb),.15),
+    0 8px 24px -4px rgba(var(--tenant-accent-rgb),.15),
+    0 20px 50px -12px rgba(var(--tenant-accent-rgb),.12);
 }
 
 /* Featured (popular) price card */
 .saas-price-featured {
-  border: 1px solid rgba(4,120,87,.4);
+  border: 1px solid rgba(var(--tenant-accent-rgb),.4);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.08),
-    0 0 0 1px rgba(4,120,87,.25),
-    0 8px 32px -8px rgba(4,120,87,.3),
-    0 24px 60px -20px rgba(4,120,87,.2);
+    0 0 0 1px rgba(var(--tenant-accent-rgb),.25),
+    0 8px 32px -8px rgba(var(--tenant-accent-rgb),.3),
+    0 24px 60px -20px rgba(var(--tenant-accent-rgb),.2);
   transition: transform .4s ease, border-color .3s, box-shadow .4s ease;
 }
 .saas-price-featured:hover {
   transform: translateY(-4px);
-  border-color: rgba(4,120,87,.6);
+  border-color: rgba(var(--tenant-accent-rgb),.6);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.08),
-    0 0 0 1px rgba(4,120,87,.4),
-    0 0 40px -4px rgba(4,120,87,.25),
-    0 28px 70px -20px rgba(4,120,87,.35);
+    0 0 0 1px rgba(var(--tenant-accent-rgb),.4),
+    0 0 40px -4px rgba(var(--tenant-accent-rgb),.25),
+    0 28px 70px -20px rgba(var(--tenant-accent-rgb),.35);
 }
 
 /* Gloss sweep on all price cards */
@@ -96,7 +96,7 @@ const css = `
 .saas-btn-primary:hover::before { transform: translateX(120%); }
 
 .saas-faq-item { transition: border-color .3s; }
-.saas-faq-item:hover { border-color: rgba(4,120,87,.15); }
+.saas-faq-item:hover { border-color: rgba(var(--tenant-accent-rgb),.15); }
 
 .saas-comp-table { transition: box-shadow .4s; }
 .saas-comp-table:hover { box-shadow: 0 12px 28px -12px rgba(15,23,42,.1); }
@@ -186,7 +186,7 @@ export default function PlansPage() {
       }} />
 
       {/* ── Header ── */}
-      <section className="relative z-[1] pt-32 pb-8 px-6">
+      <section data-hero className="relative z-[1] pt-32 pb-8 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <Reveal>
             <span className="inline-block px-2.5 py-1 rounded text-[10.5px] tracking-[.08em] uppercase mb-4"
@@ -213,7 +213,7 @@ export default function PlansPage() {
               {/* Sliding background pill */}
               <motion.div
                 className="absolute top-1.5 bottom-1.5 rounded-lg"
-                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(4,120,87,.4)` }}
+                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(var(--tenant-accent-rgb),.4)` }}
                 animate={{ left: billingCycle === "monthly" ? 6 : "50%", right: billingCycle === "annual" ? 6 : "50%" }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
               />

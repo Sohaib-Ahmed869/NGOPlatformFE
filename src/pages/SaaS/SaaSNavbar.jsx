@@ -1,169 +1,206 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ArrowRight, HeartHandshake } from "lucide-react";
+import { cn } from "../../utils/cn";
+import { useTenant } from "../../context/TenantContext";
 
-const V = {
-  bg: "#F3F8F5", ink: "#102A23", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "#047857", primary2: "#065F46", accent: "#F59E0B",
-  surface: "#FFFFFF", line: "rgba(6,40,30,.08)", success: "#059669",
-};
+const NAV_LINKS = [
+  { label: "Features", path: "/#features", hash: "features" },
+  { label: "How it works", path: "/#how", hash: "how" },
+  { label: "Pricing", path: "/plans" },
+  { label: "Contact", path: "/contact" },
+];
 
+/* The platform marketing navbar mirrors the tenant public navbar: a transparent
+   full-width bar over the hero that collapses into a floating, blurred capsule
+   once scrolled past the hero. The hero is the first [data-hero] / <section>;
+   pages without one fall back to a small scroll offset. Re-measured on
+   scroll/route/resize. Colours come from the platform design tokens. */
 export default function SaaSNavbar() {
   const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { platform } = useTenant();
+  const brandName = platform?.name || "NGO Platform";
+  // The navbar sits on a light surface → prefer the dark logo variant.
+  const navLogo = platform?.logoDark || platform?.logo || "";
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => setMobileOpen(false), [location]);
-
-  // Scroll to hash section when navigating from another page
-  useEffect(() => {
-    if (location.hash) {
-      const id = location.hash.replace("#", "");
-      setTimeout(() => {
-        const el = document.getElementById(id);
-        if (el) el.scrollIntoView({ behavior: "smooth" });
-      }, 100);
-    }
-  }, [location]);
-
-  const navLinks = [
-    { label: "Features", path: "/#features", hash: "features" },
-    { label: "How it works", path: "/#how", hash: "how" },
-    { label: "Pricing", path: "/plans" },
-    { label: "Contact", path: "/contact" },
-  ];
-
-  const handleNavClick = (e, link) => {
-    if (link.hash) {
-      // If already on homepage, scroll to section
-      if (location.pathname === "/") {
-        e.preventDefault();
-        const el = document.getElementById(link.hash);
-        if (el) el.scrollIntoView({ behavior: "smooth" });
+    const NAV_H = 64; // expanded bar height (h-16)
+    const measure = () => {
+      const hero = document.querySelector("[data-hero], section");
+      if (hero && hero.isConnected) {
+        setScrolled(hero.getBoundingClientRect().bottom <= NAV_H);
+      } else {
+        setScrolled(window.scrollY > 24);
       }
-      // If on another page, React Router will navigate to /, then we scroll
+    };
+    measure();
+    window.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, [location.pathname]);
+
+  // Close the mobile menu on route change; lock body scroll while it's open.
+  useEffect(() => setOpen(false), [location]);
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  // Smooth-scroll to a hash section when already on the homepage; otherwise let
+  // the router navigate to "/" first (SaaSHome scrolls on mount via the hash).
+  const handleNavClick = (e, link) => {
+    if (link.hash && location.pathname === "/") {
+      e.preventDefault();
+      document.getElementById(link.hash)?.scrollIntoView({ behavior: "smooth" });
     }
+  };
+
+  const isActive = (path) =>
+    (path === "/plans" || path === "/contact") && location.pathname === path;
+
+  const linkClass = (path) => {
+    const base =
+      "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-nav font-medium tracking-wide transition-all duration-200";
+    return cn(
+      base,
+      isActive(path)
+        ? "text-accent bg-accent/10"
+        : "text-primary/60 hover:text-primary hover:bg-primary/5",
+    );
   };
 
   return (
     <>
-      <nav
-        className="fixed top-4 left-0 right-0 z-50 flex justify-center pointer-events-none"
-        style={{ fontFamily: "'Times New Roman', Tinos, Times, serif" }}
+      <motion.header
+        className="pointer-events-none fixed inset-x-0 top-0 z-50"
+        initial={{ y: -80 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        <motion.div
-          initial={{ y: -80, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="pointer-events-auto flex items-center gap-1 pl-4 pr-1.5 py-1.5 rounded-[10px]"
-          style={{
-            background: scrolled
-              ? "rgba(255,255,255,.88)"
-              : "rgba(255,255,255,.75)",
-            backdropFilter: "blur(20px) saturate(140%)",
-            border: `1px solid ${V.line}`,
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,.95), 0 1px 2px rgba(15,23,42,.04), 0 10px 30px -10px rgba(15,23,42,.12)`,
-          }}
+        <div
+          className={cn(
+            "pointer-events-auto mx-auto transition-all duration-500 ease-out",
+            scrolled ? "mt-3 max-w-6xl px-2" : "mt-0 max-w-7xl px-0",
+          )}
         >
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 pr-4 mr-1 border-r" style={{ borderColor: V.line }}>
-            <div
-              className="w-8 h-8 rounded-xl grid place-items-center text-white"
-              style={{
-                background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})`,
-                boxShadow: `inset 0 1px 0 rgba(255,255,255,.35), 0 6px 16px -6px rgba(4,120,87,.6)`,
-              }}
-            >
-              <HeartHandshake className="w-[18px] h-[18px]" />
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight" style={{ color: V.ink }}>
-              NGO Platform
-            </span>
-          </Link>
-
-          {/* Desktop Links */}
-          <div className="hidden md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                onClick={(e) => handleNavClick(e, link)}
-                className="px-3 py-2 text-[13px] rounded-md transition-colors hover:bg-black/5"
-                style={{
-                  color: location.pathname === link.path ? V.primary : V.inkSoft,
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* CTA */}
-          <Link
-            to="/plans"
-            className="hidden md:inline-flex items-center gap-2 ml-1.5 px-4 py-2 rounded-[7px] text-[13px] font-semibold text-white transition-transform hover:scale-[1.02]"
-            style={{
-              background: `linear-gradient(180deg, ${V.primary} 0%, ${V.primary2} 100%)`,
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.30), 0 12px 32px -8px rgba(4,120,87,.6)`,
-            }}
+          <nav
+            className={cn(
+              "relative flex items-center justify-between gap-3 px-4 transition-all duration-500 ease-out sm:px-6",
+              scrolled
+                ? "h-14 rounded-full border border-black/[0.06] bg-background/90 shadow-lg shadow-black/[0.05] backdrop-blur-xl"
+                : "h-16 rounded-none border border-transparent bg-transparent",
+            )}
           >
-            Get started <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+            {/* Brand */}
+            <Link to="/" className="flex shrink-0 items-center gap-2.5">
+              {navLogo ? (
+                <img
+                  src={navLogo}
+                  alt={brandName}
+                  className={cn("w-auto object-contain transition-all duration-500", scrolled ? "h-8 max-w-[150px]" : "h-9 max-w-[170px]")}
+                />
+              ) : (
+                <>
+                  <span
+                    className={cn(
+                      "grid place-items-center rounded-token-btn text-white transition-all duration-500",
+                      scrolled ? "h-8 w-8" : "h-9 w-9",
+                    )}
+                    style={{ background: "linear-gradient(135deg, var(--tenant-accent), var(--pf-accent-2, #065F46))" }}
+                  >
+                    <HeartHandshake className={cn("transition-all", scrolled ? "h-[17px] w-[17px]" : "h-[19px] w-[19px]")} />
+                  </span>
+                  <span className="whitespace-nowrap font-nav text-[17px] font-extrabold leading-none tracking-tight text-primary">
+                    {brandName}
+                  </span>
+                </>
+              )}
+            </Link>
 
-          {/* Mobile toggle */}
-          <button
-            className="md:hidden p-2 rounded-lg"
-            style={{ color: V.ink }}
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </motion.div>
-      </nav>
-
-      {/* Mobile menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="fixed top-16 left-4 right-4 z-50 overflow-hidden rounded-xl border"
-            style={{
-              fontFamily: "'Times New Roman', Tinos, Times, serif",
-              background: "rgba(255,255,255,.95)",
-              backdropFilter: "blur(20px)",
-              borderColor: V.line,
-            }}
-          >
-            <div className="px-4 py-4 space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={(e) => handleNavClick(e, link)}
-                  className="block px-3 py-2.5 text-sm font-medium rounded-lg hover:bg-black/5"
-                  style={{ color: V.inkSoft }}
-                >
-                  {link.label}
+            {/* Desktop links — centred */}
+            <div className="hidden items-center gap-0.5 lg:absolute lg:left-1/2 lg:flex lg:-translate-x-1/2">
+              {NAV_LINKS.map((l) => (
+                <Link key={l.path} to={l.path} onClick={(e) => handleNavClick(e, l)} className={linkClass(l.path)}>
+                  {l.label}
                 </Link>
               ))}
-              <Link
-                to="/plans"
-                className="block w-full text-center px-4 py-2.5 rounded-lg text-sm font-semibold text-white mt-2"
-                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}
-              >
-                Get started
-              </Link>
             </div>
+
+            {/* Right cluster */}
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <Link
+                to="/login"
+                className="hidden font-nav text-[14px] font-medium text-primary/70 transition-colors hover:text-primary sm:inline-flex"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/register"
+                className="hidden items-center gap-2 rounded-token-btn bg-accent px-4 py-2 font-nav text-[14px] font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light sm:inline-flex"
+              >
+                Get started <ArrowRight className="h-4 w-4" />
+              </Link>
+
+              {/* Mobile toggle */}
+              <button
+                onClick={() => setOpen((v) => !v)}
+                aria-label={open ? "Close menu" : "Open menu"}
+                aria-expanded={open}
+                className="inline-flex items-center justify-center rounded-full p-2 text-primary transition-colors hover:bg-primary/5 lg:hidden"
+              >
+                {open ? <X size={22} /> : <Menu size={22} />}
+              </button>
+            </div>
+          </nav>
+        </div>
+      </motion.header>
+
+      {/* Mobile full-screen overlay */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="saas-mobile-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-40 lg:hidden"
+            style={{ background: "linear-gradient(160deg, var(--tenant-primary), var(--tenant-accent))" }}
+          >
+            <nav className="flex h-full flex-col overflow-y-auto px-6 pb-8 pt-24">
+              {NAV_LINKS.map((l) => (
+                <Link
+                  key={l.path}
+                  to={l.path}
+                  onClick={(e) => handleNavClick(e, l)}
+                  className="border-b border-white/10 py-4 font-nav text-xl font-medium text-white/85 transition-colors hover:text-white"
+                >
+                  {l.label}
+                </Link>
+              ))}
+              <div className="mt-8 space-y-3">
+                <Link
+                  to="/register"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-4 font-nav text-base font-semibold text-primary"
+                >
+                  Get started <ArrowRight size={16} />
+                </Link>
+                <Link
+                  to="/login"
+                  className="block py-2 text-center font-nav text-base font-medium text-white/80 transition-colors hover:text-white"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </nav>
           </motion.div>
         )}
       </AnimatePresence>

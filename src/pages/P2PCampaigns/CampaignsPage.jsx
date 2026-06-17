@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import GoFundMeService from "../../services/goFundMeService";
 import NewsletterSection from "../Home/Newsletter/newsletter";
+import usePageContent from "../../hooks/usePageContent";
 import { CustomSelect } from "../../components/CustomSelect";
 import { SectionHeading, CardHoverGlow, CTABand, IconBadge, Eyebrow, reveal } from "../../components/giving";
 import { cn } from "../../utils/cn";
@@ -60,7 +61,7 @@ function CampaignCard({ c, i }) {
       <Link
         to={`/p2p-campaigns/${c.slug}`}
         state={{ campaign: c }}
-        className="group relative flex h-full flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+        className="group relative flex h-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
       >
         <CardHoverGlow />
         <div className="relative h-48 overflow-hidden bg-accent/10">
@@ -113,7 +114,7 @@ function CampaignCard({ c, i }) {
 /* ── Loading skeleton card ────────────────────────────────────────────── */
 function SkeletonCard() {
   return (
-    <div className="overflow-hidden border border-gray-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm">
       <div className="h-48 w-full animate-pulse bg-gray-100" />
       <div className="space-y-3 p-5">
         <div className="h-5 w-3/4 animate-pulse bg-gray-100" />
@@ -127,6 +128,10 @@ function SkeletonCard() {
 }
 
 export default function CampaignsPage() {
+  const { content } = usePageContent("p2p-campaigns");
+  const hero = content?.hero || {};
+  const intro = content?.intro || {};
+
   const [campaigns, setCampaigns] = useState([]);
   const [pagination, setPagination] = useState({ total: 0 });
   const [loading, setLoading] = useState(true);
@@ -170,11 +175,11 @@ export default function CampaignsPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="bg-background">
       {/* ── HERO ─────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden pb-28 pt-32 lg:pb-32 lg:pt-40">
+      <section className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden pb-28 pt-32 lg:pb-32 lg:pt-40">
         <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary-light" />
         <div className="absolute inset-0">
           <img
-            src={HERO_IMG}
+            src={hero.image ?? HERO_IMG}
             alt=""
             fetchPriority="high"
             className="h-full w-full object-cover"
@@ -191,24 +196,24 @@ export default function CampaignsPage() {
         <div className="relative z-10 mx-auto max-w-4xl px-6 text-center">
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <Eyebrow icon={Target} light>
-              Community fundraisers
+              {hero.eyebrow ?? "Community fundraisers"}
             </Eyebrow>
             <h1 className="mt-5 font-heading text-4xl font-bold leading-[1.08] text-white md:text-5xl lg:text-6xl">
-              Support a cause, or start your own
+              {hero.title ?? "Support a cause, or start your own"}
             </h1>
             <p className="mx-auto mt-5 max-w-2xl font-body text-lg leading-relaxed text-white/75">
-              Real fundraisers from our community. Give directly to causes that move you, or launch your own in minutes.
+              {hero.subtitle ?? "Real fundraisers from our community. Give directly to causes that move you, or launch your own in minutes."}
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link
                 to="/p2p-campaigns/start"
-                className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light"
+                className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light"
               >
                 <Plus className="h-4 w-4" /> Start a fundraiser
               </Link>
               <a
                 href="#fundraisers"
-                className="inline-flex items-center gap-2 border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                className="inline-flex items-center gap-2 rounded-token-btn border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"
               >
                 Browse fundraisers <ArrowRight className="h-4 w-4" />
               </a>
@@ -222,7 +227,7 @@ export default function CampaignsPage() {
         <div className="relative z-20 mx-auto -mt-14 max-w-3xl px-6">
           <motion.div
             {...reveal()}
-            className="grid grid-cols-3 divide-x divide-gray-100 border border-gray-100 bg-white p-6 shadow-xl shadow-black/5"
+            className="grid grid-cols-3 divide-x divide-gray-100 rounded-token border border-gray-100 bg-white p-6 shadow-xl shadow-black/5"
           >
             {[
               { icon: TrendingUp, value: money(stats.totalRaised), label: "Raised so far" },
@@ -244,15 +249,15 @@ export default function CampaignsPage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <Eyebrow icon={Sparkles}>Active fundraisers</Eyebrow>
-              <h2 className="mt-3 font-heading text-3xl font-bold text-primary md:text-4xl">Causes that need you</h2>
+              <Eyebrow icon={Sparkles}>{intro.eyebrow ?? "Active fundraisers"}</Eyebrow>
+              <h2 className="mt-3 font-heading text-3xl font-bold text-primary md:text-4xl">{intro.heading ?? "Causes that need you"}</h2>
             </div>
             <CustomSelect
               value={sort}
               onChange={setSort}
               options={SORTS}
               className="w-full sm:w-52"
-              triggerClassName="border border-gray-200 bg-white px-3.5 py-2.5 text-sm focus:border-accent outline-none"
+              triggerClassName="rounded-token-input border border-gray-200 bg-white px-3.5 py-2.5 text-sm focus:border-accent outline-none"
             />
           </div>
 
@@ -284,7 +289,7 @@ export default function CampaignsPage() {
               ))}
             </div>
           ) : campaigns.length === 0 ? (
-            <div className="border border-gray-100 bg-white p-16 text-center shadow-sm">
+            <div className="rounded-token border border-gray-100 bg-white p-16 text-center shadow-sm">
               <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-accent/10">
                 <Heart className="h-7 w-7 text-accent" />
               </span>
@@ -296,7 +301,7 @@ export default function CampaignsPage() {
               </p>
               <Link
                 to="/p2p-campaigns/start"
-                className="mt-6 inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+                className="mt-6 inline-flex items-center gap-2 rounded-token-btn bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
               >
                 <Plus className="h-4 w-4" /> Start a fundraiser
               </Link>
@@ -326,7 +331,7 @@ export default function CampaignsPage() {
               <motion.div
                 key={step.title}
                 {...cardIn(i)}
-                className="group relative overflow-hidden border border-gray-100 bg-white p-8 shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+                className="group relative overflow-hidden rounded-token border border-gray-100 bg-white p-8 shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
               >
                 <CardHoverGlow />
                 <div className="relative mb-5 flex items-center gap-4">

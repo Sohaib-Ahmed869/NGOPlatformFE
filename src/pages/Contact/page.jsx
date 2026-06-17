@@ -191,7 +191,7 @@ function ReasonTiles({ value, onChange }) {
             whileTap={reduce ? undefined : { scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 24 }}
             className={cn(
-              "flex items-center gap-2.5 border px-3 py-3 text-left text-sm font-medium transition-colors duration-200",
+              "flex items-center gap-2.5 rounded-token-btn border px-3 py-3 text-left text-sm font-medium transition-colors duration-200",
               on
                 ? "border-accent bg-accent text-white shadow-md shadow-accent/25"
                 : "border-gray-200 bg-white text-gray-600 hover:border-accent/60 hover:text-primary hover:shadow-sm",
@@ -223,7 +223,7 @@ function TileGroup({ options, selected, onToggle, ariaLabel, columns = "grid-col
             whileTap={reduce ? undefined : { scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 24 }}
             className={cn(
-              "border px-3 py-2.5 text-left text-sm font-medium transition-colors duration-200",
+              "rounded-token-btn border px-3 py-2.5 text-left text-sm font-medium transition-colors duration-200",
               on
                 ? "border-accent bg-accent text-white shadow-md shadow-accent/25"
                 : "border-gray-200 bg-white text-gray-600 hover:border-accent/60 hover:text-primary hover:shadow-sm",
@@ -247,7 +247,7 @@ function ChannelCard({ icon: Icon, label, value, href, delay }) {
       viewport={{ once: true, margin: "-60px" }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay }}
       whileHover={reduce ? {} : { y: -6 }}
-      className="group relative h-full overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
+      className="group relative h-full overflow-hidden rounded-token border-token border-gray-100 bg-white shadow-token transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
     >
       <CardHoverGlow />
       <div className="relative flex h-full items-center gap-4 p-5">
@@ -289,7 +289,7 @@ function FaqItem({ q, a, open, onToggle }) {
   return (
     <div
       className={cn(
-        "group border bg-white shadow-sm transition-colors duration-200",
+        "group rounded-token border-token bg-white shadow-token transition-colors duration-200",
         open ? "border-accent/40" : "border-gray-100 hover:border-accent/30",
       )}
     >
@@ -470,7 +470,7 @@ const Contact = () => {
       <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
 
       {/* ── HERO — parallax bg + scroll-reactive content ──────────────── */}
-      <div ref={heroRef} data-hero className="relative overflow-hidden py-36 lg:py-44">
+      <div ref={heroRef} data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-36 lg:py-44">
         <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
           <img
             src={hero.image ?? "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1600&q=80"}
@@ -517,9 +517,9 @@ const Contact = () => {
               type="button"
               onClick={scrollToForm}
               whileHover={{ y: -3 }}
-              className="inline-flex items-center gap-2 bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light"
+              className="inline-flex items-center gap-2 rounded-token-btn bg-accent px-7 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-accent-light"
             >
-              Send a message
+              {hero.ctaLabel ?? "Send a message"}
               <motion.span animate={reduce ? {} : { y: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
                 <ArrowDown className="h-4 w-4" />
               </motion.span>
@@ -531,9 +531,9 @@ const Contact = () => {
       {/* ── QUICK CHANNELS ────────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
         <motion.div {...sectionReveal} className="mb-10 text-center">
-          <Eyebrow icon={Sparkles}>Get in touch</Eyebrow>
-          <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Reach us your way</h2>
-          <p className="mt-2 text-text-muted">Prefer to talk? Pick whatever’s easiest — or use the form below.</p>
+          <Eyebrow icon={Sparkles}>{content?.channels?.eyebrow ?? "Get in touch"}</Eyebrow>
+          <h2 className="mt-3 font-heading text-3xl font-bold text-primary">{content?.channels?.title ?? "Reach us your way"}</h2>
+          <p className="mt-2 text-text-muted">{content?.channels?.subtitle ?? "Prefer to talk? Pick whatever’s easiest — or use the form below."}</p>
         </motion.div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <ChannelCard icon={Phone} label="Call us" value={phone || "Reach out anytime"} href={phone ? `tel:${phone.replace(/\s/g, "")}` : undefined} delay={0} />
@@ -558,7 +558,7 @@ const Contact = () => {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="relative border border-gray-100 bg-white p-10 text-center shadow-sm"
+                className="relative rounded-token border-token border-gray-100 bg-white p-10 text-center shadow-token"
               >
                 <CardTopLine delay={0.15} />
                 <motion.span
@@ -577,7 +577,7 @@ const Contact = () => {
                 <button
                   type="button"
                   onClick={() => setSent(false)}
-                  className="mt-6 inline-flex items-center gap-2 border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent hover:text-accent"
+                  className="mt-6 inline-flex items-center gap-2 rounded-token-btn border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:border-accent hover:text-accent"
                 >
                   Send another message
                 </button>
@@ -589,12 +589,12 @@ const Contact = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                className="relative border border-gray-100 bg-white p-6 shadow-sm sm:p-8 lg:p-10"
+                className="relative rounded-token border-token border-gray-100 bg-white p-6 shadow-token sm:p-8 lg:p-10"
               >
                 <CardTopLine delay={0.2} />
                 <div className="mb-8 text-center">
                   <h2 className="font-heading text-3xl font-bold text-primary">{content?.formHeading ?? "Send us a message"}</h2>
-                  <p className="mt-2 text-sm text-text-muted">Tell us what you need and we’ll point you to the right person.</p>
+                  <p className="mt-2 text-sm text-text-muted">{content?.formSubheading ?? "Tell us what you need and we’ll point you to the right person."}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} noValidate className="space-y-10">
@@ -709,7 +709,7 @@ const Contact = () => {
                     disabled={submitting}
                     whileHover={submitting || reduce ? {} : { scale: 1.01 }}
                     whileTap={submitting ? {} : { scale: 0.99 }}
-                    className="inline-flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-md transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-md transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                     {submitting ? "Sending…" : "Send message"}
@@ -725,12 +725,12 @@ const Contact = () => {
       {hasConnect && (
         <section className="mx-auto max-w-6xl px-6 py-16 lg:py-20">
           <motion.div {...sectionReveal} className="mb-10 text-center">
-            <Eyebrow icon={MapPin}>Visit us</Eyebrow>
-            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Find &amp; connect with us</h2>
+            <Eyebrow icon={MapPin}>{content?.connect?.eyebrow ?? "Visit us"}</Eyebrow>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">{content?.connect?.title ?? "Find & connect with us"}</h2>
           </motion.div>
           <div className={cn("grid gap-6", mapSrc ? "lg:grid-cols-2" : "mx-auto max-w-xl")}>
             {mapSrc && (
-              <motion.div {...reveal()} className="relative border border-gray-100 bg-white shadow-sm">
+              <motion.div {...reveal()} className="relative rounded-token border-token border-gray-100 bg-white shadow-token">
                 <iframe
                   title="Our location"
                   src={mapSrc}
@@ -741,9 +741,9 @@ const Contact = () => {
                 />
               </motion.div>
             )}
-            <motion.div {...reveal(0.1)} className="relative border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
+            <motion.div {...reveal(0.1)} className="relative rounded-token border-token border-gray-100 bg-white p-6 shadow-token sm:p-8">
               <CardTopLine delay={0.2} />
-              <h3 className="font-heading text-lg font-bold text-primary">Reach us directly</h3>
+              <h3 className="font-heading text-lg font-bold text-primary">{content?.connect?.heading ?? "Reach us directly"}</h3>
               <div className="mt-5 space-y-4">
                 <ContactRow icon={Clock} label="Office hours">
                   {officeHours}
@@ -801,9 +801,9 @@ const Contact = () => {
       <section className="bg-background/60 px-6 py-16 lg:py-20">
         <motion.div {...sectionReveal} className="mx-auto max-w-3xl">
           <div className="mb-8 text-center">
-            <Eyebrow icon={MessageCircle}>FAQ</Eyebrow>
-            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">Frequently asked questions</h2>
-            <p className="mt-2 text-text-muted">Quick answers to the things people ask us most.</p>
+            <Eyebrow icon={MessageCircle}>{content?.faqSection?.eyebrow ?? "FAQ"}</Eyebrow>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">{content?.faqSection?.title ?? "Frequently asked questions"}</h2>
+            <p className="mt-2 text-text-muted">{content?.faqSection?.subtitle ?? "Quick answers to the things people ask us most."}</p>
           </div>
           <div className="space-y-3">
             {faqs.map((f, i) => (

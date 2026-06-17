@@ -179,7 +179,7 @@ export default function EventDetail() {
       <motion.div style={{ scaleX: progressX }} className="fixed inset-x-0 top-0 z-[60] h-1 origin-left bg-accent" />
 
       {/* ── HERO ─────────────────────────────────────────────────────── */}
-      <div ref={heroRef} data-hero className="relative overflow-hidden py-32 lg:py-40">
+      <div ref={heroRef} data-hero className="relative flex min-h-[100dvh] flex-col justify-center overflow-hidden py-32 lg:py-40">
         {coverUrl ? (
           <motion.div style={{ y: heroBgY, scale: heroScale }} className="absolute -inset-y-[16%] inset-x-0 will-change-transform">
             <img src={coverUrl} alt="" className="h-full w-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src = IMG_FALLBACK; }} />
@@ -241,7 +241,7 @@ export default function EventDetail() {
               <button
                 type="button"
                 onClick={share}
-                className="mt-6 inline-flex items-center gap-2 border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                className="mt-6 inline-flex items-center gap-2 rounded-token-btn border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
                 {copied ? "Link copied" : "Share"}
@@ -258,7 +258,7 @@ export default function EventDetail() {
             {/* At a glance */}
             <motion.div
               {...reveal()}
-              className="relative z-20 -mt-28 grid grid-cols-2 gap-px border border-gray-100 bg-gray-100 shadow-xl shadow-black/5 md:grid-cols-4 lg:-mt-32"
+              className="relative z-20 -mt-28 grid grid-cols-2 gap-px rounded-token border border-gray-100 bg-gray-100 shadow-xl shadow-black/5 md:grid-cols-4 lg:-mt-32"
             >
               {glanceTiles.map(({ icon: Icon, label, value, progress }) => (
                 <div key={label} className="bg-white p-5">
@@ -310,7 +310,7 @@ export default function EventDetail() {
                 <motion.div {...reveal()}>
                   <Eyebrow icon={MapPin}>Location</Eyebrow>
                   <p className="mt-4 text-sm text-text-muted">{locationStr}</p>
-                  <div className="mt-4 overflow-hidden border border-gray-100 shadow-sm">
+                  <div className="mt-4 overflow-hidden rounded-token border border-gray-100 shadow-sm">
                     <iframe
                       title="Event location map"
                       src={`https://www.google.com/maps?q=${encodeURIComponent(locationStr)}&output=embed`}
@@ -328,7 +328,7 @@ export default function EventDetail() {
                   <Eyebrow icon={Paperclip}>Attachments</Eyebrow>
                   <div className="mt-4 space-y-2">
                     {event.attachments.map((a, i) => (
-                      <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 border border-gray-100 bg-white p-3 text-sm text-text-muted shadow-sm transition-colors hover:border-accent/40 hover:text-accent">
+                      <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-token border border-gray-100 bg-white p-3 text-sm text-text-muted shadow-sm transition-colors hover:border-accent/40 hover:text-accent">
                         <Paperclip className="h-4 w-4 shrink-0 text-accent" /> {a.name || "Download attachment"}
                       </a>
                     ))}
@@ -340,7 +340,7 @@ export default function EventDetail() {
             {/* Right — sticky registration card */}
             <motion.div {...reveal(0.1)} className="lg:col-span-1">
               <div className="lg:sticky lg:top-24">
-                <div className="border border-gray-100 bg-white shadow-sm">
+                <div className="rounded-token border border-gray-100 bg-white shadow-sm">
                   {/* Fee */}
                   <div className="border-b border-gray-100 p-6">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{event.isPaid ? "Entry fee" : "Entry"}</p>
@@ -370,13 +370,13 @@ export default function EventDetail() {
                         href={event.registrationLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                        className="flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
                       >
                         Register now <ExternalLink className="h-4 w-4" />
                       </a>
                     ) : internal ? (
                       registered ? (
-                        <div className="flex items-center gap-2.5 border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm">
+                        <div className="flex items-center gap-2.5 rounded-token border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm">
                           <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
                           <span className="font-medium text-emerald-700">You're registered for this event.</span>
                         </div>
@@ -385,7 +385,7 @@ export default function EventDetail() {
                           <button
                             type="button"
                             onClick={goRegister}
-                            className="flex w-full items-center justify-center gap-2 bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+                            className="flex w-full items-center justify-center gap-2 rounded-token-btn bg-accent py-3.5 font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
                           >
                             {event.isPaid ? (
                               <>Register · ${event.price} {event.currency || "AUD"}</>
@@ -427,7 +427,7 @@ export default function EventDetail() {
                   </div>
                 </div>
 
-                <Link to="/events" className="mt-4 flex w-full items-center justify-center gap-2 border border-gray-200 bg-white py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
+                <Link to="/events" className="mt-4 flex w-full items-center justify-center gap-2 rounded-token-btn border border-gray-200 bg-white py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent">
                   <ArrowLeft className="h-4 w-4" /> All events
                 </Link>
               </div>

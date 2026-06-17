@@ -84,9 +84,9 @@ function ProgramCard({ program, index, expanded, onToggle, onRequest }) {
   return (
     <motion.article
       className="overflow-hidden border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.05, 0.3) }}
+      transition={{ duration: 0.25, ease: "easeOut", delay: Math.min(index * 0.03, 0.3) }}
     >
       <div className="flex flex-col lg:flex-row">
         {/* Media */}
@@ -397,20 +397,33 @@ export default function MyPrograms() {
                   type="button"
                   onClick={() => setTab(t.id)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium transition-colors",
+                    "relative isolate inline-flex items-center gap-1.5 border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200",
                     activeTab
-                      ? "bg-accent text-white shadow-sm shadow-accent/25"
-                      : "border border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
+                      ? "border-accent text-accent"
+                      : "border-gray-200 bg-white text-text-muted hover:border-accent/40 hover:text-primary",
                   )}
                 >
+                  {activeTab && (
+                    <motion.span
+                      layoutId="programsTabActive"
+                      className="absolute inset-0 -z-10 bg-accent/10"
+                      transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                    />
+                  )}
                   {t.label}
-                  <span className={cn("text-xs", activeTab ? "text-white/80" : "text-gray-400")}>{t.count}</span>
+                  <span className={cn("text-xs", activeTab ? "text-accent/70" : "text-gray-400")}>{t.count}</span>
                 </button>
               );
             })}
           </div>
 
           {/* List */}
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
           {list.length === 0 ? (
             <div className="border border-gray-100 bg-white p-12 text-center shadow-sm">
               <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-accent/10 text-accent">
@@ -442,6 +455,7 @@ export default function MyPrograms() {
               ))}
             </div>
           )}
+          </motion.div>
         </>
       )}
 

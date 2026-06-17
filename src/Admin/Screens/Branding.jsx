@@ -21,8 +21,10 @@ import {
   RotateCcw,
   Eye,
   X,
+  Type,
 } from "lucide-react";
 import brandingService from "../../services/branding.service";
+import DesignTab from "./DesignTab";
 import themeCategories, { getThemeById } from "../../config/themePresets";
 import { cn } from "../../utils/cn";
 import { withMinDelay } from "../../utils/minDelay";
@@ -55,6 +57,7 @@ const TABS = [
   { id: "logos", label: "Identity", desc: "Logo & tagline", icon: ImageIcon },
   { id: "browser", label: "Browser Tab", desc: "Title & favicon", icon: Globe },
   { id: "theme", label: "Theme", desc: "Colours & palette", icon: Palette },
+  { id: "design", label: "Design", desc: "Fonts, shape & templates", icon: Type },
   { id: "request", label: "Request a change", desc: "Ask platform admin", icon: Send },
 ];
 
@@ -651,7 +654,7 @@ export default function Branding() {
                             <p className="mb-2 text-xs text-text-muted">{field.hint}</p>
                             <div className="flex items-center gap-2">
                               <input type="color" value={branding[field.key]} onChange={(e) => setField(field.key, e.target.value)} className="h-10 w-10 cursor-pointer appearance-none rounded-lg border border-gray-200 p-0.5" />
-                              <input type="text" value={branding[field.key]} onChange={(e) => setField(field.key, e.target.value)} className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm uppercase" maxLength={7} />
+                              <input type="text" value={branding[field.key]} onChange={(e) => setField(field.key, e.target.value)} className="flex-1 rounded-token-input border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm uppercase" maxLength={7} />
                             </div>
                           </div>
                         ))}
@@ -680,6 +683,8 @@ export default function Branding() {
               )}
 
               {/* ── REQUEST ── */}
+              {activeTab === "design" && <DesignTab />}
+
               {activeTab === "request" && (
                 <>
                   <SectionHead icon={Send} title="Request a change" desc="Want a custom setup or a review before changes go live? Send it to our team." />
@@ -848,7 +853,7 @@ export default function Branding() {
           <motion.div
             initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 26 }}
-            className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]"
+            className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-token border border-gray-200 bg-white px-4 py-3 shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]"
           >
             <span className="flex items-center gap-2 text-sm font-medium text-primary dark:text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
