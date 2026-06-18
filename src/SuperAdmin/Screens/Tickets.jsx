@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Inbox, Building2, Star, RefreshCw, CircleDot, AlertCircle, UserRound, ChevronRight, MessageSquare } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { supportCategoryLabel } from "../../config/supportCategories";
+import { ticketSourceKey, ticketSourceMeta, TICKET_SOURCE_FILTER_OPTIONS } from "../../config/ticketSource";
 import { useSARealtime } from "../context/SARealtimeContext";
 import SAPageHeader from "../components/SAPageHeader";
 import SASelect from "../components/SASelect";
@@ -40,6 +41,16 @@ function Badge({ className, children }) {
 function StatusPill({ status }) {
   return <Badge className={STATUS[status]}><span className="mr-1 h-1.5 w-1.5 rounded-full" style={{ background: STATUS_DOT[status] }} />{label(status)}</Badge>;
 }
+// "Who is this from" chip — tenant (NGO staff) vs tenant customer (donor) vs public.
+function SourceBadge({ reporter, className }) {
+  const m = ticketSourceMeta(reporter);
+  const Icon = m.icon;
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", m.badge, className)} title={m.description}>
+      <Icon className="h-2.5 w-2.5" />{m.label}
+    </span>
+  );
+}
 function Kpi({ icon: Icon, label: lbl, value, hint, chip }) {
   return (
     <div className={`${card} flex items-center gap-3 px-4 py-3.5`}>
@@ -61,7 +72,7 @@ export default function Tickets() {
   const cachedTickets = superadminService.getTicketsCached();
   const [all, setAll] = useState(cachedTickets || []);
   const [loading, setLoading] = useState(!cachedTickets);
-  const [filters, setFilters] = useState({ triage: "all", status: "all", priority: "all", search: "" });
+  const [filters, setFilters] = useState({ triage: "all", status: "all", priority: "all", source: "all", search: "" });
   const [, setTick] = useState(0);
 
   // Manual refresh / socket refresh / background revalidate — bypasses the cache
@@ -144,6 +155,7 @@ export default function Tickets() {
       if (filters.status !== "all" && t.status !== filters.status) return false;
       if (filters.priority !== "all" && t.priority !== filters.priority) return false;
       if (filters.triage !== "all" && (t.triage || "unclassified") !== filters.triage) return false;
+      if (filters.source !== "all" && ticketSourceKey(t.reporter) !== filters.source) return false;
       if (q) {
         const hay = `${t.summary} ${t.description} ${t.reporter?.name} ${t.reporter?.email} ${t.organisationId?.name}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -201,6 +213,11 @@ export default function Tickets() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} placeholder="Search summary, reporter, tenant…" className={`${inputCls} w-full pl-9`} />
         </div>
+        <SASelect
+          value={filters.source}
+          onChange={(v) => setFilters((p) => ({ ...p, source: v }))}
+          options={TICKET_SOURCE_FILTER_OPTIONS}
+        />
         {[
           { key: "priority", opts: ["all", "low", "medium", "high", "critical"] },
           { key: "triage", opts: ["all", ...TRIAGE_OPTS] },
@@ -237,6 +254,7 @@ export default function Tickets() {
                     <p className="truncate text-sm font-semibold text-gray-900">{t.summary}</p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
                       <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-500 dark:bg-white/10"><Building2 className="h-2.5 w-2.5" />{t.organisationId?.name || "—"}</span>
+                      <SourceBadge reporter={t.reporter} />
                       <span className="font-mono">#{t.ticketNumber}</span>
                       <span className="truncate">{t.reporter?.name || t.reporter?.email}</span>
                       {t.comments?.length ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.comments.length}</span> : null}

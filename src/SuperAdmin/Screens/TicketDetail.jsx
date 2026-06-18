@@ -8,6 +8,7 @@ import { useSARealtime } from "../context/SARealtimeContext";
 import SALoader from "../SALoader";
 import TicketAttachments from "../../components/TicketAttachments";
 import { supportCategoryLabel } from "../../config/supportCategories";
+import { ticketSourceMeta } from "../../config/ticketSource";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
 
@@ -43,6 +44,12 @@ function Badge({ className, children }) {
 }
 function StatusPill({ status }) {
   return <Badge className={STATUS[status]}><span className="mr-1 h-1.5 w-1.5 rounded-full" style={{ background: STATUS_DOT[status] }} />{label(status)}</Badge>;
+}
+// "Who is this from" badge — tenant (NGO staff) vs tenant customer (donor) vs public.
+function SourceBadge({ reporter }) {
+  const m = ticketSourceMeta(reporter);
+  const Icon = m.icon;
+  return <Badge className={m.badge}><Icon className="mr-1 h-3 w-3" />{m.label}</Badge>;
 }
 function Stars({ n }) {
   return <span className="inline-flex items-center gap-0.5">{[1, 2, 3, 4, 5].map((i) => <Star key={i} className={cn("h-4 w-4", i <= n ? "fill-amber-400 text-amber-400" : "text-gray-200")} />)}</span>;
@@ -182,6 +189,7 @@ export default function TicketDetail() {
           <h1 className="mt-1 text-xl font-bold text-gray-900">{t.summary}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <StatusPill status={t.status} />
+            <SourceBadge reporter={t.reporter} />
             <Badge className={PRIORITY[t.priority]}>{t.priority}</Badge>
             <Badge className="bg-gray-100 text-gray-600"><Tag className="mr-1 h-3 w-3" />{supportCategoryLabel(t.category)}</Badge>
             <Badge className={TRIAGE[t.triage]}>{t.triage}</Badge>
@@ -280,7 +288,19 @@ export default function TicketDetail() {
                 <p className="flex items-center gap-1 truncate text-[11px] text-gray-400"><Mail className="h-3 w-3" />{t.reporter?.email || "—"}</p>
               </div>
             </div>
-            <p className="mt-1.5 text-[10px] uppercase tracking-wide text-gray-400">{t.reporter?.isExternal ? "External reporter" : "Team member"}</p>
+            {(() => {
+              const src = ticketSourceMeta(t.reporter);
+              const Icon = src.icon;
+              return (
+                <div className="mt-2.5 flex items-start gap-2 rounded-lg bg-gray-50 p-2.5 dark:bg-white/5">
+                  <span className={cn("mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md", src.badge)}><Icon className="h-3.5 w-3.5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-700">{src.full}</p>
+                    <p className="text-[11px] leading-snug text-gray-400">{src.description}</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="my-4 border-t border-gray-100 dark:border-white/10" />
             <SectionTitle>Assignee</SectionTitle>

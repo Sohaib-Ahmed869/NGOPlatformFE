@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Portal from "../../components/Portal";
 import { toast } from "react-hot-toast";
-import { LifeBuoy, Plus, X, Send, Loader2, Inbox, Paperclip, Clock, FileText, Sparkles } from "lucide-react";
+import { LifeBuoy, Plus, X, Send, Loader2, Inbox, Paperclip, Clock, FileText, Sparkles, Star } from "lucide-react";
 import { TabLoader } from "../../components/TabLoader";
 import { cn } from "../../utils/cn";
 import supportService from "../../services/support.service";
@@ -110,6 +110,19 @@ export default function Support() {
       toast.error("Failed to send");
     } finally {
       setSending(false);
+    }
+  };
+
+  // Submit a CSAT rating for a resolved ticket (re-throws so RateBand can re-enable).
+  const rate = async (rating, feedback) => {
+    try {
+      const res = await supportService.mySatisfaction(active._id, { rating, feedback });
+      setActive(res.data.ticket);
+      fetchTickets();
+      toast.success("Thanks for your feedback!");
+    } catch (e) {
+      toast.error(e?.response?.data?.error || "Failed to submit");
+      throw e;
     }
   };
 
@@ -290,6 +303,19 @@ export default function Support() {
                   <div ref={bottomRef} />
                 </div>
 
+                {/* CSAT — rate the support once resolved, or show the recorded rating */}
+                {active.satisfactionRating ? (
+                  <div className="border-t border-gray-100 px-4 py-3 text-center dark:border-white/10">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">Your rating</p>
+                    <RatedStars n={active.satisfactionRating} />
+                    {active.satisfactionFeedback ? <p className="mt-1.5 text-xs italic text-text-muted">“{active.satisfactionFeedback}”</p> : null}
+                  </div>
+                ) : (active.status === "solved" || active.status === "declined") ? (
+                  <div className="border-t border-gray-100 p-4 dark:border-white/10">
+                    <RateBand onSubmit={rate} />
+                  </div>
+                ) : null}
+
                 {active.status !== "declined" ? (
                   <div className="border-t border-gray-100 p-4 dark:border-white/10">
                     <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={2} placeholder="Add a reply…" className={`${inputCls} mb-2 resize-none`} />
@@ -307,6 +333,56 @@ export default function Support() {
           )}
         </AnimatePresence>
       </Portal>
+    </div>
+  );
+}
+
+// Read-only star row for a recorded rating.
+function RatedStars({ n }) {
+  return (
+    <span className="inline-flex items-center justify-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star key={i} className={cn("h-4 w-4", i <= n ? "text-accent" : "text-gray-300")} fill={i <= n ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
+}
+
+// Interactive CSAT widget shown on a resolved ticket (donor portal).
+function RateBand({ onSubmit }) {
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [feedback, setFeedback] = useState("");
+  const [open, setOpen] = useState(false); // reveal comment + submit once a star is picked
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!rating || busy) return;
+    setBusy(true);
+    try { await onSubmit(rating, feedback); }
+    catch { setBusy(false); }
+  };
+
+  return (
+    <div className="rounded-token bg-gray-50/70 p-3 dark:bg-white/5">
+      <p className="mb-2 text-center text-xs font-medium text-primary">How was your support experience?</p>
+      <div className="flex justify-center gap-1.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} type="button" onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)} onClick={() => { setRating(n); setOpen(true); }} aria-label={`${n} star${n > 1 ? "s" : ""}`}>
+            <Star className={cn("h-7 w-7 transition-colors", (hover || rating) >= n ? "text-accent" : "text-gray-300")} fill={(hover || rating) >= n ? "currentColor" : "none"} />
+          </button>
+        ))}
+      </div>
+      {open && (
+        <div className="mt-3">
+          <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} rows={2} placeholder="Anything you'd like to add? (optional)" className="w-full resize-none rounded-token border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-white/5" />
+          <div className="mt-2 flex justify-end">
+            <button onClick={submit} disabled={busy || !rating} className="inline-flex items-center gap-1.5 rounded-token bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-light disabled:opacity-50">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />} Submit rating
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

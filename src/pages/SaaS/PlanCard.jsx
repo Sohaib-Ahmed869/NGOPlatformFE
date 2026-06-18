@@ -1,19 +1,43 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import gsap from "gsap";
 import { Check, X, ArrowRight } from "lucide-react";
 
 const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "#E7F2EC",
+  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
   line: "rgba(var(--tenant-primary-rgb), .08)", ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
   primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", accent: "var(--pf-gold, #F59E0B)", accentGlow: "rgba(245,158,11,.20)",
   success: "#059669",
 };
 const mono = "'JetBrains Mono', monospace";
 
+/* GSAP count-up that rolls from the previous price to the new one — fires on
+   mount (0 → price) and again whenever the billing cycle flips the amount. */
+function PriceCounter({ value }) {
+  const ref = useRef(null);
+  const prev = useRef(0);
+  useEffect(() => {
+    const node = ref.current;
+    const obj = { v: prev.current };
+    const tween = gsap.to(obj, {
+      v: value, duration: 0.8, ease: "power2.out",
+      onUpdate: () => { if (node) node.textContent = "$" + Math.round(obj.v).toLocaleString("en-US"); },
+    });
+    prev.current = value;
+    return () => tween.kill();
+  }, [value]);
+  return (
+    <span ref={ref} className="text-[44px] font-medium tracking-tight" style={{ color: V.ink }}>
+      {"$" + value.toLocaleString("en-US")}
+    </span>
+  );
+}
+
 export default function PlanCard({ plan, billingCycle }) {
-  const price = billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
-  const perMonth = billingCycle === "annual" ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
+  const annual = billingCycle === "annual";
+  const bigPrice = annual ? plan.annualPrice : plan.monthlyPrice;
+  const perMonth = annual ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
 
   return (
     <div
@@ -25,8 +49,8 @@ export default function PlanCard({ plan, billingCycle }) {
       }}
     >
       {plan.popular && (
-        <span className="absolute top-4 right-4 px-2.5 py-1 rounded text-[10px] tracking-[.08em] uppercase font-bold"
-          style={{ fontFamily: mono, background: V.accent, color: V.bg, boxShadow: `0 0 12px ${V.accentGlow}, inset 0 1px 0 rgba(255,255,255,.3)` }}>
+        <span className="absolute top-4 right-4 px-2.5 py-1 text-[10px] tracking-[.08em] uppercase font-bold text-white"
+          style={{ fontFamily: mono, background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 6px 16px -6px rgba(var(--tenant-accent-rgb),.5)` }}>
           Popular
         </span>
       )}
@@ -38,24 +62,12 @@ export default function PlanCard({ plan, billingCycle }) {
 
       <div className="mb-6 pb-6" style={{ borderBottom: `1px solid ${V.line}` }}>
         <div className="flex items-baseline gap-1.5">
-          {/* Animated price number */}
-          <AnimatePresence mode="wait">
-            <motion.span
-              key={perMonth}
-              className="text-[44px] font-medium tracking-tight"
-              style={{ color: V.ink }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
-            >
-              ${perMonth}
-            </motion.span>
-          </AnimatePresence>
-          <span className="text-[13px]" style={{ fontFamily: mono, color: V.inkFaint }}>/month</span>
+          {/* GSAP count-up price — the actual selected-cycle total */}
+          <PriceCounter value={bigPrice} />
+          <span className="text-[13px]" style={{ fontFamily: mono, color: V.inkFaint }}>{annual ? "/year" : "/month"}</span>
         </div>
         <AnimatePresence>
-          {billingCycle === "annual" && (
+          {annual && (
             <motion.div
               className="mt-1.5 flex items-center gap-2"
               initial={{ opacity: 0, height: 0 }}
@@ -64,9 +76,9 @@ export default function PlanCard({ plan, billingCycle }) {
               transition={{ duration: 0.25 }}
             >
               <span className="text-xs" style={{ fontFamily: mono, color: V.inkFaint }}>
-                ${price} billed annually
+                ≈ ${perMonth}/mo · billed yearly
               </span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              <span className="text-xs font-semibold px-2 py-0.5"
                 style={{ color: V.success, background: "rgba(5,150,105,.14)", border: "1px solid rgba(5,150,105,.3)" }}>
                 Save ${plan.monthlyPrice * 12 - plan.annualPrice}
               </span>
@@ -79,7 +91,7 @@ export default function PlanCard({ plan, billingCycle }) {
         {plan.features.map((feature) => (
           <li key={feature.name} className="flex items-center gap-2.5 py-2 text-[13.5px]" style={{ color: feature.included ? V.inkSoft : "#ccc" }}>
             {feature.included ? (
-              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke={V.accent} strokeWidth="2.5"><path d="M5 12l5 5L20 7" /></svg>
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke={V.primary} strokeWidth="2.5"><path d="M5 12l5 5L20 7" /></svg>
             ) : (
               <X className="w-3.5 h-3.5 shrink-0 text-gray-300" />
             )}

@@ -60,10 +60,14 @@ const supportService = {
   myCreate: (body) => axiosInstance.post("/support-tickets/my", body),
   myGet: (id) => axiosInstance.get(`/support-tickets/my/${id}`),
   myReply: (id, body) => axiosInstance.post(`/support-tickets/my/${id}/messages`, body),
+  // Logged-in donor rates their own resolved ticket from the portal (no token).
+  mySatisfaction: (id, body) => axiosInstance.post(`/support-tickets/my/${id}/satisfaction`, body),
 
   // Public (no auth)
   publicOrg: () => axiosInstance.get("/support-tickets/public/org"),
   publicSubmit: (body) => axiosInstance.post("/support-tickets/public/submit", body),
+  // CSAT from the email link — token validates the link before/with submitting.
+  getPublicSatisfaction: (id, token) => axiosInstance.get(`/support-tickets/public/satisfaction/${id}`, { params: { token } }),
   publicSatisfaction: (id, body) => axiosInstance.post(`/support-tickets/public/satisfaction/${id}`, body),
 };
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { Bug, Sparkles, ChevronLeft, ChevronRight, Building2, GripVertical, MessageSquare, Inbox } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { ticketSourceMeta } from "../../config/ticketSource";
 import SAPageHeader from "../components/SAPageHeader";
 import SALoader from "../SALoader";
 import { cn } from "../../utils/cn";
@@ -197,6 +198,8 @@ export default function KanbanBoard() {
 
                       {items.map((t) => {
                         const prio = PRIORITY[t.priority] || PRIORITY.low;
+                        const src = ticketSourceMeta(t.reporter);
+                        const SrcIcon = src.icon;
                         const idx = ORDER.indexOf(col.key);
                         const dragging = dragId === t._id;
                         return (
@@ -222,7 +225,10 @@ export default function KanbanBoard() {
                             <span className="pointer-events-none absolute inset-y-2.5 left-1.5 w-1 rounded-full" style={{ background: prio.dot }} />
 
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide", prio.badge)}>{prio.label}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide", prio.badge)}>{prio.label}</span>
+                                <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold", src.badge)} title={src.description}><SrcIcon className="h-2.5 w-2.5" />{src.label}</span>
+                              </div>
                               <div className="flex items-center gap-2 text-[10px] text-gray-400">
                                 {t.comments?.length ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.comments.length}</span> : null}
                                 <span>{timeAgo(t.createdAt)}</span>

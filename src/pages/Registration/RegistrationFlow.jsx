@@ -1,26 +1,213 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import gsap from "gsap";
 import {
-  Check, Building2, User, FileCheck, Palette,
-  ArrowRight, ArrowLeft, Loader2, SkipForward, ArrowUpRight,
-  Sparkles, Shield, Zap, Globe, Users, Upload, X as XIcon, Image,
+  Check, Building2, User, FileCheck, Palette, ArrowRight, ArrowLeft,
+  Loader2, SkipForward, Upload, X as XIcon, ChevronDown, Shield, Sparkles,
+  Eye, EyeOff, CreditCard,
 } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import tenantService from "../../services/tenant.service";
 import themeCategories, { getThemeById } from "../../config/themePresets";
-import ThemePreview from "./ThemePreview";
+
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 const STEPS = [
-  { label: "Organisation", icon: Building2 },
-  { label: "Theme", icon: Palette },
-  { label: "Account", icon: User },
-  { label: "Review", icon: FileCheck },
+  { label: "Organisation", icon: Building2, hint: "Basic details" },
+  { label: "Theme", icon: Palette, hint: "Pick your style" },
+  { label: "Account", icon: User, hint: "Admin credentials" },
+  { label: "Review", icon: FileCheck, hint: "Confirm details" },
+  { label: "Payment", icon: CreditCard, hint: "Secure checkout" },
 ];
 
-const fade = {
-  initial: { opacity: 0, y: 12 },
-  animate: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.4, delay: i * 0.06 } }),
+const REVENUE_OPTIONS = [
+  { value: "0-500", label: "$0 – $500" },
+  { value: "500-5000000", label: "$500 – $5,000,000" },
+  { value: "5000000+", label: "$5,000,000+" },
+];
+const CHARITY_OPTIONS = [
+  { value: "general", label: "General charity" },
+  { value: "muslim", label: "Muslim charity" },
+];
+
+const PLANS = [
+  { key: "basic", name: "Basic", monthly: 200, annual: 1920, blurb: "For small charities getting started" },
+  { key: "professional", name: "Professional", monthly: 500, annual: 4800, blurb: "For growing charities", popular: true },
+  { key: "enterprise", name: "Enterprise", monthly: 1000, annual: 9600, blurb: "For established charities at scale" },
+];
+
+/* Token-driven palette — /register is wrapped in data-public-site + the platform
+   vars (App.jsx), so these resolve to the live brand colours (emerald is just the
+   fallback before settings load). */
+const V = {
+  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb, 4,120,87), .08)",
+  line: "rgba(16,42,35,.10)",
+  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
+  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)",
+  glow: "var(--tenant-accent-light, #10B981)", accent: "var(--pf-gold, #F59E0B)", success: "#059669",
 };
+const font = "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const mono = "'JetBrains Mono', monospace";
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+.reg-page h1,.reg-page h2,.reg-page h3{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
+.reg-page button,.reg-page input,.reg-page textarea,.reg-page [class*="rounded"],.reg-page [class*="border"]{border-radius:0 !important}
+.reg-uline{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(16,42,35,.18);padding:10px 2px;font-size:14px;color:var(--tenant-primary,#102A23);outline:none;transition:border-color .3s,box-shadow .3s}
+.reg-uline::placeholder{color:#9aada4}
+.reg-uline:focus{border-bottom-color:var(--tenant-accent,#047857);box-shadow:0 1px 0 0 var(--tenant-accent,#047857)}
+.reg-submit{position:relative;overflow:hidden;transition:transform .3s}
+.reg-submit:hover{transform:translateY(-1px)}
+.reg-submit::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-120%);transition:transform 1s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.reg-submit:hover::before{transform:translateX(120%)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+`;
+
+/* ── Custom animated dropdown (replaces the native <select>) ── */
+function Dropdown({ value, onChange, options, id }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selected = options.find((o) => o.value === value);
+  useEffect(() => {
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+  return (
+    <div ref={ref} className="relative" id={id}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="flex w-full items-center justify-between border-b py-2.5 text-left text-sm transition-colors"
+        style={{ borderColor: open ? V.primary : "rgba(16,42,35,.18)", color: V.ink, boxShadow: open ? `0 1px 0 0 ${V.primary}` : "none" }}>
+        <span>{selected?.label}</span>
+        <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{ color: V.inkFaint, transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18, ease: [0.2, 0.7, 0.2, 1] }}
+            className="absolute left-0 right-0 z-30 mt-1 overflow-hidden border bg-white shadow-xl" style={{ borderColor: V.line }}>
+            {options.map((o) => {
+              const on = o.value === value;
+              return (
+                <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false); }}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors hover:bg-black/[0.03]"
+                  style={on ? { background: V.surface2, color: V.primary, fontWeight: 600 } : { color: V.inkSoft }}>
+                  {o.label}
+                  {on && <Check className="h-4 w-4" style={{ color: V.primary }} />}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const Label = ({ children }) => (
+  <label className="mb-1 block text-[13px] font-semibold" style={{ color: V.ink }}>{children}</label>
+);
+const Err = ({ children }) => children ? <p className="mt-1.5 text-xs text-red-500">{children}</p> : null;
+
+/* Password strength → 0-4 score + label/colour. */
+const STRENGTH = [
+  { label: "Too short", color: "#EF4444" },
+  { label: "Weak", color: "#F59E0B" },
+  { label: "Fair", color: "#EAB308" },
+  { label: "Good", color: "#10B981" },
+  { label: "Strong", color: "#059669" },
+];
+function pwScore(pw) {
+  if (!pw) return 0;
+  let s = 0;
+  if (pw.length >= 6) s++;
+  if (pw.length >= 10) s++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  return Math.min(s, 4);
+}
+
+/* Underline password input with a show/hide eye toggle. */
+function PwInput({ value, onChange, show, onToggle, placeholder }) {
+  return (
+    <div className="relative">
+      <input type={show ? "text" : "password"} className="reg-uline" style={{ paddingRight: 32 }} value={value} onChange={onChange} placeholder={placeholder} />
+      <button type="button" onClick={onToggle} aria-label={show ? "Hide password" : "Show password"}
+        className="absolute right-0 top-1.5 p-1 transition-opacity hover:opacity-70" style={{ color: V.inkFaint }}>
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+/* ── In-house Stripe checkout (mirrors the donation/event PaymentElement flow).
+   Mounts <Elements> with the subscription invoice's clientSecret and confirms
+   the card here; the SaaS webhook activates the org on invoice.paid. ── */
+function PaymentInner({ slug, onBack, priceLabel }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paying, setPaying] = useState(false);
+  const [err, setErr] = useState("");
+
+  const pay = async () => {
+    if (!stripe || !elements) return;
+    setPaying(true);
+    setErr("");
+    const { error, paymentIntent } = await stripe.confirmPayment({ elements, redirect: "if_required" });
+    if (error) { setErr(error.message || "Payment failed — please check your card details."); setPaying(false); return; }
+    if (paymentIntent && ["succeeded", "processing"].includes(paymentIntent.status)) {
+      window.location.href = `/register/success?slug=${encodeURIComponent(slug)}`;
+    } else { setErr("Payment was not completed."); setPaying(false); }
+  };
+
+  return (
+    <div>
+      <PaymentElement options={{ layout: "tabs" }} />
+      {err && <p className="mt-3 text-xs text-red-500">{err}</p>}
+      <div className="mt-6 flex gap-3">
+        <button type="button" onClick={onBack} disabled={paying} className="flex flex-1 items-center justify-center gap-2 border py-3.5 text-[14px] font-semibold transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.ink }}>
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <button type="button" onClick={pay} disabled={paying || !stripe} className="reg-submit group flex flex-[1.4] items-center justify-center gap-2 py-3.5 text-[14px] font-semibold text-white disabled:opacity-60" style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}>
+          {paying ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</> : <>Pay {priceLabel} &amp; launch <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" /></>}
+        </button>
+      </div>
+      <p className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px]" style={{ color: V.inkFaint }}>
+        <Shield className="h-3 w-3" style={{ color: V.success }} /> Secured by Stripe · 256-bit encryption
+      </p>
+    </div>
+  );
+}
+
+function PaymentStep({ clientSecret, slug, summary, onBack }) {
+  return (
+    <div>
+      <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Payment details</h2>
+      <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Enter your card to start your subscription. Cancel anytime.</p>
+
+      <div className="mt-5 flex items-center justify-between border p-4 text-[13.5px]" style={{ borderColor: V.line, background: V.surface2 }}>
+        <span style={{ color: V.inkSoft }}>{summary.label}</span>
+        <span className="text-[15px] font-bold" style={{ color: V.ink }}>{summary.price}</span>
+      </div>
+
+      <div className="mt-6">
+        {!stripePromise ? (
+          <p className="text-sm text-red-500">Card payments aren't configured (missing VITE_STRIPE_PUBLISHABLE_KEY).</p>
+        ) : !clientSecret ? (
+          <div className="flex items-center gap-2 text-sm" style={{ color: V.inkFaint }}><Loader2 className="h-4 w-4 animate-spin" /> Preparing secure checkout…</div>
+        ) : (
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe", variables: { borderRadius: "0px", fontFamily: "Outfit, sans-serif", colorPrimary: "#047857" } } }}>
+            <PaymentInner slug={slug} onBack={onBack} priceLabel={summary.price} />
+          </Elements>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function RegistrationFlow() {
   const [searchParams] = useSearchParams();
@@ -29,7 +216,16 @@ export default function RegistrationFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [slugStatus, setSlugStatus] = useState(null);
+  const [emailStatus, setEmailStatus] = useState(null);
   const [activeCat, setActiveCat] = useState("warm");
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [clientSecret, setClientSecret] = useState(null);
+  const [plans, setPlans] = useState(PLANS);
+  const [coupon, setCoupon] = useState(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponMsg, setCouponMsg] = useState(null);
+  const [couponBusy, setCouponBusy] = useState(false);
 
   const [form, setForm] = useState({
     orgName: "", slug: "", revenueRange: "0-500",
@@ -47,6 +243,58 @@ export default function RegistrationFlow() {
   const theme = getThemeById(form.theme);
   const up = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
+  // ── Dynamic plans (SuperAdmin-managed); falls back to the static PLANS ──
+  useEffect(() => {
+    tenantService.getPublicPlans()
+      .then((r) => {
+        const list = (Array.isArray(r.data) ? r.data : [])
+          .map((p) => ({ key: p.code, name: p.name, monthly: p.price?.monthly || 0, annual: p.price?.annual || 0, blurb: p.description || "" }));
+        if (list.length) {
+          // Mark the middle plan as the highlighted/popular one.
+          const mid = Math.floor((list.length - 1) / 2);
+          list.forEach((p, i) => { p.popular = i === mid; });
+          setPlans(list);
+          // If the pre-selected plan isn't in the dynamic list, default to the popular one.
+          setForm((f) => (list.some((p) => p.key === f.plan) ? f : { ...f, plan: list[mid].key }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Coupon ──
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponMsg(null);
+    try {
+      const r = await tenantService.validateCoupon(code, form.plan);
+      if (r.data?.valid) {
+        setCoupon(r.data);
+        const off = r.data.type === "percent" ? `${r.data.value}% off` : `$${r.data.value} off`;
+        setCouponMsg({ ok: true, text: `${r.data.code} applied — ${off}` });
+      } else {
+        setCoupon(null);
+        setCouponMsg({ ok: false, text: r.data?.error || "Invalid coupon" });
+      }
+    } catch (err) {
+      setCoupon(null);
+      setCouponMsg({ ok: false, text: err.response?.data?.error || "Invalid coupon" });
+    } finally {
+      setCouponBusy(false);
+    }
+  };
+  const clearCoupon = () => { setCoupon(null); setCouponMsg(null); setCouponInput(""); };
+
+  // ── GSAP: progress bar fills as you advance the steps ──
+  const progressRef = useRef(null);
+  useEffect(() => {
+    if (!progressRef.current) return;
+    const pct = ((step + 1) / STEPS.length) * 100;
+    const tween = gsap.to(progressRef.current, { width: `${pct}%`, duration: 0.6, ease: "power2.out" });
+    return () => tween.kill();
+  }, [step]);
+
   // ── Logo ──
   const handleLogoSelect = async (e) => {
     const file = e.target.files[0];
@@ -58,8 +306,6 @@ export default function RegistrationFlow() {
     setLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
     setErrors((prev) => { const { logo, ...rest } = prev; return rest; });
-
-    // Upload immediately
     setLogoUploading(true);
     try {
       const fd = new FormData();
@@ -74,12 +320,7 @@ export default function RegistrationFlow() {
       setLogoUploading(false);
     }
   };
-
-  const removeLogo = () => {
-    setLogoFile(null);
-    setLogoPreview(null);
-    setLogoUrl("");
-  };
+  const removeLogo = () => { setLogoFile(null); setLogoPreview(null); setLogoUrl(""); };
 
   // ── Slug ──
   const onOrgName = (v) => {
@@ -96,6 +337,18 @@ export default function RegistrationFlow() {
     return () => clearTimeout(t);
   }, [form.slug]);
 
+  // ── Email availability (debounced, only once the format is valid) ──
+  useEffect(() => {
+    const email = form.adminEmail.trim().toLowerCase();
+    if (!/\S+@\S+\.\S+/.test(email)) { setEmailStatus(null); return; }
+    setEmailStatus("checking");
+    const t = setTimeout(async () => {
+      try { const r = await tenantService.checkEmail(email); setEmailStatus(r.data.available ? "ok" : "taken"); }
+      catch { setEmailStatus(null); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.adminEmail]);
+
   const validate = () => {
     const e = {};
     if (step === 0) {
@@ -107,19 +360,24 @@ export default function RegistrationFlow() {
     if (step === 2) {
       if (!form.adminName.trim()) e.adminName = "Required";
       if (!form.adminEmail.trim()) e.adminEmail = "Required";
-      if (!/\S+@\S+\.\S+/.test(form.adminEmail)) e.adminEmail = "Invalid";
+      else if (!/\S+@\S+\.\S+/.test(form.adminEmail)) e.adminEmail = "Invalid";
+      else if (emailStatus === "taken") e.adminEmail = "An account with this email already exists";
       if (form.adminPassword.length < 6) e.adminPassword = "Min 6 characters";
       if (form.adminPassword !== form.confirmPassword) e.confirmPassword = "Mismatch";
     }
     setErrors(e);
     return !Object.keys(e).length;
   };
-
   const next = () => { if (validate()) { setDir(1); setStep((s) => s + 1); } };
   const prev = () => { setDir(-1); setStep((s) => s - 1); };
 
+  // Review → "Proceed to payment": creates the org + subscription (returns the
+  // PaymentIntent clientSecret) and advances to the in-house payment step. If the
+  // subscription already exists (came back to edit), just re-open the payment step.
   const submit = async () => {
+    if (clientSecret) { setDir(1); setStep(4); return; }
     setSubmitting(true);
+    setErrors((p) => ({ ...p, submit: undefined }));
     try {
       const r = await tenantService.register({
         orgName: form.orgName, slug: form.slug, adminName: form.adminName,
@@ -128,677 +386,485 @@ export default function RegistrationFlow() {
         revenueRange: form.revenueRange, theme: form.theme,
         isMuslimCharity: form.isMuslimCharity,
         logoUrl: logoUrl || undefined,
+        couponCode: coupon?.code || undefined,
       });
-      window.location.href = r.data.checkoutUrl;
+      setClientSecret(r.data.clientSecret);
+      setDir(1);
+      setStep(4);
     } catch (err) {
-      setErrors({ submit: err.response?.data?.error || "Registration failed." });
+      setErrors({ submit: err.response?.data?.error || "Registration failed. Please try again." });
+    } finally {
       setSubmitting(false);
     }
   };
 
-  const inp = "w-full px-5 py-3.5 bg-white border border-gray-200 rounded-2xl text-sm text-[#102A23] placeholder-gray-400 focus:ring-2 focus:ring-[#047857]/30 focus:border-[#047857]/40 outline-none transition-all";
+  const rootDomain = import.meta.env.VITE_ROOT_DOMAIN || "yourplatform.org";
+  const slide = {
+    initial: { opacity: 0, x: dir > 0 ? 40 : -40 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: dir > 0 ? -40 : 40 },
+    transition: { duration: 0.32, ease: [0.2, 0.7, 0.2, 1] },
+  };
 
   return (
-    <div className="saas-page min-h-screen flex bg-[#F3F8F5] relative" style={{ fontFamily: '"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }}>
+    <div className="reg-page relative min-h-screen" style={{ fontFamily: font, background: V.bg, color: V.ink }}>
+      <style>{css}</style>
+
       {/* Ambient grid */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px)", backgroundSize: "64px 64px", maskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)", WebkitMaskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)" }} />
-      {/* Font override for headings */}
-      <style>{`.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:"Outfit",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important}`}</style>
 
-      {/* ═══ LEFT RAIL — vertical stepper ═══ */}
- {}     <div className="hidden lg:flex flex-col w-[280px] shrink-0 border-r border-[#E0DAF0] bg-gradient-to-b from-[#F3F8F5] to-[#E7F2EC] px-6 py-8">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 mb-12 group">
-          <div className="w-9 h-9 bg-gradient-to-br from-[#065F46] to-[#047857] rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <span className="text-white text-sm font-bold">N</span>
-          </div>
-          <span className="text-[#102A23] font-medium font-bold text-lg">NGO Platform</span>
-        </Link>
+      <div className={`relative z-[1] mx-auto px-4 py-6 transition-[max-width] duration-500 ease-out sm:px-6 lg:py-12 ${step === 1 ? "max-w-6xl" : "max-w-5xl"}`}>
+        <div className="grid grid-cols-1 overflow-hidden border lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)]"
+          style={{ borderColor: V.line, boxShadow: "0 30px 70px -36px rgba(6,40,30,.4)" }}>
 
-        {/* Steps */}
-        <nav className="flex-1 space-y-1">
-          {STEPS.map((s, i) => {
-            const done = i < step;
-            const active = i === step;
-            return (
-              <div key={s.label} className="flex items-start gap-3">
-                {/* Line + dot */}
-                <div className="flex flex-col items-center">
-                  <motion.div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 ${
-                      done ? "bg-green-500 text-white shadow-md shadow-green-500/20"
-                      : active ? "bg-[#047857] text-white shadow-lg shadow-[#047857]/30"
-                      : "bg-white/60 text-[#8AA89C] border border-[#DDD6EE]"
-                    }`}
-                    animate={active ? { scale: [1, 1.05, 1] } : {}}
-                    transition={{ duration: 0.5 }}
-                  >
-                    {done ? <Check className="w-4 h-4" /> : <s.icon className="w-4 h-4" />}
-                  </motion.div>
-                  {i < STEPS.length - 1 && (
-                    <div className="w-[2px] h-8 my-1 rounded-full overflow-hidden bg-[#DDD6EE]">
-                      <motion.div className="w-full bg-[#047857]" initial={{ height: 0 }} animate={{ height: done ? "100%" : "0%" }} transition={{ duration: 0.4 }} />
+          {/* ═══ LEFT — dark brand panel + stepper ═══ */}
+          <div className="relative overflow-hidden p-8 text-white sm:p-10"
+            style={{ background: "linear-gradient(155deg, var(--tenant-primary, #102A23) 0%, #0A1A14 100%)" }}>
+            {/* geometric shapes */}
+            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 border-2" style={{ borderColor: "rgba(255,255,255,.10)" }} />
+            <div aria-hidden className="pointer-events-none absolute bottom-24 right-7 h-14 w-24 opacity-[.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.9) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
+            <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-2 w-16" style={{ background: V.glow }} />
+
+            <div className="relative flex h-full flex-col">
+              <Link to="/" className="inline-flex items-center gap-2.5">
+                <span className="grid h-9 w-9 place-items-center text-[15px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${V.primary2}, ${V.primary})` }}>N</span>
+                <span className="text-[17px] font-bold tracking-tight text-white">NGO Platform</span>
+              </Link>
+
+              <span className="mt-9 inline-flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white/55" style={{ fontFamily: mono }}>
+                <span className="h-1.5 w-1.5" style={{ background: V.glow }} /> Start your portal
+              </span>
+              <h1 className="mt-4 text-[clamp(28px,3.4vw,40px)] font-semibold leading-[1.05] text-white">
+                Set up your charity in minutes.
+              </h1>
+              <p className="mt-3 max-w-[34ch] text-[14px] leading-relaxed text-white/70">
+                Four quick steps and your branded donation portal is ready to share. No setup fee, cancel anytime.
+              </p>
+
+              {/* Vertical stepper */}
+              <nav className="mt-9 space-y-0.5">
+                {STEPS.map((s, i) => {
+                  const done = i < step;
+                  const active = i === step;
+                  return (
+                    <div key={s.label} className="flex items-start gap-3.5">
+                      <div className="flex flex-col items-center">
+                        <motion.div className="grid h-9 w-9 shrink-0 place-items-center text-[13px] font-bold"
+                          animate={active ? { scale: [1, 1.08, 1] } : {}} transition={{ duration: 0.4 }}
+                          style={done
+                            ? { background: "#fff", color: V.primary }
+                            : active
+                              ? { background: V.glow, color: "#06231b" }
+                              : { background: "rgba(255,255,255,.07)", color: "rgba(255,255,255,.5)", border: "1px solid rgba(255,255,255,.18)" }}>
+                          {done ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
+                        </motion.div>
+                        {i < STEPS.length - 1 && (
+                          <div className="my-1 h-7 w-[2px] overflow-hidden" style={{ background: "rgba(255,255,255,.14)" }}>
+                            <motion.div className="w-full" style={{ background: V.glow }} initial={{ height: 0 }} animate={{ height: done ? "100%" : "0%" }} transition={{ duration: 0.4 }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-1.5">
+                        <p className="text-[14px] font-semibold transition-colors" style={{ color: active || done ? "#fff" : "rgba(255,255,255,.55)" }}>{s.label}</p>
+                        <p className="text-[11.5px]" style={{ color: "rgba(255,255,255,.42)" }}>{s.hint}</p>
+                      </div>
                     </div>
-                  )}
+                  );
+                })}
+              </nav>
+
+              {/* Progress bar (GSAP) + trust */}
+              <div className="mt-auto pt-9">
+                <div className="mb-2 flex items-center justify-between text-[11px] text-white/45">
+                  <span style={{ fontFamily: mono }}>Step {step + 1} of {STEPS.length}</span>
+                  <Link to="/plans" className="transition-colors hover:text-white">View pricing →</Link>
                 </div>
-                <div className="pt-2">
-                  <p className={`text-sm font-semibold ${active ? "text-[#102A23]" : done ? "text-[#102A23]" : "text-[#8AA89C]"}`}>{s.label}</p>
-                  {active && (
-                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[11px] text-[#8AA89C] mt-0.5">
-                      {i === 0 ? "Basic details" : i === 1 ? "Pick your style" : i === 2 ? "Admin credentials" : "Confirm & pay"}
-                    </motion.p>
-                  )}
+                <div className="h-[3px] w-full overflow-hidden" style={{ background: "rgba(255,255,255,.12)" }}>
+                  <div ref={progressRef} className="h-full" style={{ width: "25%", background: `linear-gradient(90deg, ${V.glow}, #fff)` }} />
                 </div>
               </div>
-            );
-          })}
-        </nav>
-
-        {/* Bottom */}
-        <div className="pt-6 border-t border-[#DDD6EE] space-y-2">
-          <Link to="/plans" className="text-xs text-[#8AA89C] hover:text-[#102A23] flex items-center gap-1 transition-colors">
-            View pricing <ArrowUpRight className="w-3 h-3" />
-          </Link>
-          <div className="flex items-center gap-4 text-[10px] text-[#8AA89C]">
-            <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-green-500" />Secure</span>
-            <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-amber-500" />Fast setup</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ MAIN AREA ═══ */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Mobile header */}
-        <div className="lg:hidden flex items-center justify-between px-4 py-4 border-b border-[#DDD6EE]">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-[#065F46] to-[#047857] rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs font-bold">N</span>
             </div>
-            <span className="font-medium font-bold text-[#102A23]">NGO Platform</span>
-          </Link>
-          {/* Mobile step pills */}
-          <div className="flex gap-1">
-            {STEPS.map((_, i) => (
-              <div key={i} className={`w-2 h-2 rounded-full ${i <= step ? "bg-[#047857]" : "bg-[#DDD6EE]"}`} />
-            ))}
           </div>
-        </div>
 
-        <div className="min-h-[calc(100vh-60px)] lg:min-h-screen flex flex-col">
-          <AnimatePresence mode="wait" custom={dir}>
-            <motion.div
-              key={step}
-              custom={dir}
-              initial={{ opacity: 0, x: dir > 0 ? 60 : -60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: dir > 0 ? -60 : 60 }}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="flex-1 flex flex-col"
-            >
+          {/* ═══ RIGHT — white form ═══ */}
+          <div className="relative bg-white p-7 pt-16 sm:p-10 sm:pt-16">
+            <Link to="/" className="absolute right-6 top-6 z-10 inline-flex items-center gap-1.5 text-[12.5px] font-medium transition-opacity hover:opacity-70" style={{ color: V.inkFaint }}>
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to home
+            </Link>
+            <AnimatePresence mode="wait" custom={dir}>
+              <motion.div key={step} {...slide} className={`mx-auto w-full ${step === 1 ? "max-w-none" : "max-w-[480px]"}`}>
 
-              {/* ═══════════════════════════════════════════════
-                  STEP 0: Organisation — split layout
-              ═══════════════════════════════════════════════ */}
-              {step === 0 && (
-                <div className="flex-1 flex flex-col lg:flex-row">
-                  {/* Left: Floating UI cards showcase */}
-                  <div className="hidden lg:flex lg:w-[48%] relative overflow-hidden items-center justify-center" style={{ background: "linear-gradient(165deg, #E7F2EC 0%, #E8E0F4 50%, #E8E0F4 100%)" }}>
-                    {/* Gloss overlay */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 40%, transparent 70%)" }} />
-                    {/* Radial glow */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 70% 50% at 50% 45%, rgba(4,120,87,0.08) 0%, transparent 60%)" }} />
+                {/* ── STEP 0: Organisation ── */}
+                {step === 0 && (
+                  <div>
+                    <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Tell us about your organisation</h2>
+                    <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>We'll use this to create your branded portal.</p>
 
-                    {/* Floating orbs */}
-                    <motion.div className="absolute rounded-full pointer-events-none" style={{ top: "8%", right: "5%", width: 250, height: 250, background: "radial-gradient(circle, rgba(4,120,87,0.1) 0%, transparent 60%)" }} animate={{ x: [0, 15, 0], y: [0, -10, 0] }} transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }} />
-                    <motion.div className="absolute rounded-full pointer-events-none" style={{ bottom: "10%", left: "0%", width: 200, height: 200, background: "radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 60%)" }} animate={{ x: [0, -10, 0], y: [0, 12, 0] }} transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }} />
-
-                    <div className="relative z-10 w-full max-w-lg px-8 py-10">
-                      {/* Headline */}
-                      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-8">
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4" style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(4,120,87,0.2)", backdropFilter: "blur(8px)" }}>
-                          <Sparkles className="w-3 h-3 text-[#047857]" />
-                          <span className="text-[10px] text-[#065F46] font-bold tracking-[0.15em] uppercase">Your future platform</span>
-                        </div>
-                        <h3 className="text-xl font-medium font-bold text-[#102A23]">Everything you need, in one place</h3>
-                      </motion.div>
-
-                      {/* ── Floating cards composition ── */}
-                      <div className="relative" style={{ height: 380 }}>
-
-                        {/* Card 1: Stats — top-left */}
-                        <motion.div
-                          className="absolute top-0 left-0 w-[200px]"
-                          initial={{ opacity: 0, y: 30, rotate: -2 }}
-                          animate={{ opacity: 1, y: 0, rotate: -2 }}
-                          transition={{ delay: 0.3, duration: 0.5 }}
-                        >
-                          <div className="bg-white rounded-2xl p-4 shadow-xl shadow-black/[0.06] border border-white/60" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 100%)", backdropFilter: "blur(12px)" }}>
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 50%)" }} />
-                            <p className="text-[9px] text-[#8AA89C] font-semibold uppercase tracking-wider mb-2 relative">Total Raised</p>
-                            <p className="text-2xl font-bold text-[#102A23] mb-1 relative">$52,480</p>
-                            <div className="flex items-center gap-1 relative">
-                              <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded-full">+23%</span>
-                              <span className="text-[9px] text-[#8AA89C]">this month</span>
-                            </div>
-                          </div>
-                        </motion.div>
-
-                        {/* Card 2: Donors — top-right, overlapping */}
-                        <motion.div
-                          className="absolute top-4 right-0 w-[170px]"
-                          initial={{ opacity: 0, y: 30, rotate: 3 }}
-                          animate={{ opacity: 1, y: 0, rotate: 3 }}
-                          transition={{ delay: 0.45, duration: 0.5 }}
-                        >
-                          <div className="bg-[#102A23] rounded-2xl p-4 shadow-xl shadow-black/[0.1]">
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%)" }} />
-                            <div className="flex items-center gap-2 mb-2 relative">
-                              <div className="w-7 h-7 bg-[#047857] rounded-lg flex items-center justify-center">
-                                <Users className="w-3.5 h-3.5 text-white" />
-                              </div>
-                              <span className="text-[9px] text-white/50 font-semibold uppercase tracking-wider">Donors</span>
-                            </div>
-                            <p className="text-xl font-bold text-white mb-0.5 relative">1,247</p>
-                            <p className="text-[9px] text-white/40 relative">Active this quarter</p>
-                          </div>
-                        </motion.div>
-
-                        {/* Card 3: Campaign progress — middle */}
-                        <motion.div
-                          className="absolute top-[130px] left-[30px] right-[20px]"
-                          initial={{ opacity: 0, y: 30 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.6, duration: 0.5 }}
-                        >
-                          <div className="bg-white rounded-2xl p-4 shadow-xl shadow-black/[0.06] border border-white/60" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)", backdropFilter: "blur(12px)" }}>
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%)" }} />
-                            <div className="flex items-center justify-between mb-3 relative">
-                              <p className="text-[10px] font-bold text-[#102A23]">Clean Water Initiative</p>
-                              <span className="text-[9px] text-[#047857] font-bold">78%</span>
-                            </div>
-                            <div className="h-2 bg-[#EDE8F5] rounded-full overflow-hidden mb-2 relative">
-                              <motion.div className="h-full rounded-full" style={{ background: "linear-gradient(90deg, #065F46, #047857)" }} initial={{ width: 0 }} animate={{ width: "78%" }} transition={{ delay: 0.9, duration: 1, ease: "easeOut" }} />
-                            </div>
-                            <div className="flex justify-between text-[9px] text-[#8AA89C] relative">
-                              <span>$39,000 raised</span>
-                              <span>$50,000 goal</span>
-                            </div>
-                          </div>
-                        </motion.div>
-
-                        {/* Card 4: Earnings pill — bottom-left */}
-                        <motion.div
-                          className="absolute bottom-[40px] left-0 w-[180px]"
-                          initial={{ opacity: 0, y: 30, rotate: -1 }}
-                          animate={{ opacity: 1, y: 0, rotate: -1 }}
-                          transition={{ delay: 0.75, duration: 0.5 }}
-                        >
-                          <div className="bg-white rounded-2xl p-4 shadow-xl shadow-black/[0.06] border border-white/60" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 100%)", backdropFilter: "blur(12px)" }}>
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 50%)" }} />
-                            <p className="text-[9px] text-[#8AA89C] font-semibold uppercase tracking-wider mb-1 relative">Monthly Recurring</p>
-                            <p className="text-lg font-bold text-[#102A23] relative">$8,340</p>
-                            <div className="flex items-end gap-[2px] h-6 mt-2 relative">
-                              {[30, 45, 35, 55, 48, 62, 50, 70, 58, 75, 68, 82].map((h, i) => (
-                                <motion.div key={i} className="flex-1 rounded-t" style={{ backgroundColor: i >= 10 ? "#047857" : "#E8E0F4" }} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 1 + i * 0.04, duration: 0.3 }} />
-                              ))}
-                            </div>
-                          </div>
-                        </motion.div>
-
-                        {/* Card 5: Receipt badge — bottom-right */}
-                        <motion.div
-                          className="absolute bottom-[20px] right-[10px] w-[150px]"
-                          initial={{ opacity: 0, y: 20, rotate: 2 }}
-                          animate={{ opacity: 1, y: 0, rotate: 2 }}
-                          transition={{ delay: 0.9, duration: 0.5 }}
-                        >
-                          <div className="bg-gradient-to-br from-[#047857] to-[#065F46] rounded-2xl p-4 shadow-xl shadow-[#047857]/20">
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%)" }} />
-                            <div className="flex items-center gap-2 mb-2 relative">
-                              <Shield className="w-4 h-4 text-white" />
-                              <span className="text-[9px] text-white/80 font-semibold uppercase tracking-wider">Secure</span>
-                            </div>
-                            <p className="text-white text-[11px] font-semibold leading-tight relative">Stripe-powered payments & auto receipts</p>
-                          </div>
-                        </motion.div>
-
-                        {/* Decorative connector arrows */}
-                        <motion.svg className="absolute top-[95px] left-[85px] w-16 h-10 pointer-events-none" initial={{ opacity: 0 }} animate={{ opacity: 0.2 }} transition={{ delay: 1.1 }}>
-                          <path d="M5 5 Q 30 5, 55 35" stroke="#8AA89C" strokeWidth="1.5" fill="none" strokeDasharray="4 3" />
-                        </motion.svg>
-                      </div>
-
-                      {/* Bottom tagline */}
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="text-center text-[11px] text-[#8AA89C] mt-4">
-                        Donation processing &middot; Campaign tracking &middot; Donor CRM
-                      </motion.p>
-                    </div>
-                  </div>
-
-                  {/* Right: Form */}
-                  <div className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16">
-                    <div className="w-full max-w-lg">
-                      <motion.div {...fade} className="mb-8">
-                        <h2 className="text-2xl sm:text-3xl font-medium font-bold text-[#102A23] mb-2">Tell us about your organisation</h2>
-                        <p className="text-sm text-[#8AA89C]">We'll use this to create your portal</p>
-                      </motion.div>
-
-                      <motion.div {...fade} custom={1} className="space-y-5">
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">Organisation Name</label>
-                          <input type="text" value={form.orgName} onChange={(e) => onOrgName(e.target.value)} className={inp} placeholder="Hope Give Foundation" />
-                          {errors.orgName && <p className="text-red-500 text-xs mt-1.5">{errors.orgName}</p>}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">Portal Subdomain</label>
-                          <div className="flex">
-                            <input type="text" value={form.slug} onChange={(e) => up("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} className="flex-1 px-5 py-3.5 bg-white border border-gray-200 rounded-l-2xl text-sm text-[#102A23] placeholder-gray-400 focus:ring-2 focus:ring-[#047857]/30 focus:border-[#047857]/40 outline-none transition-all" placeholder="hopegivefoundation" />
-                            <span className="px-4 py-3.5 bg-gray-50 border border-l-0 border-gray-200 rounded-r-2xl text-xs text-[#8AA89C] font-mono">.{import.meta.env.VITE_ROOT_DOMAIN}</span>
-                          </div>
-                          <div className="h-5 mt-1">
-                            {slugStatus === "checking" && <p className="text-[#8AA89C] text-xs flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Checking...</p>}
-                            {slugStatus === "ok" && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-green-600 text-xs flex items-center gap-1 font-medium"><Check className="w-3 h-3" />Available!</motion.p>}
-                            {slugStatus === "taken" && <p className="text-red-500 text-xs">Already taken</p>}
-                            {errors.slug && !slugStatus && <p className="text-red-500 text-xs">{errors.slug}</p>}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">Annual Revenue Range</label>
-                          <select value={form.revenueRange} onChange={(e) => up("revenueRange", e.target.value)} className={inp}>
-                            <option value="0-500">$0 - $500</option>
-                            <option value="500-5000000">$500 - $5,000,000</option>
-                            <option value="5000000+">$5,000,000+</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">Charity type</label>
-                          <select
-                            value={form.isMuslimCharity ? "muslim" : "general"}
-                            onChange={(e) => up("isMuslimCharity", e.target.value === "muslim")}
-                            className={inp}
-                          >
-                            <option value="general">General charity</option>
-                            <option value="muslim">Muslim charity</option>
-                          </select>
-                          <p className="text-[#8AA89C] text-xs mt-1.5">
-                            Muslim charities get the Islamic giving pages (Zakat Calculator, Ramadan, Ways to Give) and
-                            donation types. You can change this later in Settings.
-                          </p>
-                        </div>
-
-                        {/* Logo Upload */}
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">
-                            Organisation Logo <span className="text-[#8AA89C] font-normal text-xs">(optional)</span>
-                          </label>
-                          {!logoPreview ? (
-                            <label className="flex flex-col items-center justify-center gap-2 w-full py-6 bg-white border-2 border-dashed border-gray-200 rounded-2xl cursor-pointer hover:border-[#047857]/40 hover:bg-[#047857]/[0.02] transition-all">
-                              <div className="w-10 h-10 rounded-xl bg-[#047857]/10 flex items-center justify-center">
-                                <Upload className="w-5 h-5 text-[#047857]" />
-                              </div>
-                              <div className="text-center">
-                                <p className="text-sm text-[#102A23] font-medium">Click to upload logo</p>
-                                <p className="text-xs text-[#8AA89C] mt-0.5">PNG, JPG, SVG or WebP (max 2MB)</p>
-                              </div>
-                              <input type="file" accept="image/jpeg,image/png,image/svg+xml,image/webp" onChange={handleLogoSelect} className="hidden" />
-                            </label>
-                          ) : (
-                            <div className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-2xl">
-                              <img src={logoPreview} alt="Logo preview" className="w-14 h-14 rounded-xl object-contain border border-gray-100 bg-gray-50" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-[#102A23] truncate">{logoFile?.name}</p>
-                                <p className="text-xs text-[#8AA89C]">
-                                  {logoUploading ? (
-                                    <span className="flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Uploading...</span>
-                                  ) : logoUrl ? (
-                                    <span className="flex items-center gap-1 text-green-600"><Check className="w-3 h-3" />Uploaded</span>
-                                  ) : null}
-                                </p>
-                              </div>
-                              <button type="button" onClick={removeLogo} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                                <XIcon className="w-4 h-4 text-[#8AA89C]" />
-                              </button>
-                            </div>
-                          )}
-                          {errors.logo && <p className="text-red-500 text-xs mt-1.5">{errors.logo}</p>}
-                        </div>
-
-                        <button onClick={next} className="group w-full flex items-center justify-center gap-2.5 py-4 bg-gradient-to-r from-[#065F46] to-[#047857] text-white rounded-2xl font-semibold text-sm hover:shadow-xl hover:shadow-[#047857]/20 transition-all hover:scale-[1.01] mt-2">
-                          Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </button>
-
-                        <div className="flex items-center justify-center gap-5 pt-2 text-[11px] text-[#8AA89C]">
-                          <span className="flex items-center gap-1"><Check className="w-3 h-3 text-green-500" />Secure</span>
-                          <span className="flex items-center gap-1"><Check className="w-3 h-3 text-green-500" />Cancel anytime</span>
-                          <span className="flex items-center gap-1"><Check className="w-3 h-3 text-green-500" />No hidden fees</span>
-                        </div>
-                      </motion.div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ═══════════════════════════════════════════════
-                  STEP 1: Theme Selection — full width
-              ═══════════════════════════════════════════════ */}
-              {step === 1 && (
-                <div className="flex-1 flex flex-col xl:flex-row">
-                  {/* Left: Picker */}
-                  <div className="xl:w-[50%] p-6 sm:p-8 xl:p-10 overflow-y-auto">
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="mt-8 space-y-6">
                       <div>
-                        <h2 className="text-2xl font-medium font-bold text-[#102A23] mb-1">Choose your theme</h2>
-                        <p className="text-sm text-[#8AA89C]">Pick a style — you can fully customise later</p>
+                        <Label>Organisation name</Label>
+                        <input type="text" className="reg-uline" value={form.orgName} onChange={(e) => onOrgName(e.target.value)} placeholder="Hope Give Foundation" />
+                        <Err>{errors.orgName}</Err>
                       </div>
-                      <button onClick={next} className="flex items-center gap-1.5 px-4 py-2 text-xs text-[#8AA89C] hover:text-[#102A23] bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all font-medium">
-                        <SkipForward className="w-3 h-3" /> Skip
+
+                      <div>
+                        <Label>Web address</Label>
+                        <div className="flex items-end">
+                          <input type="text" className="reg-uline flex-1" value={form.slug} onChange={(e) => up("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="hopegive" />
+                          <span className="ml-1 pb-2.5 text-[13px]" style={{ fontFamily: mono, color: V.inkFaint }}>.{rootDomain}</span>
+                        </div>
+                        <div className="mt-1.5 h-4 text-xs">
+                          {slugStatus === "checking" && <span className="inline-flex items-center gap-1" style={{ color: V.inkFaint }}><Loader2 className="h-3 w-3 animate-spin" /> Checking…</span>}
+                          {slugStatus === "ok" && <span className="inline-flex items-center gap-1 font-medium" style={{ color: V.success }}><Check className="h-3 w-3" /> Available</span>}
+                          {slugStatus === "taken" && <span className="text-red-500">Already taken</span>}
+                          {errors.slug && !slugStatus && <span className="text-red-500">{errors.slug}</span>}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        <div>
+                          <Label>Annual revenue</Label>
+                          <Dropdown value={form.revenueRange} onChange={(v) => up("revenueRange", v)} options={REVENUE_OPTIONS} />
+                        </div>
+                        <div>
+                          <Label>Charity type</Label>
+                          <Dropdown value={form.isMuslimCharity ? "muslim" : "general"} onChange={(v) => up("isMuslimCharity", v === "muslim")} options={CHARITY_OPTIONS} />
+                        </div>
+                      </div>
+                      <p className="-mt-3 text-[12px] leading-relaxed" style={{ color: V.inkFaint }}>
+                        Muslim charities get the Islamic giving pages (Zakat, Ramadan, Ways to Give) and donation types. You can change this later.
+                      </p>
+
+                      <div>
+                        <Label>Organisation logo <span className="font-normal" style={{ color: V.inkFaint }}>(optional)</span></Label>
+                        {!logoPreview ? (
+                          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed py-6 transition-colors hover:bg-black/[0.015]" style={{ borderColor: "rgba(16,42,35,.16)" }}>
+                            <span className="grid h-10 w-10 place-items-center" style={{ background: V.surface2, color: V.primary }}><Upload className="h-5 w-5" /></span>
+                            <span className="text-[13.5px] font-medium" style={{ color: V.ink }}>Click to upload</span>
+                            <span className="text-[11.5px]" style={{ color: V.inkFaint }}>PNG, JPG, SVG or WebP · max 2MB</span>
+                            <input type="file" accept="image/jpeg,image/png,image/svg+xml,image/webp" onChange={handleLogoSelect} className="hidden" />
+                          </label>
+                        ) : (
+                          <div className="flex items-center gap-4 border p-4" style={{ borderColor: V.line }}>
+                            <img src={logoPreview} alt="Logo" className="h-14 w-14 border object-contain" style={{ borderColor: V.line, background: V.bg }} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[13.5px] font-medium" style={{ color: V.ink }}>{logoFile?.name}</p>
+                              <p className="text-[12px]">
+                                {logoUploading ? <span className="inline-flex items-center gap-1" style={{ color: V.inkFaint }}><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</span>
+                                  : logoUrl ? <span className="inline-flex items-center gap-1" style={{ color: V.success }}><Check className="h-3 w-3" /> Uploaded</span> : null}
+                              </p>
+                            </div>
+                            <button type="button" onClick={removeLogo} className="p-1.5 transition-colors hover:bg-black/5"><XIcon className="h-4 w-4" style={{ color: V.inkFaint }} /></button>
+                          </div>
+                        )}
+                        <Err>{errors.logo}</Err>
+                      </div>
+
+                      <button onClick={next} className="reg-submit group flex w-full items-center justify-center gap-2 py-3.5 text-[14px] font-semibold text-white"
+                        style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 14px 30px -14px ${V.primary}` }}>
+                        Continue <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 1: Theme ── */}
+                {step === 1 && (
+                  <div>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Choose your theme</h2>
+                        <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Pick a style — fully customisable later.</p>
+                      </div>
+                      <button onClick={next} className="inline-flex shrink-0 items-center gap-1.5 border px-3 py-2 text-xs font-medium transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.inkSoft }}>
+                        <SkipForward className="h-3 w-3" /> Skip
                       </button>
                     </div>
 
-                    {/* Category tabs */}
-                    <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
+                    <div className="mt-6 flex flex-wrap gap-2">
                       {themeCategories.map((cat) => (
-                        <button key={cat.id} onClick={() => setActiveCat(cat.id)} className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${activeCat === cat.id ? "bg-[#102A23] text-white shadow-md" : "bg-white text-[#8AA89C] hover:bg-gray-50 border border-gray-200"}`}>
+                        <button key={cat.id} onClick={() => setActiveCat(cat.id)}
+                          className="whitespace-nowrap px-3.5 py-2 text-xs font-semibold transition-colors"
+                          style={activeCat === cat.id ? { background: V.ink, color: "#fff" } : { background: V.surface2, color: V.inkSoft, border: `1px solid ${V.line}` }}>
                           {cat.name}
                         </button>
                       ))}
                     </div>
 
-                    {/* Theme grid — bigger cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                    <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
                       {themeCategories.find((c) => c.id === activeCat)?.themes.map((t) => {
                         const sel = form.theme === t.id;
                         return (
-                          <motion.button key={t.id} onClick={() => up("theme", t.id)} whileHover={{ scale: 1.03, y: -3 }} whileTap={{ scale: 0.97 }} className={`relative rounded-2xl text-left transition-all overflow-hidden ${sel ? "ring-2 ring-[#047857] ring-offset-2 shadow-lg" : "ring-1 ring-gray-200 hover:ring-gray-300 hover:shadow-md"}`}>
-                            {sel && <motion.div className="absolute top-2 right-2 z-10 w-5 h-5 bg-[#047857] rounded-full flex items-center justify-center shadow" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500 }}><Check className="w-3 h-3 text-white" /></motion.div>}
-
-                            {/* Mini preview */}
-                            <div className="rounded-t-2xl overflow-hidden">
-                              <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: t.primary }}>
-                                <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded-md" style={{ backgroundColor: t.accent }} /><div className="h-1 w-8 rounded-full bg-white/25" /></div>
-                                <div className="flex gap-1"><div className="h-1 w-4 rounded-full bg-white/15" /><div className="h-1 w-4 rounded-full bg-white/15" /></div>
-                              </div>
-                              <div className="px-3 py-4 space-y-2" style={{ backgroundColor: t.bg }}>
-                                <div className="h-2 w-3/4 rounded-full mx-auto" style={{ backgroundColor: t.primary + "18" }} />
-                                <div className="h-1.5 w-1/2 rounded-full mx-auto" style={{ backgroundColor: t.primary + "0D" }} />
-                                <div className="flex gap-1.5 mt-3 justify-center">
-                                  <div className="h-4 w-12 rounded-full" style={{ backgroundColor: t.accent }} />
-                                  <div className="h-4 w-12 rounded-full border" style={{ borderColor: t.primary + "20" }} />
-                                </div>
-                                <div className="flex gap-1.5 mt-3">
-                                  {[1, 2, 3].map((n) => (
-                                    <div key={n} className="flex-1 bg-white rounded-lg p-1.5 border border-gray-100">
-                                      <div className="h-4 rounded mb-1" style={{ backgroundColor: t.accent + "12" }} />
-                                      <div className="h-1 w-3/4 rounded-full" style={{ backgroundColor: t.primary + "12" }} />
-                                      <div className="h-1 mt-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                        <div className="h-full rounded-full" style={{ backgroundColor: t.accent, width: `${25 + n * 20}%` }} />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
+                          <motion.button key={t.id} onClick={() => up("theme", t.id)} whileHover={{ y: -3 }} whileTap={{ scale: 0.98 }}
+                            className="relative overflow-hidden text-left transition-shadow"
+                            style={{ border: sel ? `2px solid ${V.primary}` : `1px solid ${V.line}`, boxShadow: sel ? `0 12px 26px -14px ${V.primary}` : "none" }}>
+                            {sel && <span className="absolute right-1.5 top-1.5 z-10 grid h-5 w-5 place-items-center text-white" style={{ background: V.primary }}><Check className="h-3 w-3" /></span>}
+                            <div className="flex items-center justify-between px-3 py-2" style={{ background: t.primary }}>
+                              <div className="flex items-center gap-1.5"><div className="h-3.5 w-3.5" style={{ background: t.accent }} /><div className="h-1 w-8 bg-white/25" /></div>
+                              <div className="flex gap-1"><div className="h-1 w-4 bg-white/15" /><div className="h-1 w-4 bg-white/15" /></div>
+                            </div>
+                            <div className="space-y-2 px-3 py-4" style={{ background: t.bg }}>
+                              <div className="mx-auto h-2 w-3/4" style={{ background: t.primary + "18" }} />
+                              <div className="mx-auto h-1.5 w-1/2" style={{ background: t.primary + "0D" }} />
+                              <div className="mt-3 flex justify-center gap-1.5">
+                                <div className="h-4 w-12" style={{ background: t.accent }} />
+                                <div className="h-4 w-12 border" style={{ borderColor: t.primary + "20" }} />
                               </div>
                             </div>
-
-                            <div className="px-3.5 py-3 bg-white border-t border-gray-100">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t.primary }} />
-                                <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t.accent }} />
-                                <div className="w-3.5 h-3.5 rounded-full border border-gray-200" style={{ backgroundColor: t.bg }} />
+                            <div className="border-t bg-white px-3.5 py-3" style={{ borderColor: V.line }}>
+                              <div className="mb-1 flex items-center gap-1.5">
+                                <div className="h-3 w-3" style={{ background: t.primary }} />
+                                <div className="h-3 w-3" style={{ background: t.accent }} />
+                                <div className="h-3 w-3 border" style={{ background: t.bg, borderColor: V.line }} />
                               </div>
-                              <p className="text-[12px] font-semibold text-[#102A23] truncate">{t.name}</p>
-                              <p className="text-[10px] text-[#8AA89C] truncate">{t.desc}</p>
+                              <p className="truncate text-[12px] font-semibold" style={{ color: V.ink }}>{t.name}</p>
+                              <p className="truncate text-[10px]" style={{ color: V.inkFaint }}>{t.desc}</p>
                             </div>
                           </motion.button>
                         );
                       })}
                     </div>
 
-                    {/* Nav buttons */}
-                    <div className="flex gap-3 mt-6 sticky bottom-0 pb-2 bg-gradient-to-t from-[#F3F8F5] pt-4">
-                      <button onClick={prev} className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white border border-gray-200 text-[#102A23] rounded-2xl font-semibold text-sm hover:bg-gray-50 transition-all">
-                        <ArrowLeft className="w-4 h-4" /> Back
+                    <div className="mt-7 flex gap-3">
+                      <button onClick={prev} className="flex flex-1 items-center justify-center gap-2 border py-3.5 text-[14px] font-semibold transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.ink }}>
+                        <ArrowLeft className="h-4 w-4" /> Back
                       </button>
-                      <button onClick={next} className="group flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#065F46] to-[#047857] text-white rounded-2xl font-semibold text-sm hover:shadow-lg hover:shadow-[#047857]/20 transition-all">
-                        Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      <button onClick={next} className="reg-submit group flex flex-1 items-center justify-center gap-2 py-3.5 text-[14px] font-semibold text-white" style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}>
+                        Continue <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                       </button>
                     </div>
                   </div>
+                )}
 
-                  {/* Right: Large preview */}
-                  <div className="hidden xl:flex xl:w-[50%] bg-[#E7F2EC] items-center justify-center p-8 2xl:p-12 border-l border-[#DDD6EE]">
-                    <div className="w-full max-w-[640px]">
-                      <div className="flex items-center justify-center gap-2 mb-5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#047857] animate-pulse" />
-                        <p className="text-xs text-[#8AA89C] font-semibold uppercase tracking-[0.2em]">Live Preview</p>
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#047857] animate-pulse" />
+                {/* ── STEP 2: Account ── */}
+                {step === 2 && (
+                  <div>
+                    <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Create your admin account</h2>
+                    <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>You'll use these credentials to manage your portal.</p>
+
+                    <div className="mt-8 space-y-6">
+                      <div>
+                        <Label>Full name</Label>
+                        <input type="text" className="reg-uline" value={form.adminName} onChange={(e) => up("adminName", e.target.value)} placeholder="John Doe" />
+                        <Err>{errors.adminName}</Err>
                       </div>
-
-                      <ThemePreview theme={theme} orgName={form.orgName || "Your Organisation"} />
-
-                      <div className="mt-5 text-center">
-                        <p className="text-sm text-[#8AA89C]">
-                          Selected: <span className="font-bold text-[#102A23]">{theme.name}</span>
-                        </p>
-                        <div className="flex items-center justify-center gap-2 mt-2">
-                          {[theme.primary, theme.accent, theme.bg].map((c, i) => (
-                            <div key={i} className="w-6 h-6 rounded-full border-2 border-white shadow-md" style={{ backgroundColor: c }} />
-                          ))}
+                      <div>
+                        <Label>Email address</Label>
+                        <input type="email" className="reg-uline" value={form.adminEmail} onChange={(e) => up("adminEmail", e.target.value)} placeholder="john@hopegive.org" />
+                        <div className="mt-1.5 h-4 text-xs">
+                          {emailStatus === "checking" && <span className="inline-flex items-center gap-1" style={{ color: V.inkFaint }}><Loader2 className="h-3 w-3 animate-spin" /> Checking…</span>}
+                          {emailStatus === "ok" && <span className="inline-flex items-center gap-1 font-medium" style={{ color: V.success }}><Check className="h-3 w-3" /> Email available</span>}
+                          {emailStatus === "taken" && <span className="text-red-500">An account with this email already exists</span>}
+                          {errors.adminEmail && emailStatus !== "taken" && <span className="text-red-500">{errors.adminEmail}</span>}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ═══════════════════════════════════════════════
-                  STEP 2: Admin Account — split with illustration
-              ═══════════════════════════════════════════════ */}
-              {step === 2 && (
-                <div className="flex-1 flex flex-col lg:flex-row">
-                  {/* Left: Visual — light with theme preview */}
-                  <div className="hidden lg:flex lg:w-[48%] relative overflow-hidden items-center justify-center" style={{ background: "linear-gradient(165deg, #E7F2EC 0%, #E8E0F4 50%, #E8E0F4 100%)" }}>
-                    {/* Gloss */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%)" }} />
-                    <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse 60% 40% at 50% 50%, ${theme.accent}10 0%, transparent 60%)` }} />
-
-                    <div className="relative z-10 px-10 py-10 max-w-md w-full">
-                      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="text-center mb-6">
-                        <h3 className="text-xl font-medium font-bold text-[#102A23] mb-1">Almost there!</h3>
-                        <p className="text-[11px] text-[#8AA89C]">Here's what your portal will look like</p>
-                      </motion.div>
-
-                      {/* Portal card with selected theme */}
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="bg-white rounded-2xl shadow-xl shadow-black/[0.06] border border-white/60 overflow-hidden"
-                        style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)" }}
-                      >
-                        {/* Gloss */}
-                        <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 40%)" }} />
-                        {/* Mini navbar with theme colors */}
-                        <div className="flex items-center justify-between px-4 py-2.5 relative" style={{ backgroundColor: theme.primary }}>
-                          <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%)" }} />
-                          <div className="flex items-center gap-2 relative">
-                            <div className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[7px] font-bold" style={{ backgroundColor: theme.accent }}>{(form.orgName || "Y").charAt(0)}</div>
-                            <span className="text-[10px] font-bold text-white">{form.orgName || "Your Organisation"}</span>
-                          </div>
-                          <div className="flex gap-1.5 relative">
-                            {["Home", "Programs", "Events"].map((l) => <span key={l} className="text-[7px] text-white/40">{l}</span>)}
-                            <div className="px-2 py-0.5 rounded text-white text-[7px] font-bold" style={{ backgroundColor: theme.accent }}>Donate</div>
-                          </div>
-                        </div>
-                        {/* Page body */}
-                        <div className="p-4 space-y-3" style={{ backgroundColor: theme.bg }}>
-                          <div className="text-center py-3">
-                            <div className="h-2 w-2/3 rounded-full mx-auto mb-1.5" style={{ backgroundColor: theme.primary + "15" }} />
-                            <div className="h-1.5 w-1/3 rounded-full mx-auto" style={{ backgroundColor: theme.primary + "0A" }} />
-                            <div className="flex justify-center gap-1.5 mt-3">
-                              <div className="h-5 w-14 rounded-full" style={{ backgroundColor: theme.accent }} />
-                              <div className="h-5 w-14 rounded-full border" style={{ borderColor: theme.primary + "15" }} />
+                      <div>
+                        <Label>Password</Label>
+                        <PwInput value={form.adminPassword} onChange={(e) => up("adminPassword", e.target.value)} show={showPw} onToggle={() => setShowPw((v) => !v)} placeholder="Min 6 characters" />
+                        {form.adminPassword && (() => {
+                          const sc = pwScore(form.adminPassword);
+                          const m = STRENGTH[sc];
+                          return (
+                            <div className="mt-2 flex items-center gap-3">
+                              <div className="flex flex-1 gap-1">
+                                {[0, 1, 2, 3].map((i) => (
+                                  <div key={i} className="h-1 flex-1 transition-colors duration-300" style={{ background: i < sc ? m.color : "rgba(16,42,35,.12)" }} />
+                                ))}
+                              </div>
+                              <span className="text-[11px] font-semibold" style={{ color: m.color }}>{m.label}</span>
                             </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            {[65, 42, 88].map((pct, i) => (
-                              <div key={i} className="bg-white rounded-xl p-2 border border-gray-100 shadow-sm">
-                                <div className="h-5 rounded-lg mb-1.5" style={{ backgroundColor: theme.accent + "10" }} />
-                                <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full" style={{ backgroundColor: theme.accent, width: `${pct}%` }} />
-                                </div>
+                          );
+                        })()}
+                        <Err>{errors.adminPassword}</Err>
+                      </div>
+                      <div>
+                        <Label>Confirm password</Label>
+                        <PwInput value={form.confirmPassword} onChange={(e) => up("confirmPassword", e.target.value)} show={showConfirm} onToggle={() => setShowConfirm((v) => !v)} placeholder="Repeat password" />
+                        {form.confirmPassword && !errors.confirmPassword && (
+                          <p className="mt-1.5 inline-flex items-center gap-1 text-[11.5px]" style={{ color: form.confirmPassword === form.adminPassword ? V.success : "#EF4444" }}>
+                            {form.confirmPassword === form.adminPassword ? <><Check className="h-3.5 w-3.5" /> Passwords match</> : <><XIcon className="h-3.5 w-3.5" /> Passwords don't match</>}
+                          </p>
+                        )}
+                        <Err>{errors.confirmPassword}</Err>
+                      </div>
+
+                      <div className="flex gap-3 pt-1">
+                        <button onClick={prev} className="flex flex-1 items-center justify-center gap-2 border py-3.5 text-[14px] font-semibold transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.ink }}>
+                          <ArrowLeft className="h-4 w-4" /> Back
+                        </button>
+                        <button onClick={next} className="reg-submit group flex flex-1 items-center justify-center gap-2 py-3.5 text-[14px] font-semibold text-white" style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}>
+                          Continue <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 3: Review ── */}
+                {step === 3 && (
+                  <div>
+                    <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Review your details</h2>
+                    <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Confirm everything looks good before payment.</p>
+
+                    <div className="mt-7 space-y-4">
+                      {[
+                        { h: "Organisation", rows: [["Name", form.orgName], ["Portal", `${form.slug}.${rootDomain}`]] },
+                        { h: "Admin account", rows: [["Name", form.adminName], ["Email", form.adminEmail]] },
+                      ].map((sec) => (
+                        <div key={sec.h} className="border p-5" style={{ borderColor: V.line, background: V.surface }}>
+                          <h3 className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: V.primary, fontFamily: mono }}>{sec.h}</h3>
+                          <div className="space-y-2.5 text-[13.5px]">
+                            {sec.rows.map(([k, val]) => (
+                              <div key={k} className="flex items-center justify-between gap-3">
+                                <span style={{ color: V.inkFaint }}>{k}</span>
+                                <span className="break-all text-right font-medium" style={{ color: V.ink }}>{val}</span>
                               </div>
                             ))}
                           </div>
                         </div>
-                      </motion.div>
+                      ))}
 
-                      {/* Portal info */}
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="mt-5 flex items-center justify-center gap-3">
-                        {[theme.primary, theme.accent, theme.bg].map((c, i) => (
-                          <div key={i} className="flex items-center gap-1.5">
-                            <div className="w-4 h-4 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: c }} />
-                            <span className="text-[9px] text-[#8AA89C] font-mono">{c}</span>
-                          </div>
-                        ))}
-                      </motion.div>
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-center text-xs text-[#8AA89C] mt-3 font-medium">
-                        Theme: <span className="text-[#102A23]">{theme.name}</span>
-                      </motion.p>
-                    </div>
-                  </div>
-
-                  {/* Right: Form */}
-                  <div className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16">
-                    <div className="w-full max-w-lg">
-                      <motion.div {...fade} className="mb-8">
-                        <h2 className="text-2xl sm:text-3xl font-medium font-bold text-[#102A23] mb-2">Create your admin account</h2>
-                        <p className="text-sm text-[#8AA89C]">These credentials will be used to manage your portal</p>
-                      </motion.div>
-
-                      <motion.div {...fade} custom={1} className="space-y-5">
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">Full Name</label>
-                          <input type="text" value={form.adminName} onChange={(e) => up("adminName", e.target.value)} className={inp} placeholder="John Doe" />
-                          {errors.adminName && <p className="text-red-500 text-xs mt-1.5">{errors.adminName}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-semibold text-[#102A23] mb-2">Email Address</label>
-                          <input type="email" value={form.adminEmail} onChange={(e) => up("adminEmail", e.target.value)} className={inp} placeholder="john@hopegivefoundation.org" />
-                          {errors.adminEmail && <p className="text-red-500 text-xs mt-1.5">{errors.adminEmail}</p>}
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-[#102A23] mb-2">Password</label>
-                            <input type="password" value={form.adminPassword} onChange={(e) => up("adminPassword", e.target.value)} className={inp} placeholder="Min 6 characters" />
-                            {errors.adminPassword && <p className="text-red-500 text-xs mt-1.5">{errors.adminPassword}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-[#102A23] mb-2">Confirm</label>
-                            <input type="password" value={form.confirmPassword} onChange={(e) => up("confirmPassword", e.target.value)} className={inp} />
-                            {errors.confirmPassword && <p className="text-red-500 text-xs mt-1.5">{errors.confirmPassword}</p>}
+                      {/* Plan & billing — selectable */}
+                      <div className="border p-5" style={{ borderColor: V.line, background: V.surface }}>
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: V.primary, fontFamily: mono }}>Choose your plan</h3>
+                          {/* billing toggle */}
+                          <div className="inline-flex border text-[12px] font-semibold" style={{ borderColor: V.line }}>
+                            {["monthly", "annual"].map((b) => {
+                              const on = form.billingCycle === b;
+                              return (
+                                <button key={b} type="button" disabled={!!clientSecret} onClick={() => { up("billingCycle", b); clearCoupon(); }} className="px-3 py-1.5 capitalize transition-colors disabled:cursor-not-allowed"
+                                  style={on ? { background: V.primary, color: "#fff" } : { color: V.inkSoft }}>
+                                  {b}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
-
-                        <div className="flex gap-3 pt-2">
-                          <button onClick={prev} className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-[#102A23] rounded-2xl font-semibold text-sm hover:bg-gray-50 transition-all">
-                            <ArrowLeft className="w-4 h-4" /> Back
-                          </button>
-                          <button onClick={next} className="group flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-[#065F46] to-[#047857] text-white rounded-2xl font-semibold text-sm hover:shadow-xl hover:shadow-[#047857]/20 transition-all hover:scale-[1.01]">
-                            Continue <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                          </button>
+                        <div className="space-y-2">
+                          {plans.map((p) => {
+                            const on = form.plan === p.key;
+                            const annual = form.billingCycle === "annual";
+                            return (
+                              <button key={p.key} type="button" disabled={!!clientSecret} onClick={() => { up("plan", p.key); clearCoupon(); }}
+                                className="flex w-full items-center justify-between gap-3 border p-3 text-left transition-colors disabled:cursor-not-allowed"
+                                style={on ? { borderColor: V.primary, background: V.surface2 } : { borderColor: V.line }}>
+                                <span className="flex items-center gap-3">
+                                  <span className="grid h-5 w-5 shrink-0 place-items-center border" style={on ? { background: V.primary, borderColor: V.primary } : { borderColor: "rgba(16,42,35,.3)" }}>
+                                    {on && <Check className="h-3 w-3 text-white" />}
+                                  </span>
+                                  <span>
+                                    <span className="inline-flex items-center gap-2 text-[14px] font-semibold" style={{ color: V.ink }}>
+                                      {p.name}
+                                      {p.popular && <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white" style={{ background: V.primary }}>Popular</span>}
+                                    </span>
+                                    {p.blurb && <span className="block text-[11.5px]" style={{ color: V.inkFaint }}>{p.blurb}</span>}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 text-[13px]" style={{ color: V.inkSoft }}>
+                                  <span className="text-[16px] font-bold" style={{ color: V.ink }}>${(annual ? p.annual : p.monthly).toLocaleString()}</span>{annual ? "/yr" : "/mo"}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      </motion.div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* ═══════════════════════════════════════════════
-                  STEP 3: Review — centered with summary
-              ═══════════════════════════════════════════════ */}
-              {step === 3 && (
-                <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-                  <div className="w-full max-w-xl">
-                    <motion.div {...fade} className="text-center mb-8">
-                      <div className="w-14 h-14 bg-gradient-to-br from-[#065F46] to-[#047857] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#047857]/20">
-                        <FileCheck className="w-6 h-6 text-white" />
-                      </div>
-                      <h2 className="text-2xl sm:text-3xl font-medium font-bold text-[#102A23] mb-2">Review your details</h2>
-                      <p className="text-sm text-[#8AA89C]">Confirm everything looks good before payment</p>
-                    </motion.div>
-
-                    <motion.div {...fade} custom={1} className="space-y-4">
-                      {/* Org */}
-                      <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                        <h3 className="text-[10px] font-bold text-[#047857] uppercase tracking-[0.15em] mb-3">Organisation</h3>
-                        <div className="grid grid-cols-2 gap-y-3 text-sm items-center">
-                          <span className="text-[#8AA89C]">Name</span><span className="text-[#102A23] font-medium text-right">{form.orgName}</span>
-                          <span className="text-[#8AA89C]">Portal</span><span className="text-[#102A23] font-medium text-right font-mono text-xs">{form.slug}.{import.meta.env.VITE_ROOT_DOMAIN}</span>
-                          {logoPreview && (
-                            <>
-                              <span className="text-[#8AA89C]">Logo</span>
-                              <span className="flex justify-end"><img src={logoPreview} alt="Logo" className="w-10 h-10 rounded-lg object-contain border border-gray-100" /></span>
-                            </>
+                        {/* Coupon */}
+                        <div className="mt-3 border-t pt-3" style={{ borderColor: V.line }}>
+                          <div className="flex items-end gap-2">
+                            <input className="reg-uline flex-1" placeholder="Discount code (optional)" value={couponInput} disabled={!!coupon}
+                              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyCoupon(); } }} />
+                            {coupon ? (
+                              <button type="button" onClick={clearCoupon} className="shrink-0 px-3 py-2 text-[13px] font-semibold" style={{ color: V.inkSoft }}>Remove</button>
+                            ) : (
+                              <button type="button" onClick={applyCoupon} disabled={!couponInput.trim() || couponBusy} className="shrink-0 border px-4 py-2 text-[13px] font-semibold disabled:opacity-50" style={{ borderColor: V.line, color: V.primary }}>
+                                {couponBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                              </button>
+                            )}
+                          </div>
+                          {couponMsg && (
+                            <p className="mt-1.5 inline-flex items-center gap-1 text-[12px]" style={{ color: couponMsg.ok ? V.success : "#EF4444" }}>
+                              {couponMsg.ok ? <Check className="h-3.5 w-3.5" /> : <XIcon className="h-3.5 w-3.5" />} {couponMsg.text}
+                            </p>
                           )}
                         </div>
-                      </div>
-                      {/* Admin */}
-                      <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                        <h3 className="text-[10px] font-bold text-[#047857] uppercase tracking-[0.15em] mb-3">Admin Account</h3>
-                        <div className="grid grid-cols-2 gap-y-3 text-sm">
-                          <span className="text-[#8AA89C]">Name</span><span className="text-[#102A23] font-medium text-right">{form.adminName}</span>
-                          <span className="text-[#8AA89C]">Email</span><span className="text-[#102A23] font-medium text-right">{form.adminEmail}</span>
-                        </div>
-                      </div>
-                      {/* Plan & Theme */}
-                      <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
-                        <h3 className="text-[10px] font-bold text-[#047857] uppercase tracking-[0.15em] mb-3">Plan & Theme</h3>
-                        <div className="grid grid-cols-2 gap-y-3 text-sm">
-                          <span className="text-[#8AA89C]">Plan</span><span className="text-[#102A23] font-medium capitalize text-right">{form.plan}</span>
-                          <span className="text-[#8AA89C]">Billing</span><span className="text-[#102A23] font-medium capitalize text-right">{form.billingCycle}</span>
-                          <span className="text-[#8AA89C]">Theme</span>
-                          <span className="text-[#102A23] font-medium text-right flex items-center justify-end gap-2">
-                            {[theme.primary, theme.accent, theme.bg].map((c, i) => <span key={i} className="w-4 h-4 rounded-full border border-gray-200 inline-block shadow-sm" style={{ backgroundColor: c }} />)}
-                            <span>{theme.name}</span>
+
+                        {/* Total (with discount) */}
+                        {(() => {
+                          const p = plans.find((pl) => pl.key === form.plan) || plans[0];
+                          const annual = form.billingCycle === "annual";
+                          const base = (annual ? p?.annual : p?.monthly) || 0;
+                          const discount = coupon ? (coupon.type === "percent" ? Math.round((base * coupon.value) / 100) : Math.min(base, coupon.value)) : 0;
+                          const total = Math.max(0, base - discount);
+                          const per = annual ? "/yr" : "/mo";
+                          return (
+                            <div className="mt-3 space-y-1.5 border-t pt-3 text-[13.5px]" style={{ borderColor: V.line }}>
+                              {discount > 0 && (
+                                <>
+                                  <div className="flex items-center justify-between" style={{ color: V.inkFaint }}>
+                                    <span>Subtotal</span><span>${base.toLocaleString()}{per}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between" style={{ color: V.success }}>
+                                    <span>Discount ({coupon.code})</span><span>−${discount.toLocaleString()}</span>
+                                  </div>
+                                </>
+                              )}
+                              <div className="flex items-center justify-between text-[15px] font-bold" style={{ color: V.ink }}>
+                                <span>Total</span><span>${total.toLocaleString()}{per}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        <div className="mt-3 flex items-center justify-between border-t pt-3 text-[13.5px]" style={{ borderColor: V.line }}>
+                          <span style={{ color: V.inkFaint }}>Theme</span>
+                          <span className="inline-flex items-center gap-2 font-medium" style={{ color: V.ink }}>
+                            {[theme.primary, theme.accent, theme.bg].map((c, i) => <span key={i} className="h-4 w-4 border" style={{ background: c, borderColor: V.line }} />)}
+                            {theme.name}
                           </span>
                         </div>
                       </div>
 
-                      {errors.submit && <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="bg-red-50 text-red-600 text-sm rounded-2xl p-4 border border-red-100">{errors.submit}</motion.div>}
+                      {errors.submit && <div className="border p-4 text-sm text-red-600" style={{ background: "#FEF2F2", borderColor: "#FECACA" }}>{errors.submit}</div>}
 
-                      <div className="flex gap-3 pt-2">
-                        <button onClick={prev} disabled={submitting} className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-gray-200 text-[#102A23] rounded-2xl font-semibold text-sm hover:bg-gray-50 transition-all">
-                          <ArrowLeft className="w-4 h-4" /> Back
+                      <div className="flex gap-3 pt-1">
+                        <button onClick={prev} disabled={submitting} className="flex flex-1 items-center justify-center gap-2 border py-3.5 text-[14px] font-semibold transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.ink }}>
+                          <ArrowLeft className="h-4 w-4" /> Back
                         </button>
-                        <button onClick={submit} disabled={submitting} className="group flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-[#065F46] to-[#047857] text-white rounded-2xl font-semibold text-sm hover:shadow-xl hover:shadow-[#047857]/20 transition-all disabled:opacity-60">
-                          {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Processing...</> : <>Proceed to Payment <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>}
+                        <button onClick={submit} disabled={submitting} className="reg-submit group flex flex-1 items-center justify-center gap-2 py-3.5 text-[14px] font-semibold text-white disabled:opacity-60" style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}>
+                          {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</> : <>Proceed to payment <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" /></>}
                         </button>
                       </div>
-
-                      <div className="flex items-center justify-center gap-5 pt-3 text-[11px] text-[#8AA89C]">
-                        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-green-500" />256-bit encryption</span>
-                        <span className="flex items-center gap-1"><Check className="w-3 h-3 text-green-500" />Cancel anytime</span>
-                      </div>
-                    </motion.div>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-            </motion.div>
-          </AnimatePresence>
+                {/* ── STEP 4: Payment (in-house Stripe Elements) ── */}
+                {step === 4 && (
+                  <PaymentStep
+                    clientSecret={clientSecret}
+                    slug={form.slug}
+                    summary={(() => {
+                      const p = plans.find((pl) => pl.key === form.plan) || plans[0];
+                      const annual = form.billingCycle === "annual";
+                      const base = (annual ? p?.annual : p?.monthly) || 0;
+                      const discount = coupon ? (coupon.type === "percent" ? Math.round((base * coupon.value) / 100) : Math.min(base, coupon.value)) : 0;
+                      const total = Math.max(0, base - discount);
+                      return {
+                        label: `${p?.name} · ${annual ? "Annual" : "Monthly"}${coupon ? ` · ${coupon.code}` : ""}`,
+                        price: `$${total.toLocaleString()}${annual ? "/yr" : "/mo"}`,
+                      };
+                    })()}
+                    onBack={() => { setDir(-1); setStep(3); }}
+                  />
+                )}
+
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-function darken(hex, amt) {
-  const n = parseInt(hex.replace("#", ""), 16);
-  const r = Math.max((n >> 16) - amt * 2.55, 0);
-  const g = Math.max(((n >> 8) & 0xff) - amt * 2.55, 0);
-  const b = Math.max((n & 0xff) - amt * 2.55, 0);
-  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }

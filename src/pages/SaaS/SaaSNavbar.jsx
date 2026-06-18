@@ -23,12 +23,27 @@ export default function SaaSNavbar() {
   const location = useLocation();
   const { platform } = useTenant();
   const brandName = platform?.name || "NGO Platform";
-  // The navbar sits on a light surface → prefer the dark logo variant.
-  const navLogo = platform?.logoDark || platform?.logo || "";
+
+  // The home hero is a deep, immersive surface; every other page opens on a
+  // light surface. So while we're on home AND still over the hero (not yet
+  // collapsed into the capsule), the bar wears white text + the light logo;
+  // everywhere else — and once collapsed — it reverts to dark on light.
+  const isHome = location.pathname === "/";
+  const onDark = isHome && !scrolled;
+  const navLogo = onDark
+    ? platform?.logo || platform?.logoDark || ""
+    : platform?.logoDark || platform?.logo || "";
 
   useEffect(() => {
     const NAV_H = 64; // expanded bar height (h-16)
     const measure = () => {
+      // Home: collapse only after the immersive full-screen hero (the bar stays
+      // white-on-dark while over it). Every other page (plans, contact, …):
+      // collapse into the capsule the moment the visitor starts scrolling.
+      if (!isHome) {
+        setScrolled(window.scrollY > 8);
+        return;
+      }
       const hero = document.querySelector("[data-hero], section");
       if (hero && hero.isConnected) {
         setScrolled(hero.getBoundingClientRect().bottom <= NAV_H);
@@ -69,6 +84,14 @@ export default function SaaSNavbar() {
   const linkClass = (path) => {
     const base =
       "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-nav font-medium tracking-wide transition-all duration-200";
+    if (onDark) {
+      return cn(
+        base,
+        isActive(path)
+          ? "text-white bg-white/15"
+          : "text-white/75 hover:text-white hover:bg-white/10",
+      );
+    }
     return cn(
       base,
       isActive(path)
@@ -118,7 +141,7 @@ export default function SaaSNavbar() {
                   >
                     <HeartHandshake className={cn("transition-all", scrolled ? "h-[17px] w-[17px]" : "h-[19px] w-[19px]")} />
                   </span>
-                  <span className="whitespace-nowrap font-nav text-[17px] font-extrabold leading-none tracking-tight text-primary">
+                  <span className={cn("whitespace-nowrap font-nav text-[17px] font-extrabold leading-none tracking-tight transition-colors", onDark ? "text-white" : "text-primary")}>
                     {brandName}
                   </span>
                 </>
@@ -137,12 +160,6 @@ export default function SaaSNavbar() {
             {/* Right cluster */}
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <Link
-                to="/login"
-                className="hidden font-nav text-[14px] font-medium text-primary/70 transition-colors hover:text-primary sm:inline-flex"
-              >
-                Sign in
-              </Link>
-              <Link
                 to="/register"
                 className="hidden items-center gap-2 rounded-token-btn bg-accent px-4 py-2 font-nav text-[14px] font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light sm:inline-flex"
               >
@@ -154,7 +171,10 @@ export default function SaaSNavbar() {
                 onClick={() => setOpen((v) => !v)}
                 aria-label={open ? "Close menu" : "Open menu"}
                 aria-expanded={open}
-                className="inline-flex items-center justify-center rounded-full p-2 text-primary transition-colors hover:bg-primary/5 lg:hidden"
+                className={cn(
+                  "inline-flex items-center justify-center rounded-full p-2 transition-colors lg:hidden",
+                  onDark ? "text-white hover:bg-white/10" : "text-primary hover:bg-primary/5",
+                )}
               >
                 {open ? <X size={22} /> : <Menu size={22} />}
               </button>
@@ -192,12 +212,6 @@ export default function SaaSNavbar() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-4 font-nav text-base font-semibold text-primary"
                 >
                   Get started <ArrowRight size={16} />
-                </Link>
-                <Link
-                  to="/login"
-                  className="block py-2 text-center font-nav text-base font-medium text-white/80 transition-colors hover:text-white"
-                >
-                  Sign in
                 </Link>
               </div>
             </nav>

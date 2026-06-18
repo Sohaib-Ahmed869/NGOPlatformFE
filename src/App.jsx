@@ -119,6 +119,7 @@ import SaaSFooter from "./pages/SaaS/SaaSFooter";
 import RegistrationFlow from "./pages/Registration/RegistrationFlow";
 import RegistrationSuccess from "./pages/Registration/RegistrationSuccess";
 import ContactPage from "./pages/SaaS/ContactPage";
+import { PrivacyPage, TermsPage } from "./pages/SaaS/LegalPage";
 
 // Super Admin
 import SuperAdminLayout from "./SuperAdmin/Layout";
@@ -277,6 +278,8 @@ const PublicSaaSRoutes = () => (
     <Route path="/register" element={<RegistrationFlow />} />
     <Route path="/register/success" element={<RegistrationSuccess />} />
     <Route path="/contact" element={<ContactPage />} />
+    <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/terms" element={<TermsPage />} />
     <Route path="/login" element={<Login />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -422,6 +425,7 @@ const AppLayout = ({ children }) => {
     return children;
   }
 
+  const isRegister = location.pathname.startsWith("/register");
   const isAuth =
     [
       "/login",
@@ -430,12 +434,22 @@ const AppLayout = ({ children }) => {
       "/change-password",
       "/admin/login",
     ].includes(location.pathname) ||
-    location.pathname.startsWith("/reset-password") ||
-    location.pathname.startsWith("/register");
+    location.pathname.startsWith("/reset-password");
   // Note: /program-checkout and /checkout have their own themed hero region
   // (data-hero), so they must NOT get the spacer — the themed background sits
   // under the transparent navbar and the bar collapses on scroll.
   const needsSpacer = ["/order-confirmation"].includes(location.pathname);
+
+  // Register: the signup flow gets the platform theme tokens (so it's dynamic)
+  // + the shared footer, but keeps its own brand-panel layout (no marketing nav).
+  if (isRegister) {
+    return (
+      <div data-public-site style={buildPlatformVars(platform)}>
+        {children}
+        <SaaSFooter />
+      </div>
+    );
+  }
 
   if (isAuth) {
     return <>{children}</>;
@@ -450,6 +464,7 @@ const AppLayout = ({ children }) => {
         <SaaSNavbar />
         {children}
         <SaaSFooter />
+        <BackToTop />
       </div>
     );
   }

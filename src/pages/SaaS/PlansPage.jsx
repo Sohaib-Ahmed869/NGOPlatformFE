@@ -1,19 +1,32 @@
 import React, { useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { Check, X, ChevronDown, Shield, Zap, Headphones } from "lucide-react";
+import { Check, X, ChevronDown, Shield, Zap, Headphones, LayoutGrid, ArrowRight } from "lucide-react";
 import PlanCard from "./PlanCard";
+import CtaSection from "./CtaSection";
 
 const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "#E7F2EC",
+  // surface2 = faint accent wash (was a hardcoded mint) so bands/fills follow the theme.
+  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
   line: "rgba(var(--tenant-primary-rgb), .08)", line2: "rgba(var(--tenant-primary-rgb), .04)",
   ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", accent: "var(--pf-gold, #F59E0B)",
+  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)",
+  glow: "var(--tenant-accent-light, #059669)", accent: "var(--pf-gold, #F59E0B)",
   success: "#059669",
 };
 const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 const mono = "'JetBrains Mono', monospace";
 
 /* Scroll-reveal — same as homepage */
+/* Warm pill badge — matches the home page's section eyebrow. */
+const Badge = ({ icon: Icon, children, center }) => (
+  <span className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-medium ${center ? "mx-auto" : ""}`}
+    style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.primary, boxShadow: "0 1px 2px rgba(6,40,30,.04)" }}>
+    {Icon && <Icon className="w-3.5 h-3.5" />}
+    {children}
+  </span>
+);
+
 const Reveal = ({ children, delay = 0, className = "", style = {} }) => {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, amount: 0.12 });
@@ -35,10 +48,13 @@ const fadeUpChild = {
 
 /* Injected CSS — hover effects + grid matching homepage */
 const css = `
-/* Headings follow the platform font token (Outfit) set on the public wrapper. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+/* Editorial serif headings + sharp corners everywhere — matches the home page. */
 .saas-page h1, .saas-page h2, .saas-page h3, .saas-page h4, .saas-page h5, .saas-page h6 {
-  font-family: var(--font-heading, 'Outfit', system-ui, sans-serif) !important;
+  font-family: 'Fraunces', 'Outfit', Georgia, serif !important;
+  letter-spacing: -0.015em;
 }
+.saas-page [class*="rounded"] { border-radius: 0 !important; }
 
 /* Regular (non-featured) price cards */
 .saas-price-regular {
@@ -100,6 +116,20 @@ const css = `
 
 .saas-comp-table { transition: box-shadow .4s; }
 .saas-comp-table:hover { box-shadow: 0 12px 28px -12px rgba(15,23,42,.1); }
+/* Comparison table: row hover + a continuous highlight down the popular column */
+.saas-comp-row { transition: background .2s ease; }
+.saas-comp-row:hover { background: rgba(var(--tenant-accent-rgb),.045); }
+.saas-comp-pop { background: rgba(var(--tenant-accent-rgb),.06); }
+.saas-comp-row:hover .saas-comp-pop { background: rgba(var(--tenant-accent-rgb),.11); }
+
+/* Home-style FAQ accordion */
+.saas-faq2 { transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease, background .35s ease; }
+.saas-faq2:hover { transform: translateY(-2px); }
+
+@keyframes saas-aurora1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,30px) scale(1.1); } }
+@keyframes saas-aurora2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-46px,22px) scale(1.14); } }
+.saas-gic { transition: transform .35s ease; }
+.group:hover .saas-gic { transform: rotate(-6deg) scale(1.12); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -163,9 +193,65 @@ const faqs = [
   { q: "Is my donor data safe?", a: "Absolutely. Each organisation's data is completely isolated. We use industry-standard encryption, and all payment processing is handled by Stripe's PCI-compliant infrastructure." },
 ];
 
+/* ── Animated single-open FAQ accordion — matches the home page ── */
+function FaqItem({ faq, index, isOpen, onToggle }) {
+  return (
+    <Reveal delay={index * 0.05}>
+      <div className="saas-faq2 relative overflow-hidden rounded-2xl"
+        style={{
+          background: isOpen ? `linear-gradient(180deg, rgba(var(--tenant-accent-rgb),.06), ${V.surface})` : V.surface,
+          border: `1px solid ${isOpen ? "rgba(var(--tenant-accent-rgb),.35)" : V.line}`,
+          boxShadow: isOpen ? "0 20px 44px -22px rgba(var(--tenant-accent-rgb),.4)" : "none",
+        }}>
+        {isOpen && (
+          <span aria-hidden className="absolute inset-y-0 left-0 w-[3px]"
+            style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.glow})` }} />
+        )}
+        <button onClick={onToggle} aria-expanded={isOpen} className="flex w-full items-center gap-4 px-6 py-5 text-left">
+          <span className="text-[12px] font-bold tabular-nums transition-colors"
+            style={{ fontFamily: mono, color: isOpen ? V.primary : V.inkFaint }}>
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="flex-1 text-[16px] font-semibold leading-snug transition-colors"
+            style={{ color: isOpen ? V.primary : V.ink }}>{faq.q}</span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full transition-all duration-300"
+            style={{
+              background: isOpen ? V.primary : V.surface2,
+              color: isOpen ? "#fff" : V.primary,
+              border: `1px solid ${isOpen ? "transparent" : V.line}`,
+              transform: isOpen ? "rotate(180deg)" : "none",
+            }}>
+            <ChevronDown className="h-4 w-4" />
+          </span>
+        </button>
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <motion.div key="content"
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }} style={{ overflow: "hidden" }}>
+              <p className="px-6 pb-6 pl-[3.4rem] text-[14.5px] leading-relaxed" style={{ color: V.inkSoft }}>{faq.a}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </Reveal>
+  );
+}
+
+function FaqList({ faqs: items }) {
+  const [open, setOpen] = useState(0);
+  return (
+    <div className="space-y-3">
+      {items.map((faq, i) => (
+        <FaqItem key={faq.q} faq={faq} index={i} isOpen={open === i}
+          onToggle={() => setOpen((cur) => (cur === i ? -1 : i))} />
+      ))}
+    </div>
+  );
+}
+
 export default function PlansPage() {
   const [billingCycle, setBillingCycle] = useState("monthly");
-  const [openFaq, setOpenFaq] = useState(null);
 
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, overflowX: "hidden", position: "relative", minHeight: "100vh" }}>
@@ -188,13 +274,6 @@ export default function PlansPage() {
       {/* ── Header ── */}
       <section data-hero className="relative z-[1] pt-32 pb-8 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <Reveal>
-            <span className="inline-block px-2.5 py-1 rounded text-[10.5px] tracking-[.08em] uppercase mb-4"
-              style={{ fontFamily: mono, color: V.inkSoft, background: V.surface, border: `1px solid ${V.line}` }}>
-              <span className="inline-block w-1.5 h-1.5 rounded-full mr-2" style={{ background: V.accent, boxShadow: `0 0 0 3px rgba(245,158,11,.25)` }} />
-              Pricing
-            </span>
-          </Reveal>
           <Reveal delay={0.1}>
             <h1 className="text-[clamp(36px,5vw,56px)] font-medium tracking-[-0.03em] leading-[1.04] mb-4" style={{ color: V.ink }}>
               Simple, transparent pricing
@@ -208,41 +287,31 @@ export default function PlansPage() {
 
           {/* Billing toggle — smooth sliding indicator */}
           <Reveal delay={0.3}>
-            <div className="inline-flex items-center rounded-[10px] p-1.5 relative"
+            <div className="relative inline-flex p-1.5"
               style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.9), 0 1px 2px rgba(15,23,42,.04)` }}>
-              {/* Sliding background pill */}
-              <motion.div
-                className="absolute top-1.5 bottom-1.5 rounded-lg"
-                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(var(--tenant-accent-rgb),.4)` }}
-                animate={{ left: billingCycle === "monthly" ? 6 : "50%", right: billingCycle === "annual" ? 6 : "50%" }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              />
-              <motion.button
-                onClick={() => setBillingCycle("monthly")}
-                className="relative z-10 px-6 py-2.5 text-sm font-medium rounded-lg"
-                animate={{ color: billingCycle === "monthly" ? "#fff" : V.inkSoft }}
-                transition={{ duration: 0.2, delay: billingCycle === "monthly" ? 0.08 : 0 }}
-              >
-                Monthly
-              </motion.button>
-              <motion.button
-                onClick={() => setBillingCycle("annual")}
-                className="relative z-10 px-6 py-2.5 text-sm font-medium rounded-lg"
-                animate={{ color: billingCycle === "annual" ? "#fff" : V.inkSoft }}
-                transition={{ duration: 0.2, delay: billingCycle === "annual" ? 0.08 : 0 }}
-              >
-                Annual
-                <motion.span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded inline-block"
-                  style={{ fontFamily: mono }}
-                  animate={{
-                    color: billingCycle === "annual" ? "rgba(255,255,255,.8)" : V.success,
-                    backgroundColor: billingCycle === "annual" ? "rgba(255,255,255,.15)" : "rgba(5,150,105,.14)",
-                  }}
-                  transition={{ duration: 0.2, delay: billingCycle === "annual" ? 0.08 : 0 }}
-                >
-                  -20%
-                </motion.span>
-              </motion.button>
+              <button type="button" onClick={() => setBillingCycle("monthly")}
+                className="relative px-6 py-2.5 text-sm font-semibold transition-colors"
+                style={{ color: billingCycle === "monthly" ? "#fff" : V.inkSoft }}>
+                {billingCycle === "monthly" && (
+                  <motion.span aria-hidden layoutId="plans-billing-pill" className="absolute inset-0"
+                    style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(var(--tenant-accent-rgb),.4)` }}
+                    transition={{ type: "spring", stiffness: 320, damping: 30 }} />
+                )}
+                <span className="relative z-10">Monthly</span>
+              </button>
+              <button type="button" onClick={() => setBillingCycle("annual")}
+                className="relative px-6 py-2.5 text-sm font-semibold transition-colors"
+                style={{ color: billingCycle === "annual" ? "#fff" : V.inkSoft }}>
+                {billingCycle === "annual" && (
+                  <motion.span aria-hidden layoutId="plans-billing-pill" className="absolute inset-0"
+                    style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(var(--tenant-accent-rgb),.4)` }}
+                    transition={{ type: "spring", stiffness: 320, damping: 30 }} />
+                )}
+                <span className="relative z-10 inline-flex items-center gap-1.5">
+                  Annual
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold" style={{ fontFamily: mono, background: billingCycle === "annual" ? "rgba(255,255,255,.18)" : "rgba(5,150,105,.14)", color: billingCycle === "annual" ? "#fff" : V.success }}>-20%</span>
+                </span>
+              </button>
             </div>
           </Reveal>
         </div>
@@ -262,37 +331,12 @@ export default function PlansPage() {
         </motion.div>
       </section>
 
-      {/* ── Guarantees ── */}
-      <section className="relative z-[1] py-12" style={{ borderTop: `1px solid ${V.line}`, borderBottom: `1px solid ${V.line}` }}>
-        <Reveal>
-          <div className="max-w-4xl mx-auto px-6 flex flex-wrap items-center justify-center gap-8 md:gap-16">
-            {[
-              { icon: Shield, text: "No hidden fees" },
-              { icon: Zap, text: "Cancel anytime" },
-              { icon: Headphones, text: "Email support on all plans" },
-            ].map((item) => (
-              <div key={item.text} className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full grid place-items-center"
-                  style={{ background: "rgba(5,150,105,.14)", border: "1px solid rgba(5,150,105,.3)" }}>
-                  <item.icon className="w-4 h-4" style={{ color: V.success }} />
-                </div>
-                <span className="text-sm font-medium" style={{ color: V.ink }}>{item.text}</span>
-              </div>
-            ))}
-          </div>
-        </Reveal>
-      </section>
-
       {/* ── Feature comparison table ── */}
       <section className="relative z-[1] py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <Reveal>
             <div className="text-center mb-12">
-              <span className="inline-block px-2 py-1 rounded text-xs tracking-[.08em] mb-3"
-                style={{ fontFamily: mono, color: V.inkFaint, background: V.surface, border: `1px solid ${V.line}` }}>
-                COMPARE
-              </span>
-              <h2 className="text-[clamp(28px,3.5vw,42px)] font-medium tracking-[-0.025em]" style={{ color: V.ink }}>
+              <h2 className="text-[clamp(28px,3.8vw,44px)] font-bold tracking-[-0.025em]" style={{ color: V.ink }}>
                 Compare all features
               </h2>
               <p className="mt-3" style={{ color: V.inkSoft }}>A detailed look at what each plan includes.</p>
@@ -300,29 +344,42 @@ export default function PlansPage() {
           </Reveal>
 
           <Reveal delay={0.1}>
-            <div className="saas-comp-table rounded-xl overflow-hidden"
-              style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
-              <table className="w-full">
+            <div className="saas-comp-table relative overflow-x-auto"
+              style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: "0 22px 54px -28px rgba(6,40,30,.18)" }}>
+              <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${V.line}` }}>
-                    <th className="text-left px-6 py-4 text-sm font-semibold" style={{ color: V.ink }}>Feature</th>
-                    <th className="px-4 py-4 text-center text-sm font-semibold" style={{ color: V.ink }}>Basic</th>
-                    <th className="px-4 py-4 text-center text-sm font-semibold" style={{ color: V.primary }}>Professional</th>
-                    <th className="px-4 py-4 text-center text-sm font-semibold" style={{ color: V.ink }}>Enterprise</th>
+                    <th className="px-6 pb-5 pt-6 align-bottom text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: V.inkFaint }}>Feature</th>
+                    {plans.map((p) => (
+                      <th key={p.key} className={`relative px-4 pb-5 pt-6 text-center align-bottom ${p.popular ? "saas-comp-pop" : ""}`}>
+                        {p.popular && (
+                          <span className="absolute left-1/2 top-1.5 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white"
+                            style={{ background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})` }}>Most popular</span>
+                        )}
+                        <div className="text-[15px] font-bold" style={{ color: p.popular ? V.primary : V.ink }}>{p.name}</div>
+                        <div className="mt-0.5 text-[12px]" style={{ fontFamily: mono, color: V.inkFaint }}>${p.monthlyPrice}/mo</div>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {comparisonFeatures.map((feature, i) => (
-                    <tr key={feature.name} style={{ borderBottom: `1px solid ${V.line2}`, background: i % 2 === 0 ? "rgba(6,40,30,.02)" : "transparent" }}>
-                      <td className="px-6 py-3 text-sm" style={{ color: V.ink }}>{feature.name}</td>
-                      {["basic", "professional", "enterprise"].map((plan) => {
-                        const val = feature[plan];
+                  {comparisonFeatures.map((feature) => (
+                    <tr key={feature.name} className="saas-comp-row" style={{ borderTop: `1px solid ${V.line2}` }}>
+                      <td className="px-6 py-3.5 text-sm font-medium" style={{ color: V.ink }}>{feature.name}</td>
+                      {plans.map((p) => {
+                        const val = feature[p.key];
                         return (
-                          <td key={plan} className="px-4 py-3 text-center">
+                          <td key={p.key} className={`px-4 py-3.5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
                             {typeof val === "boolean" ? (
-                              val ? <Check className="w-4 h-4 mx-auto" style={{ color: V.accent }} /> : <X className="w-4 h-4 text-gray-300 mx-auto" />
+                              val ? (
+                                <span className="inline-grid h-6 w-6 place-items-center align-middle" style={{ background: "rgba(var(--tenant-accent-rgb),.12)" }}>
+                                  <Check className="h-3.5 w-3.5" strokeWidth={3} style={{ color: V.primary }} />
+                                </span>
+                              ) : (
+                                <span className="text-[15px] font-medium text-gray-300">—</span>
+                              )
                             ) : (
-                              <span className="text-sm font-medium" style={{ color: V.ink }}>{val}</span>
+                              <span className="text-sm font-semibold" style={{ color: V.ink }}>{val}</span>
                             )}
                           </td>
                         );
@@ -330,6 +387,22 @@ export default function PlansPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: `1px solid ${V.line}` }}>
+                    <td className="px-6 py-5" />
+                    {plans.map((p) => (
+                      <td key={p.key} className={`px-4 py-5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
+                        <Link to={`/register?plan=${p.key}&billing=monthly`}
+                          className="saas-btn-primary group inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"
+                          style={p.popular
+                            ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff" }
+                            : { background: V.surface2, color: V.ink, border: `1px solid ${V.line}` }}>
+                          Choose <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+                        </Link>
+                      </td>
+                    ))}
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </Reveal>
@@ -341,55 +414,21 @@ export default function PlansPage() {
         <div className="max-w-3xl mx-auto">
           <Reveal>
             <div className="text-center mb-12">
-              <span className="inline-block px-2 py-1 rounded text-xs tracking-[.08em] mb-3"
-                style={{ fontFamily: mono, color: V.inkFaint, background: V.surface, border: `1px solid ${V.line}` }}>
-                FAQ
-              </span>
-              <h2 className="text-[clamp(28px,3.5vw,42px)] font-medium tracking-[-0.025em]" style={{ color: V.ink }}>
+              <h2 className="text-[clamp(28px,3.8vw,44px)] font-bold tracking-[-0.025em]" style={{ color: V.ink }}>
                 Frequently asked questions
               </h2>
-              <p className="mt-3" style={{ color: V.inkSoft }}>Got questions? We've got answers.</p>
+              <p className="mt-3 mx-auto max-w-[520px] text-[16.5px] leading-relaxed" style={{ color: V.inkSoft }}>
+                Everything you need to know about plans and billing. Can't find what you're after? We're only a message away.
+              </p>
             </div>
           </Reveal>
 
-          <div className="space-y-2">
-            {faqs.map((faq, i) => (
-              <Reveal key={i} delay={i * 0.05}>
-                <div className="saas-faq-item rounded-[10px] overflow-hidden"
-                  style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.04)` }}>
-                  <button
-                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full flex items-center justify-between px-5 py-5 text-left"
-                  >
-                    <span className="text-[16px] font-medium tracking-tight pr-4" style={{ color: V.ink }}>{faq.q}</span>
-                    <motion.span
-                      className="w-[22px] h-[22px] rounded-md grid place-items-center text-sm shrink-0"
-                      style={{ background: openFaq === i ? V.accent : V.surface2, border: `1px solid ${openFaq === i ? "transparent" : V.line}`, color: openFaq === i ? V.bg : V.inkSoft }}
-                      animate={{ rotate: openFaq === i ? 45 : 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      +
-                    </motion.span>
-                  </button>
-                  <AnimatePresence>
-                    {openFaq === i && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
-                        className="overflow-hidden"
-                      >
-                        <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: V.inkSoft }}>{faq.a}</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </Reveal>
-            ))}
-          </div>
+          <FaqList faqs={faqs} />
         </div>
       </section>
+
+      {/* ── CTA ── */}
+      <CtaSection primaryLabel="Start your portal" primaryTo="/register" />
     </div>
   );
 }
