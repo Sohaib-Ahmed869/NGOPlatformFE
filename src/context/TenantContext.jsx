@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axiosInstance from "../services/axios";
 import siteService from "../services/site.service";
 import planLimitsConfig from "../config/planLimits";
@@ -232,33 +232,55 @@ export function TenantProvider({ children }) {
     }
   }, [tenantMode, slug]);
 
-  // On the public marketing site, load the platform's own branding + contact so
-  // the navbar/footer/colours render dynamically (edited in SuperAdmin → Platform).
+  // Re-fetch the platform's public branding/contact. Exposed via context so the
+  // SuperAdmin → Platform screen can call it right after saving and the browser
+  // tab (+ loader + marketing colours) update INSTANTLY, with no page reload.
+  const refreshPlatform = useCallback(async () => {
+    try {
+      const res = await axiosInstance.get("/platform/public");
+      setPlatform(res.data);
+      return res.data;
+    } catch (err) {
+      console.error("Failed to load platform settings:", err);
+      return null;
+    }
+  }, []);
+
+  // On the public marketing site AND the operator console, load the platform's
+  // own branding + contact so the navbar/footer/colours (public) and the branded
+  // loader (superadmin) render dynamically (edited in SuperAdmin → Platform).
   useEffect(() => {
-    if (tenantMode !== "public") return;
-    axiosInstance
-      .get("/platform/public")
-      .then((res) => {
-        setPlatform(res.data);
-        if (res.data?.name) document.title = res.data.name;
-        // Favicon: explicit favicon, else the dark icon (sits on a light tab), else the light icon.
-        const faviconUrl = res.data?.favicon || res.data?.iconLogoDark || res.data?.iconLogo || "";
-        if (faviconUrl) {
-          let link = document.querySelector("link[rel~='icon']");
-          if (!link) {
-            link = document.createElement("link");
-            link.rel = "icon";
-            document.head.appendChild(link);
-          }
-          link.removeAttribute("type");
-          link.href = faviconUrl;
-        }
-      })
-      .catch((err) => console.error("Failed to load platform settings:", err));
-  }, [tenantMode]);
+    if (tenantMode !== "public" && tenantMode !== "superadmin") return;
+    refreshPlatform();
+  }, [tenantMode, refreshPlatform]);
+
+  // Keep the browser tab (title + favicon) in sync with the platform brand —
+  // re-runs whenever `platform` changes, so an in-app settings save reflects live.
+  useEffect(() => {
+    if (!platform) return;
+    if (platform.name) document.title = platform.name;
+    // Favicon: explicit favicon, else the dark icon (sits on a light tab), the
+    // light icon, then the full logo — so the tab reflects the brand whenever
+    // ANY branding image is set.
+    const faviconUrl = platform.favicon || platform.iconLogoDark || platform.iconLogo || platform.logoDark || platform.logo || "";
+    if (faviconUrl) {
+      let link = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        document.head.appendChild(link);
+      }
+      link.removeAttribute("type");
+      link.href = faviconUrl;
+    }
+  }, [platform]);
 
   const plan = organisation?.plan || null;
-  const limits = plan ? planLimitsConfig[plan] : null;
+  // Server-resolved plan entitlements (feature flags + metered limits, override
+  // already merged). Falls back to the static mirror only before the org loads.
+  const entitlements = organisation?.entitlements || { features: {}, limits: {} };
+  const limits =
+    organisation?.entitlements?.limits || (plan ? planLimitsConfig[plan] : null);
   // In design-preview mode the posted draft wins so navbar/footer render their
   // draft layout variants; otherwise the published design drives the site.
   const design = isDesignPreview && previewDesign ? resolveDesign(previewDesign) : resolveDesign(organisation?.design);
@@ -275,10 +297,20 @@ export function TenantProvider({ children }) {
   const pages = organisation?.pages || [];
 
   // Is a given route path an enabled page? Paths not managed by the CMS
-  // (e.g. /login, /checkout) return true so they always render.
+  // (e.g. /login, /checkout) return true so they always render. Plan gating is
+  // already folded into page.enabled server-side (see getBySlug), so this also
+  // covers plan-disabled pages.
   const isPathEnabled = (path) => {
     const page = pages.find((p) => p.path === path);
     return page ? page.enabled : true;
+  };
+
+  // Does the current plan allow a capability flag (config/featureCatalog key)?
+  // Before entitlements resolve (loading / public site) nothing is hidden.
+  const hasFeature = (key) => {
+    const f = entitlements.features || {};
+    if (!key || Object.keys(f).length === 0) return true;
+    return f[key] !== false;
   };
 
   const value = {
@@ -287,12 +319,15 @@ export function TenantProvider({ children }) {
     organisation,
     plan,
     limits,
+    entitlements,
+    hasFeature,
     branding,
     design,
     pages,
     isPathEnabled,
     isMuslimCharity: !!organisation?.isMuslimCharity,
     platform,
+    refreshPlatform,
     loading,
     error,
   };

@@ -53,8 +53,10 @@ function Dots() {
 }
 
 export function TabLoader({ label = "Loading", className = "" }) {
-  const { branding, organisation, slug } = useTenant();
-  const name = prettify(organisation?.name || branding?.siteTitle || slug);
+  const { branding, organisation, slug, platform } = useTenant();
+  // In the operator console there's no tenant — fall back to the platform's own
+  // name (e.g. "Calcite") so the branded loader shows there too.
+  const name = prettify(organisation?.name || branding?.siteTitle || platform?.name || slug);
 
   const nameCls =
     "font-heading text-2xl font-bold tracking-tight text-center select-none sm:text-3xl md:text-4xl";

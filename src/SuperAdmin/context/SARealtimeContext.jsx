@@ -15,6 +15,7 @@ const SARealtimeContext = createContext(null);
 export function SARealtimeProvider({ children }) {
   const { user } = useAuth();
   const [unreadContactQueries, setUnreadContactQueries] = useState(0);
+  const [pendingBrandingRequests, setPendingBrandingRequests] = useState(0);
   const [socket, setSocket] = useState(null);
 
   const refreshContactUnread = useCallback(async () => {
@@ -26,27 +27,48 @@ export function SARealtimeProvider({ children }) {
     }
   }, []);
 
+  const refreshBrandingPending = useCallback(async () => {
+    try {
+      const res = await superadminService.getBrandingPendingCount();
+      setPendingBrandingRequests(res.data.count || 0);
+    } catch {
+      /* non-fatal — keep the last known value */
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return undefined;
     const s = getSocket();
     setSocket(s);
     refreshContactUnread();
+    refreshBrandingPending();
 
-    const onActivity = () => refreshContactUnread();
-    s.on("connect", onActivity);
-    s.on("contactQuery:new", onActivity);
-    s.on("contactQuery:message", onActivity);
-    s.on("contactQuery:updated", onActivity);
-    s.on("contactQuery:deleted", onActivity);
+    const onContact = () => refreshContactUnread();
+    const onBranding = () => refreshBrandingPending();
+    const onConnect = () => {
+      refreshContactUnread();
+      refreshBrandingPending();
+    };
+    s.on("connect", onConnect);
+    s.on("contactQuery:new", onContact);
+    s.on("contactQuery:message", onContact);
+    s.on("contactQuery:updated", onContact);
+    s.on("contactQuery:deleted", onContact);
+    s.on("brandingRequest:new", onBranding);
+    s.on("brandingRequest:updated", onBranding);
+    s.on("brandingRequest:deleted", onBranding);
 
     return () => {
-      s.off("connect", onActivity);
-      s.off("contactQuery:new", onActivity);
-      s.off("contactQuery:message", onActivity);
-      s.off("contactQuery:updated", onActivity);
-      s.off("contactQuery:deleted", onActivity);
+      s.off("connect", onConnect);
+      s.off("contactQuery:new", onContact);
+      s.off("contactQuery:message", onContact);
+      s.off("contactQuery:updated", onContact);
+      s.off("contactQuery:deleted", onContact);
+      s.off("brandingRequest:new", onBranding);
+      s.off("brandingRequest:updated", onBranding);
+      s.off("brandingRequest:deleted", onBranding);
     };
-  }, [user, refreshContactUnread]);
+  }, [user, refreshContactUnread, refreshBrandingPending]);
 
   // Tear the socket down on logout so a new login reconnects with a fresh token.
   useEffect(() => {
@@ -54,7 +76,7 @@ export function SARealtimeProvider({ children }) {
   }, [user]);
 
   return (
-    <SARealtimeContext.Provider value={{ unreadContactQueries, refreshContactUnread, socket }}>
+    <SARealtimeContext.Provider value={{ unreadContactQueries, pendingBrandingRequests, refreshContactUnread, refreshBrandingPending, socket }}>
       {children}
     </SARealtimeContext.Provider>
   );
@@ -64,7 +86,9 @@ export function useSARealtime() {
   return (
     useContext(SARealtimeContext) || {
       unreadContactQueries: 0,
+      pendingBrandingRequests: 0,
       refreshContactUnread: () => {},
+      refreshBrandingPending: () => {},
       socket: null,
     }
   );

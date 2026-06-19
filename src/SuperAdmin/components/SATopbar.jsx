@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Menu, PanelLeftClose, PanelLeftOpen, ChevronDown, LogOut, Sun, Moon, Settings } from "lucide-react";
+import { Home, Menu, PanelLeftClose, PanelLeftOpen, ChevronDown, LogOut, Sun, Moon, Settings, Palette, Check } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
+import { useSATheme } from "../saTheme";
 import { cn } from "../../utils/cn";
 import ProfileService from "../../services/profile.service";
 
@@ -19,6 +20,7 @@ const LABELS = {
   "/dashboard": "Dashboard",
   "/organisations": "Organisations",
   "/plans": "Plans",
+  "/features": "Features",
   "/billing": "Billing",
   "/invoices": "Invoices",
   "/coupons": "Coupons",
@@ -63,6 +65,75 @@ function ThemeToggle() {
     >
       {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </button>
+  );
+}
+
+/* Quick colour-theme picker — same presets as Settings → Appearance, surfaced
+   in the header so the whole console can be recoloured from anywhere. */
+function ThemePicker() {
+  const [open, setOpen] = useState(false);
+  const { themeId, setTheme, reset, categories } = useSATheme();
+  const initialCat = categories.find((c) => c.themes?.some((t) => t.id === themeId))?.id || categories[0]?.id;
+  const [cat, setCat] = useState(initialCat);
+  const ref = useRef(null);
+  useClickOutside(ref, () => setOpen(false));
+  const themes = categories.find((c) => c.id === cat)?.themes || [];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-label="Console theme" title="Console theme" aria-haspopup="menu" aria-expanded={open} className={iconBtn}>
+        <Palette className="h-5 w-5" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-40 mt-2 w-[300px] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)]">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-white/10">
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Console theme</p>
+            <button type="button" onClick={reset} className="text-[11px] font-medium text-accent hover:underline">Reset</button>
+          </div>
+          <div className="p-3">
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCat(c.id)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    cat === c.id ? "bg-accent text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/10 dark:text-white/70",
+                  )}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto">
+              {themes.map((t) => {
+                const active = themeId === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTheme(t)}
+                    title={t.desc}
+                    className={cn("relative rounded-lg border-2 p-2 text-left transition-all", active ? "border-accent shadow-sm" : "border-gray-100 hover:border-gray-200 dark:border-white/10")}
+                  >
+                    {active && (
+                      <span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-accent"><Check className="h-2.5 w-2.5 text-white" /></span>
+                    )}
+                    <span className="mb-1.5 flex h-7 overflow-hidden rounded-md border border-black/5">
+                      <span className="flex-1" style={{ background: t.primary }} />
+                      <span className="flex-1" style={{ background: t.accent }} />
+                      <span className="flex-1" style={{ background: t.bg }} />
+                    </span>
+                    <span className="block truncate text-[11px] font-semibold text-gray-800 dark:text-white/85">{t.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -202,6 +273,7 @@ export default function SATopbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          <ThemePicker />
           <ThemeToggle />
           <UserMenu />
         </div>

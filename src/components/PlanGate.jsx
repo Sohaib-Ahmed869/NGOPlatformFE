@@ -1,51 +1,42 @@
 import React from "react";
 import { useTenant } from "../context/TenantContext";
 
-const planHierarchy = { basic: 1, professional: 2, enterprise: 3 };
+// Legacy feature names → canonical config/featureCatalog keys.
+const FEATURE_ALIASES = { volunteerEnabled: "volunteers" };
 
 /**
- * Plan-aware feature guard component.
+ * Plan-aware feature guard component, driven by the server-resolved plan
+ * entitlements (feature flags + metered limits, override already merged).
  *
- * Usage:
- *   <PlanGate feature="volunteerEnabled">
- *     <VolunteersTab />
- *   </PlanGate>
+ * Capability flag (boolean):
+ *   <PlanGate feature="events"><EventsTab /></PlanGate>
  *
+ * Metered limit (numeric — pass the current usage):
  *   <PlanGate feature="campaigns" current={campaignCount}>
  *     <CreateCampaignButton />
  *   </PlanGate>
  */
 export default function PlanGate({ feature, current, children, fallback }) {
-  const { plan, limits } = useTenant();
+  const { plan, limits, hasFeature } = useTenant();
+  const key = FEATURE_ALIASES[feature] || feature;
 
-  // If no tenant context (e.g., public mode), don't render
-  if (!plan || !limits) {
-    return fallback || null;
-  }
+  // No tenant context (e.g. public marketing site) → render nothing by default.
+  if (!plan) return fallback ?? null;
 
-  const limitValue = limits[feature];
-
-  // Boolean feature check (e.g., volunteerEnabled)
-  if (typeof limitValue === "boolean") {
-    if (!limitValue) {
-      return fallback || <UpgradePrompt feature={feature} plan={plan} />;
+  // Numeric limit check (caller passed the current usage).
+  if (current !== undefined) {
+    const limitValue = limits ? limits[key] : undefined;
+    const unlimited = limitValue === null || limitValue === undefined || limitValue === Infinity;
+    if (!unlimited && current >= Number(limitValue)) {
+      return fallback ?? <UpgradePrompt feature={key} plan={plan} limit={limitValue} />;
     }
     return children;
   }
 
-  // Numeric limit check (e.g., campaigns: 3)
-  if (typeof limitValue === "number" && current !== undefined) {
-    if (limitValue !== Infinity && current >= limitValue) {
-      return (
-        fallback || (
-          <UpgradePrompt feature={feature} plan={plan} limit={limitValue} />
-        )
-      );
-    }
-    return children;
+  // Boolean capability check.
+  if (!hasFeature(key)) {
+    return fallback ?? <UpgradePrompt feature={key} plan={plan} />;
   }
-
-  // No limit defined for this feature, render children
   return children;
 }
 

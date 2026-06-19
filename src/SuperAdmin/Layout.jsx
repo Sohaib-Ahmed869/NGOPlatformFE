@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { AdminUiProvider, useAdminUi } from "../context/AdminUiContext";
 import { SARealtimeProvider } from "./context/SARealtimeContext";
 import { SAThemeProvider } from "./saTheme";
+import { ConfirmProvider } from "./components/ConfirmProvider";
 import SASidebar from "./components/SASidebar";
 import SATopbar from "./components/SATopbar";
 import { cn } from "../utils/cn";
@@ -18,6 +19,7 @@ function SAShell() {
   return (
     <div
       data-admin-theme={theme}
+      data-sa-console=""
       className="min-h-screen"
       style={{ backgroundColor: "var(--tenant-sidebar-top)" }}
     >
@@ -47,7 +49,9 @@ export default function SuperAdminLayout() {
     <AdminUiProvider>
       <SAThemeProvider>
         <SARealtimeProvider>
-          <SAShell />
+          <ConfirmProvider>
+            <SAShell />
+          </ConfirmProvider>
         </SARealtimeProvider>
       </SAThemeProvider>
     </AdminUiProvider>

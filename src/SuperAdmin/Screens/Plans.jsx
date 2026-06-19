@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers,
@@ -6,70 +7,57 @@ import {
   Check,
   Pencil,
   Archive,
-  X,
   AlertTriangle,
   Users,
-  Zap,
   CloudOff,
+  RefreshCw,
+  DollarSign,
+  Activity,
+  CheckCircle2,
+  Megaphone,
+  Zap,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
-import SAPageHeader from "../components/SAPageHeader";
 import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
-const card = "rounded-xl border border-gray-100 bg-white shadow-sm";
-const inputCls =
-  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
-const labelCls = "mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-gray-400";
-
-const EMPTY_FORM = {
-  code: "",
-  name: "",
-  description: "",
-  currency: "usd",
-  price: { monthly: "", annual: "" },
-  limits: { campaigns: "", volunteers: "", volunteerEnabled: false },
-  features: [],
-  isPublic: true,
-};
+const card = "border border-gray-100 bg-white shadow-sm";
+const ACCENT = "var(--tenant-accent, #047857)";
+const accentTint = (a) => `rgba(var(--tenant-accent-rgb, 4, 120, 87), ${a})`;
+const HERO_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
 
 const fmtLimit = (v) => (v === null || v === undefined ? "Unlimited" : v);
-const money = (v, ccy) =>
-  `${(ccy || "usd").toUpperCase() === "USD" ? "$" : ""}${Number(v || 0).toLocaleString()}`;
+const CCY_SYMBOL = { AUD: "A$", USD: "$", GBP: "£", EUR: "€", NZD: "NZ$", CAD: "C$" };
+const money = (v, ccy) => {
+  const c = (ccy || "aud").toUpperCase();
+  const sym = CCY_SYMBOL[c] || "";
+  return `${sym}${Number(v || 0).toLocaleString()}${sym ? "" : ` ${c}`}`;
+};
 
-function planToForm(p) {
-  return {
-    code: p.code,
-    name: p.name,
-    description: p.description || "",
-    currency: p.currency || "usd",
-    price: {
-      monthly: p.price?.monthly ?? "",
-      annual: p.price?.annual ?? "",
-    },
-    limits: {
-      campaigns: p.limits?.campaigns ?? "", // "" = Unlimited
-      volunteers: p.limits?.volunteers ?? "",
-      volunteerEnabled: !!p.limits?.volunteerEnabled,
-    },
-    features: Array.isArray(p.features) ? [...p.features] : [],
-    isPublic: p.isPublic !== false,
-  };
+function HeaderStat({ icon: Icon, label, value, color }) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
+      <span className="grid h-9 w-9 shrink-0 place-items-center" style={{ background: `${color}1a`, color }}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-lg font-bold leading-none text-gray-900">{value}</p>
+        <p className="mt-1 text-xs text-gray-400">{label}</p>
+      </div>
+    </div>
+  );
 }
 
 export default function Plans() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stripeEnabled, setStripeEnabled] = useState(true);
   const [cycle, setCycle] = useState("monthly"); // "monthly" | "annual"
-
-  const [editing, setEditing] = useState(null); // null | { mode:"new" } | { mode:"edit", code }
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [featureDraft, setFeatureDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const [migrate, setMigrate] = useState(null); // { code, count }
   const [archiveTarget, setArchiveTarget] = useState(null);
+  const [resyncing, setResyncing] = useState(null);
 
   const fetchPlans = async () => {
     setLoading(true);
@@ -89,94 +77,6 @@ export default function Plans() {
     fetchPlans();
   }, []);
 
-  const openNew = () => {
-    setForm(EMPTY_FORM);
-    setFeatureDraft("");
-    setEditing({ mode: "new" });
-  };
-  const openEdit = (p) => {
-    setForm(planToForm(p));
-    setFeatureDraft("");
-    setEditing({ mode: "edit", code: p.code });
-  };
-
-  const setField = (path, value) =>
-    setForm((f) => {
-      const next = structuredClone(f);
-      const keys = path.split(".");
-      let ref = next;
-      for (let i = 0; i < keys.length - 1; i++) ref = ref[keys[i]];
-      ref[keys[keys.length - 1]] = value;
-      return next;
-    });
-
-  const addFeature = () => {
-    const v = featureDraft.trim();
-    if (!v) return;
-    setForm((f) => ({ ...f, features: [...f.features, v] }));
-    setFeatureDraft("");
-  };
-  const removeFeature = (i) =>
-    setForm((f) => ({ ...f, features: f.features.filter((_, idx) => idx !== i) }));
-
-  const buildBody = () => ({
-    code: form.code,
-    name: form.name,
-    description: form.description,
-    currency: form.currency,
-    price: {
-      monthly: Number(form.price.monthly) || 0,
-      annual: Number(form.price.annual) || 0,
-    },
-    limits: {
-      campaigns: form.limits.campaigns === "" ? null : Number(form.limits.campaigns),
-      volunteers: form.limits.volunteers === "" ? null : Number(form.limits.volunteers),
-      volunteerEnabled: form.limits.volunteerEnabled,
-    },
-    features: form.features,
-    isPublic: form.isPublic,
-  });
-
-  const handleSave = async () => {
-    if (!form.name.trim() || (editing.mode === "new" && !form.code.trim())) {
-      toast.error("Name and code are required");
-      return;
-    }
-    setSaving(true);
-    try {
-      if (editing.mode === "new") {
-        await superadminService.createPlan(buildBody());
-        toast.success("Plan created");
-        setEditing(null);
-        fetchPlans();
-      } else {
-        const res = await superadminService.updatePlan(editing.code, buildBody());
-        toast.success("Plan updated");
-        setEditing(null);
-        fetchPlans();
-        if (res.data?.priceChanged && res.data?.subscribersAffected > 0) {
-          setMigrate({ code: editing.code, count: res.data.subscribersAffected });
-        }
-      }
-    } catch (err) {
-      toast.error(err?.response?.data?.error || "Failed to save plan");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleMigrate = async () => {
-    if (!migrate) return;
-    try {
-      const res = await superadminService.migratePlanSubscribers(migrate.code);
-      toast.success(`Migrated ${res.data?.migrated ?? 0} subscriber(s)`);
-    } catch {
-      toast.error("Migration failed");
-    } finally {
-      setMigrate(null);
-    }
-  };
-
   const handleArchive = async () => {
     if (!archiveTarget) return;
     try {
@@ -189,45 +89,77 @@ export default function Plans() {
     }
   };
 
+  const handleResync = async (code) => {
+    setResyncing(code);
+    try {
+      await superadminService.resyncPlan(code);
+      toast.success("Synced to Stripe");
+      fetchPlans();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Failed to sync with Stripe");
+    } finally {
+      setResyncing(null);
+    }
+  };
+
+  const plansCurrency = (plans[0]?.currency || "aud").toUpperCase();
+
+  // KPI roll-up across plans.
+  const stats = useMemo(() => {
+    const live = plans.filter((p) => !p.archivedAt);
+    const subscribers = plans.reduce((s, p) => s + (p.subscribers?.total || 0), 0);
+    const mrr = plans.reduce((s, p) => s + (p.price?.monthly || 0) * (p.subscribers?.total || 0), 0);
+    const synced = live.filter((p) => p.stripePriceIds?.monthly).length;
+    return { plans: live.length, subscribers, mrr, synced, total: live.length };
+  }, [plans]);
+
   const cycleBtn = (val, label) => (
     <button
       type="button"
       onClick={() => setCycle(val)}
-      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-        cycle === val ? "bg-accent text-white" : "text-gray-500 hover:bg-gray-50"
-      }`}
+      className={`px-3 py-1.5 text-xs font-medium transition-colors ${cycle === val ? "bg-white text-gray-900" : "text-white/80 hover:bg-white/15"}`}
     >
       {label}
     </button>
   );
 
   return (
-    <div>
-      <SAPageHeader
-        eyebrow="Billing"
-        title="Plans"
-        subtitle="Create and price the plans tenants subscribe to — synced to Stripe."
-        actions={
-          <div className="flex items-center gap-3">
-            <div className="flex overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-white/10">
-              {cycleBtn("monthly", "Monthly")}
-              {cycleBtn("annual", "Annual")}
+    <div className="[&_*]:!rounded-none">
+      {/* Hero + KPI strip */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }} className="mb-6 overflow-hidden border border-gray-100 bg-white shadow-sm">
+        <div className="relative overflow-hidden px-6 py-7 sm:px-8" style={{ background: HERO_GRADIENT }}>
+          <svg aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 text-white" viewBox="0 0 128 128" fill="none">
+            <circle cx="64" cy="64" r="46" fill="currentColor" fillOpacity="0.06" />
+            <circle cx="64" cy="64" r="46" stroke="currentColor" strokeOpacity="0.18" strokeWidth="2" />
+          </svg>
+          <div className="relative flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Billing</p>
+              <h1 className="mt-1 text-2xl font-bold text-white">Plans</h1>
+              <p className="mt-1 text-sm text-white/80">Create and price the plans tenants subscribe to — synced to Stripe.</p>
             </div>
-            <button
-              type="button"
-              onClick={openNew}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
-            >
-              <Plus className="h-4 w-4" /> New Plan
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex overflow-hidden border border-white/25 bg-white/10">
+                {cycleBtn("monthly", "Monthly")}
+                {cycleBtn("annual", "Annual")}
+              </div>
+              <button type="button" onClick={() => navigate("/plans/new")} className="inline-flex items-center gap-1.5 bg-white px-3.5 py-2 text-sm font-semibold transition-colors hover:bg-white/90" style={{ color: ACCENT }}>
+                <Plus className="h-4 w-4" /> New Plan
+              </button>
+            </div>
           </div>
-        }
-      />
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4 sm:divide-y-0">
+          <HeaderStat icon={Layers} label="Active plans" value={stats.plans} color="#6366f1" />
+          <HeaderStat icon={Users} label="Subscribers" value={stats.subscribers.toLocaleString()} color="#10b981" />
+          <HeaderStat icon={DollarSign} label="Est. MRR" value={money(stats.mrr, plansCurrency)} color="#f59e0b" />
+          <HeaderStat icon={Activity} label="Synced" value={`${stats.synced}/${stats.total}`} color="#06b6d4" />
+        </div>
+      </motion.div>
 
       {!stripeEnabled && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
-          <CloudOff className="h-4 w-4 shrink-0" />
-          Stripe is not configured — plans are saved but not synced to Stripe.
+        <div className="mb-5 flex items-center gap-2 border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+          <CloudOff className="h-4 w-4 shrink-0" /> Stripe is not configured — plans are saved but not synced to Stripe.
         </div>
       )}
 
@@ -237,119 +169,106 @@ export default function Plans() {
         <div className={`${card} py-20 text-center`}>
           <Layers className="mx-auto mb-3 h-10 w-10 text-gray-300" />
           <p className="mb-4 text-gray-500">No plans yet</p>
-          <button
-            type="button"
-            onClick={openNew}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
-          >
+          <button type="button" onClick={() => navigate("/plans/new")} className="inline-flex items-center gap-1.5 bg-accent px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
             <Plus className="h-4 w-4" /> Create your first plan
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 pt-3 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((p, i) => {
             const color = p.color || "#10b981";
             const amount = p.price?.[cycle] || 0;
             const otherCycle = cycle === "monthly" ? "annual" : "monthly";
             const synced = !!p.stripePriceIds?.[cycle];
+            const enabledFlags = p.featureFlags ? Object.values(p.featureFlags).filter(Boolean).length : 0;
+            const monthly = p.price?.monthly || 0;
+            const annual = p.price?.annual || 0;
+            const savings = monthly > 0 && annual > 0 && annual < monthly * 12 ? Math.round((1 - annual / (monthly * 12)) * 100) : 0;
+            const popular = p.isPopular && !p.archivedAt;
+            const featLines = p.features?.length
+              ? p.features
+              : [`${fmtLimit(p.limits?.campaigns)} campaigns`, `${fmtLimit(p.limits?.volunteers)} volunteers`, `${enabledFlags || "Default"} capabilities`];
             return (
               <motion.div
                 key={p.code}
-                className={`${card} group flex flex-col p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 ${
-                  p.archivedAt ? "opacity-60" : ""
-                }`}
+                className={`${card} group relative flex h-full flex-col p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 ${p.archivedAt ? "opacity-60" : ""}`}
+                style={popular ? { borderColor: color, boxShadow: `0 0 0 1px ${color}, 0 18px 44px -22px ${color}99` } : undefined}
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.04, ease: [0.2, 0.7, 0.2, 1] }}
               >
-                <div className="mb-3 flex items-start justify-between">
-                  <span
-                    className="grid h-11 w-11 place-items-center rounded-xl"
-                    style={{ background: `${color}14`, color }}
-                  >
-                    <Layers className="h-5 w-5" />
+                {/* Most-popular ribbon (straddles the top edge) */}
+                {popular && (
+                  <span className="absolute -top-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white" style={{ background: color, boxShadow: `0 8px 18px -6px ${color}cc` }}>
+                    <Sparkles className="h-3 w-3" /> Most popular
                   </span>
-                  <div className="flex flex-col items-end gap-1">
-                    {p.archivedAt ? (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-                        Archived
-                      </span>
-                    ) : synced ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                        <Check className="h-3 w-3" /> Synced
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                        Not synced
-                      </span>
-                    )}
-                    {!p.isPublic && !p.archivedAt && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-                        Hidden
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <h3 className="text-sm font-semibold text-gray-900">{p.name}</h3>
-                <p className="mb-3 font-mono text-[11px] text-gray-400">{p.code}</p>
-
-                <div className="mb-3">
-                  <span className="text-2xl font-bold text-gray-900">{money(amount, p.currency)}</span>
-                  <span className="text-xs text-gray-400">/{cycle === "monthly" ? "mo" : "yr"}</span>
-                  <p className="mt-0.5 font-mono text-[10px] text-gray-400">
-                    {money(p.price?.[otherCycle], p.currency)}/{otherCycle === "monthly" ? "mo" : "yr"}
-                  </p>
-                </div>
-
-                <div className="mb-3 space-y-1 border-t border-gray-100 pt-3 font-mono text-[11px] text-gray-500">
-                  <div className="flex justify-between">
-                    <span>Campaigns</span>
-                    <span className="text-gray-800">{fmtLimit(p.limits?.campaigns)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Volunteers</span>
-                    <span className="text-gray-800">{fmtLimit(p.limits?.volunteers)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Volunteer module</span>
-                    <span className="text-gray-800">{p.limits?.volunteerEnabled ? "Yes" : "No"}</span>
-                  </div>
-                </div>
-
-                {p.features?.length > 0 && (
-                  <ul className="mb-3 space-y-1">
-                    {p.features.map((f, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5 text-xs text-gray-600">
-                        <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" /> {f}
-                      </li>
-                    ))}
-                  </ul>
                 )}
 
-                <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-3">
-                  <span className="inline-flex items-center gap-1 font-mono text-[10px] text-gray-400">
-                    <Users className="h-3 w-3" />
-                    {p.subscribers?.total || 0} tenants
-                  </span>
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(p)}
-                      className="inline-flex items-center gap-1 rounded-md border border-accent/20 bg-accent/10 px-2 py-1 text-[10px] font-medium text-accent transition-colors hover:bg-accent/20"
-                    >
-                      <Pencil className="h-3 w-3" /> Edit
+                {/* Admin status badges (top-right) */}
+                <div className="absolute right-4 top-4 flex flex-col items-end gap-1">
+                  {p.archivedAt ? (
+                    <span className="bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Archived</span>
+                  ) : synced ? (
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"><Check className="h-3 w-3" /> Synced</span>
+                  ) : (
+                    <span className="bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">Not synced</span>
+                  )}
+                  {!p.isPublic && !p.archivedAt && <span className="bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Hidden</span>}
+                </div>
+
+                {/* Name + description */}
+                <h3 className="pr-20 text-lg font-bold text-gray-900">{p.name}</h3>
+                <p className="mt-1 min-h-[2.4em] pr-4 text-xs leading-relaxed text-gray-500">{p.description || p.code}</p>
+
+                {/* Price */}
+                <div className="mt-4 flex flex-wrap items-end gap-x-1.5 border-b border-gray-100 pb-5">
+                  <span className="text-[40px] font-extrabold leading-none text-gray-900">{money(amount, p.currency)}</span>
+                  <span className="mb-1 text-sm text-gray-400">/{cycle === "monthly" ? "month" : "year"}</span>
+                  {savings > 0 && (
+                    <span className="mb-1 ml-auto inline-flex items-center bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">Save {savings}%</span>
+                  )}
+                  <p className="mt-1 w-full font-mono text-[10px] text-gray-400">{money(p.price?.[otherCycle], p.currency)}/{otherCycle === "monthly" ? "mo" : "yr"}</p>
+                </div>
+
+                {/* Feature checks */}
+                <ul className="mt-5 flex-1 space-y-2.5">
+                  {featLines.slice(0, 6).map((f, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5 text-[13px] text-gray-600">
+                      <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center" style={{ background: `${color}1a` }}>
+                        <Check className="h-3 w-3" strokeWidth={3} style={{ color }} />
+                      </span>
+                      {f}
+                    </li>
+                  ))}
+                  {featLines.length > 6 && <li className="pl-6 text-[11px] text-gray-400">+{featLines.length - 6} more</li>}
+                </ul>
+
+                {!p.archivedAt && !synced && stripeEnabled && (
+                  <button type="button" onClick={() => handleResync(p.code)} disabled={resyncing === p.code} className="mt-5 inline-flex w-full items-center justify-center gap-1.5 border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50">
+                    <RefreshCw className={`h-3 w-3 ${resyncing === p.code ? "animate-spin" : ""}`} />
+                    {resyncing === p.code ? "Syncing…" : "Sync to Stripe"}
+                  </button>
+                )}
+
+                {/* CTA — Edit plan */}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/plans/${p.code}/edit`)}
+                  className="group/btn mt-5 inline-flex w-full items-center justify-center gap-2 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={popular ? { background: color, color: "#fff" } : { background: `${color}12`, color, border: `1px solid ${color}33` }}
+                >
+                  Edit plan
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover/btn:translate-x-0.5" />
+                </button>
+
+                {/* Admin meta footer */}
+                <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 text-[11px] text-gray-400">
+                  <span className="inline-flex items-center gap-1 font-mono"><Users className="h-3 w-3" /> {p.subscribers?.total || 0} tenants</span>
+                  {!p.archivedAt && (
+                    <button type="button" onClick={() => setArchiveTarget(p)} className="inline-flex items-center gap-1 font-medium text-gray-400 transition-colors hover:text-red-500">
+                      <Archive className="h-3 w-3" /> Archive
                     </button>
-                    {!p.archivedAt && (
-                      <button
-                        type="button"
-                        onClick={() => setArchiveTarget(p)}
-                        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-medium text-red-600 transition-colors hover:bg-red-100"
-                      >
-                        <Archive className="h-3 w-3" /> Archive
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </motion.div>
             );
@@ -357,305 +276,20 @@ export default function Plans() {
         </div>
       )}
 
-      {/* Create / Edit modal */}
-      <AnimatePresence>
-        {editing && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditing(null)} />
-            <motion.div
-              className={`${card} relative max-h-[90vh] w-full max-w-lg overflow-y-auto p-6 shadow-xl`}
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-            >
-              <div className="mb-5 flex items-start justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {editing.mode === "new" ? "New Plan" : "Edit Plan"}
-                  </h3>
-                  <p className="text-xs text-gray-400">
-                    {editing.mode === "new"
-                      ? "Creates a Stripe product + prices automatically."
-                      : "Editing a price mints a new Stripe price."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditing(null)}
-                  className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-700"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelCls}>Name</label>
-                    <input
-                      className={inputCls}
-                      value={form.name}
-                      onChange={(e) => setField("name", e.target.value)}
-                      placeholder="Professional"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Code</label>
-                    <input
-                      className={`${inputCls} ${editing.mode === "edit" ? "cursor-not-allowed opacity-60" : ""}`}
-                      value={form.code}
-                      disabled={editing.mode === "edit"}
-                      onChange={(e) => setField("code", e.target.value)}
-                      placeholder="professional"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelCls}>Description</label>
-                  <input
-                    className={inputCls}
-                    value={form.description}
-                    onChange={(e) => setField("description", e.target.value)}
-                    placeholder="Growing organisations that need more."
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className={labelCls}>Currency</label>
-                    <input
-                      className={inputCls}
-                      value={form.currency}
-                      onChange={(e) => setField("currency", e.target.value)}
-                      placeholder="usd"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Monthly</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className={inputCls}
-                      value={form.price.monthly}
-                      onChange={(e) => setField("price.monthly", e.target.value)}
-                      placeholder="500"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Annual</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className={inputCls}
-                      value={form.price.annual}
-                      onChange={(e) => setField("price.annual", e.target.value)}
-                      placeholder="4800"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
-                  <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-gray-400">Limits</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelCls}>Campaigns</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className={inputCls}
-                        value={form.limits.campaigns}
-                        onChange={(e) => setField("limits.campaigns", e.target.value)}
-                        placeholder="Unlimited"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Volunteers</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className={inputCls}
-                        value={form.limits.volunteers}
-                        onChange={(e) => setField("limits.volunteers", e.target.value)}
-                        placeholder="Unlimited"
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-1.5 text-[10px] text-gray-400">Leave blank for unlimited.</p>
-                  <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={form.limits.volunteerEnabled}
-                      onChange={(e) => setField("limits.volunteerEnabled", e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
-                    />
-                    Volunteer module enabled
-                  </label>
-                </div>
-
-                <div>
-                  <label className={labelCls}>Features</label>
-                  <div className="flex gap-2">
-                    <input
-                      className={inputCls}
-                      value={featureDraft}
-                      onChange={(e) => setFeatureDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addFeature();
-                        }
-                      }}
-                      placeholder="Add a feature and press Enter"
-                    />
-                    <button
-                      type="button"
-                      onClick={addFeature}
-                      className="shrink-0 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50 dark:border-white/10"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  {form.features.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {form.features.map((f, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
-                        >
-                          {f}
-                          <button type="button" onClick={() => removeFeature(idx)} className="text-gray-400 hover:text-red-500">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={form.isPublic}
-                    onChange={(e) => setField("isPublic", e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
-                  />
-                  Show on the public pricing page
-                </label>
-              </div>
-
-              <div className="mt-6 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditing(null)}
-                  className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
-                >
-                  {saving ? "Saving…" : editing.mode === "new" ? "Create Plan" : "Save Changes"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Price-change → migrate prompt */}
-      <AnimatePresence>
-        {migrate && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMigrate(null)} />
-            <motion.div
-              className={`${card} relative w-full max-w-sm p-6 shadow-xl`}
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-            >
-              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-amber-50 ring-1 ring-amber-100">
-                <Zap className="h-6 w-6 text-amber-500" />
-              </div>
-              <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">New Stripe price created</h3>
-              <p className="mb-6 text-center text-sm text-gray-500">
-                <strong className="text-gray-800">{migrate.count}</strong> active tenant
-                {migrate.count === 1 ? "" : "s"} stay on the old price until migrated. Move them to the new
-                price now?
-              </p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMigrate(null)}
-                  className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10"
-                >
-                  Keep grandfathered
-                </button>
-                <button
-                  type="button"
-                  onClick={handleMigrate}
-                  className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
-                >
-                  Migrate {migrate.count}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Archive confirm */}
       <AnimatePresence>
         {archiveTarget && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setArchiveTarget(null)} />
-            <motion.div
-              className={`${card} relative w-full max-w-sm p-6 shadow-xl`}
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-            >
-              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-red-50 ring-1 ring-red-100">
+            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
+              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center bg-red-50 ring-1 ring-red-100">
                 <AlertTriangle className="h-6 w-6 text-red-500" />
               </div>
               <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">Archive Plan</h3>
-              <p className="mb-6 text-center text-sm text-gray-500">
-                Archive <strong className="text-gray-800">{archiveTarget.name}</strong>? It will be hidden from
-                signup; existing subscribers are unaffected.
-              </p>
+              <p className="mb-6 text-center text-sm text-gray-500">Archive <strong className="text-gray-800">{archiveTarget.name}</strong>? It will be hidden from signup; existing subscribers are unaffected.</p>
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setArchiveTarget(null)}
-                  className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleArchive}
-                  className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700"
-                >
-                  Archive
-                </button>
+                <button type="button" onClick={() => setArchiveTarget(null)} className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">Cancel</button>
+                <button type="button" onClick={handleArchive} className="flex-1 bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700">Archive</button>
               </div>
             </motion.div>
           </motion.div>

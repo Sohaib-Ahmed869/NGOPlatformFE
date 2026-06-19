@@ -127,6 +127,8 @@ import SADashboard from "./SuperAdmin/Screens/Dashboard";
 import Organisations from "./SuperAdmin/Screens/Organisations";
 import OrganisationDetail from "./SuperAdmin/Screens/OrganisationDetail";
 import Plans from "./SuperAdmin/Screens/Plans";
+import PlanEditor from "./SuperAdmin/Screens/PlanEditor";
+import Features from "./SuperAdmin/Screens/Features";
 import Tickets from "./SuperAdmin/Screens/Tickets";
 import TicketDetail from "./SuperAdmin/Screens/TicketDetail";
 import KanbanBoard from "./SuperAdmin/Screens/KanbanBoard";
@@ -137,6 +139,10 @@ import BrandingRequests from "./SuperAdmin/Screens/BrandingRequests";
 import ContactQueries from "./SuperAdmin/Screens/ContactQueries";
 import SASettings from "./SuperAdmin/Screens/Settings";
 import PlatformSettings from "./SuperAdmin/Screens/PlatformSettings";
+import SupportSessions from "./SuperAdmin/Screens/SupportSessions";
+import SupportSessionDetail from "./SuperAdmin/Screens/SupportSessionDetail";
+import AuditLog from "./SuperAdmin/Screens/AuditLog";
+import SupportSessionBanner from "./Admin/components/SupportSessionBanner";
 import ProtectedSuperAdminRoute from "./components/ProtectedSuperAdminRoute";
 import TenantLoader from "./components/TenantLoader";
 
@@ -305,6 +311,9 @@ const SuperAdminRoutes = () => (
       <Route path="organisations" element={<Organisations />} />
       <Route path="organisations/:id" element={<OrganisationDetail />} />
       <Route path="plans" element={<Plans />} />
+      <Route path="plans/new" element={<PlanEditor />} />
+      <Route path="plans/:code/edit" element={<PlanEditor />} />
+      <Route path="features" element={<Features />} />
       <Route path="tickets" element={<Tickets />} />
       <Route path="tickets/:id" element={<TicketDetail />} />
       <Route path="kanban" element={<KanbanBoard />} />
@@ -313,6 +322,9 @@ const SuperAdminRoutes = () => (
       <Route path="coupons" element={<Coupons />} />
       <Route path="branding-requests" element={<BrandingRequests />} />
       <Route path="contact-queries" element={<ContactQueries />} />
+      <Route path="support-sessions" element={<SupportSessions />} />
+      <Route path="support-sessions/:sessionId" element={<SupportSessionDetail />} />
+      <Route path="audit" element={<AuditLog />} />
       <Route path="platform" element={<PlatformSettings />} />
       <Route path="settings" element={<SASettings />} />
       <Route path="profile" element={<SASettings />} />
@@ -538,6 +550,10 @@ function AppInner() {
   return (
     <LoaderContext.Provider value={{ loaderDone }}>
       <ScrollToTop />
+      {/* Platform-support impersonation banner — self-hides unless a support
+          session is active; rendered once here so it shows on the public site,
+          the admin portal and the donor portal alike. */}
+      <SupportSessionBanner />
       <Toaster
         position="top-right"
         gutter={10}

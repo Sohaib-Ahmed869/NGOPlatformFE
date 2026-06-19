@@ -286,7 +286,10 @@ export default function SASettings() {
   if (loading) return <SALoader />;
 
   return (
-    <div>
+    // Sharp-corner variant of this screen: square every descendant's corners
+    // (cards, tabs, avatar, pills, buttons, inputs, QR/2FA panels, swatches) for an
+    // angular look — matches the Platform / Organisations screens.
+    <div className="[&_*]:!rounded-none">
       <SAPageHeader eyebrow="Account" title="Settings" subtitle="Manage your account and console preferences." />
 
       {/* Identity banner */}

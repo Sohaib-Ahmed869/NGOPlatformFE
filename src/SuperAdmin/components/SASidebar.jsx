@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
@@ -23,6 +23,7 @@ const NAV_GROUPS = [
     label: "Billing",
     items: [
       { label: "Plans", path: "/plans", icon: Layers },
+      { label: "Features", path: "/features", icon: SlidersHorizontal },
       { label: "Coupons", path: "/coupons", icon: Ticket },
       { label: "Billing", path: "/billing", icon: CreditCard },
       { label: "Invoices", path: "/invoices", icon: Receipt },
@@ -34,6 +35,13 @@ const NAV_GROUPS = [
       { label: "Support Tickets", path: "/tickets", icon: LifeBuoy },
       { label: "Kanban", path: "/kanban", icon: KanbanSquare },
       { label: "Contact Queries", path: "/contact-queries", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Security",
+    items: [
+      { label: "Support Sessions", path: "/support-sessions", icon: ShieldCheck },
+      { label: "Audit Log", path: "/audit", icon: ScrollText },
     ],
   },
   {
@@ -54,7 +62,7 @@ const activeItemStyle = {
 export default function SASidebar() {
   const { logout } = useAuth();
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar, collapsedGroups, toggleGroup } = useAdminUi();
-  const { unreadContactQueries } = useSARealtime();
+  const { unreadContactQueries, pendingBrandingRequests } = useSARealtime();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -167,6 +175,12 @@ export default function SASidebar() {
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+                      const badgeCount =
+                        item.path === "/contact-queries"
+                          ? unreadContactQueries
+                          : item.path === "/branding-requests"
+                            ? pendingBrandingRequests
+                            : 0;
                       return (
                         <li key={item.path}>
                           <NavLink
@@ -188,11 +202,11 @@ export default function SASidebar() {
                             ) : null}
                             <Icon className="h-[18px] w-[18px] shrink-0" />
                             <span className={cn("min-w-0 flex-1 truncate transition-opacity duration-200", sidebarCollapsed && "opacity-0")}>{item.label}</span>
-                            {item.path === "/contact-queries" && unreadContactQueries > 0 ? (
+                            {badgeCount > 0 ? (
                               sidebarCollapsed ? (
                                 <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
                               ) : (
-                                <span className="ml-auto shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{unreadContactQueries}</span>
+                                <span className="ml-auto shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{badgeCount}</span>
                               )
                             ) : null}
                           </NavLink>

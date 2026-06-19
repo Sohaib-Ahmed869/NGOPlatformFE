@@ -1,9 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { Check, X, ChevronDown, Shield, Zap, Headphones, LayoutGrid, ArrowRight } from "lucide-react";
 import PlanCard from "./PlanCard";
 import CtaSection from "./CtaSection";
+import tenantService from "../../services/tenant.service";
 
 const V = {
   // surface2 = faint accent wash (was a hardcoded mint) so bands/fills follow the theme.
@@ -140,49 +141,72 @@ const css = `
 }
 `;
 
-const plans = [
-  { name: "Basic", key: "basic", monthlyPrice: 200, annualPrice: 1920, description: "Perfect for small organisations just getting started with online fundraising",
+// Shown only until the live (SuperAdmin-managed) plans load, or if none are seeded.
+const FALLBACK_PLANS = [
+  { name: "Basic", key: "basic", monthlyPrice: 200, annualPrice: 1920, popular: false,
+    description: "Perfect for small organisations just getting started with online fundraising",
     features: [
       { name: "Up to 3 campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
-      { name: "Donor management", included: true }, { name: "Automated email receipts", included: true },
-      { name: "Branded subdomain portal", included: true }, { name: "Admin dashboard", included: true },
-      { name: "Volunteer management", included: false }, { name: "Program follow-up updates", included: false },
-      { name: "Priority support", included: false },
-    ] },
+      { name: "Donor management", included: true }, { name: "Branded subdomain portal", included: true },
+      { name: "Admin dashboard", included: true },
+    ],
+    limits: { campaigns: 3, volunteers: 0 },
+    featureFlags: { recurringGiving: true, programs: true, events: true, store: true } },
   { name: "Professional", key: "professional", monthlyPrice: 500, annualPrice: 4800, popular: true,
     description: "For growing organisations with active campaigns and team collaboration needs",
     features: [
-      { name: "Up to 5 campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
-      { name: "Donor management", included: true }, { name: "Automated email receipts", included: true },
-      { name: "Branded subdomain portal", included: true }, { name: "Admin dashboard", included: true },
+      { name: "Up to 5 campaigns", included: true }, { name: "Everything in Basic", included: true },
       { name: "Up to 10 volunteers", included: true }, { name: "Program follow-up updates", included: true },
-      { name: "Priority support", included: false },
-    ] },
-  { name: "Enterprise", key: "enterprise", monthlyPrice: 1000, annualPrice: 9600,
+      { name: "Event management", included: true },
+    ],
+    limits: { campaigns: 5, volunteers: 10 },
+    featureFlags: { recurringGiving: true, programs: true, p2pCampaigns: true, events: true, volunteers: true, newsletter: true, store: true } },
+  { name: "Enterprise", key: "enterprise", monthlyPrice: 1000, annualPrice: 9600, popular: false,
     description: "For established organisations that need unlimited capacity and premium support",
     features: [
-      { name: "Unlimited campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
-      { name: "Donor management", included: true }, { name: "Automated email receipts", included: true },
-      { name: "Branded subdomain portal", included: true }, { name: "Admin dashboard", included: true },
-      { name: "Unlimited volunteers", included: true }, { name: "Program follow-up updates", included: true },
-      { name: "Priority support", included: true },
-    ] },
+      { name: "Unlimited campaigns", included: true }, { name: "Everything in Professional", included: true },
+      { name: "Unlimited volunteers", included: true }, { name: "Priority support", included: true },
+      { name: "Tailored onboarding", included: true },
+    ],
+    limits: { campaigns: null, volunteers: null },
+    featureFlags: { recurringGiving: true, programs: true, p2pCampaigns: true, events: true, volunteers: true, newsletter: true, store: true } },
 ];
 
-const comparisonFeatures = [
-  { name: "Campaigns", basic: "3", professional: "5", enterprise: "Unlimited" },
-  { name: "Volunteers", basic: "-", professional: "10", enterprise: "Unlimited" },
-  { name: "Donation types", basic: "All", professional: "All", enterprise: "All" },
-  { name: "Branded portal", basic: true, professional: true, enterprise: true },
-  { name: "Email receipts", basic: true, professional: true, enterprise: true },
-  { name: "Recurring donations", basic: true, professional: true, enterprise: true },
-  { name: "Installment plans", basic: true, professional: true, enterprise: true },
-  { name: "Donor follow-ups", basic: false, professional: true, enterprise: true },
-  { name: "Volunteer management", basic: false, professional: true, enterprise: true },
-  { name: "Event management", basic: true, professional: true, enterprise: true },
-  { name: "Product / merch store", basic: true, professional: true, enterprise: true },
-  { name: "Priority support", basic: false, professional: false, enterprise: true },
+// Comparison rows derived from each plan's real limits + capability flags.
+const COMPARE_ROWS = [
+  { label: "Campaigns", type: "limit", key: "campaigns" },
+  { label: "Volunteers", type: "limit", key: "volunteers" },
+  { label: "Recurring & installments", type: "flag", key: "recurringGiving" },
+  { label: "Programs / causes", type: "flag", key: "programs" },
+  { label: "P2P fundraisers", type: "flag", key: "p2pCampaigns" },
+  { label: "Event management", type: "flag", key: "events" },
+  { label: "Volunteer management", type: "flag", key: "volunteers" },
+  { label: "Newsletter campaigns", type: "flag", key: "newsletter" },
+  { label: "Product / merch store", type: "flag", key: "store" },
 ];
+
+const compareValue = (plan, row) => {
+  if (row.type === "limit") {
+    const v = plan.limits?.[row.key];
+    if (v === null) return "Unlimited";
+    if (v === undefined || v === "") return "—";
+    return String(v);
+  }
+  return !!plan.featureFlags?.[row.key];
+};
+
+// DB plan (public payload) → the shape PlanCard + the comparison table expect.
+const mapDbPlan = (p) => ({
+  key: p.code,
+  name: p.name,
+  description: p.description || "",
+  monthlyPrice: p.price?.monthly || 0,
+  annualPrice: p.price?.annual || 0,
+  popular: !!p.isPopular,
+  features: (p.features || []).map((f) => ({ name: f, included: true })),
+  limits: p.limits || {},
+  featureFlags: p.featureFlags || {},
+});
 
 const faqs = [
   { q: "Can I switch plans later?", a: "Yes. You can upgrade or downgrade your plan at any time from your admin dashboard. Changes take effect at the start of your next billing cycle." },
@@ -252,6 +276,18 @@ function FaqList({ faqs: items }) {
 
 export default function PlansPage() {
   const [billingCycle, setBillingCycle] = useState("monthly");
+  const [dbPlans, setDbPlans] = useState(null); // null = still loading
+
+  useEffect(() => {
+    tenantService
+      .getPublicPlans()
+      .then((res) => setDbPlans(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setDbPlans([]));
+  }, []);
+
+  // Live, SuperAdmin-managed plans drive the page; fall back to curated defaults
+  // while loading or if none are published.
+  const cardPlans = dbPlans && dbPlans.length ? dbPlans.map(mapDbPlan) : FALLBACK_PLANS;
 
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, overflowX: "hidden", position: "relative", minHeight: "100vh" }}>
@@ -323,7 +359,7 @@ export default function PlansPage() {
           className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-[1280px] mx-auto"
           initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.12 }} variants={stagger}
         >
-          {plans.map((plan, i) => (
+          {cardPlans.map((plan, i) => (
             <motion.div key={plan.key} variants={fadeUpChild} custom={i}>
               <PlanCard plan={plan} billingCycle={billingCycle} />
             </motion.div>
@@ -350,7 +386,7 @@ export default function PlansPage() {
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${V.line}` }}>
                     <th className="px-6 pb-5 pt-6 align-bottom text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: V.inkFaint }}>Feature</th>
-                    {plans.map((p) => (
+                    {cardPlans.map((p) => (
                       <th key={p.key} className={`relative px-4 pb-5 pt-6 text-center align-bottom ${p.popular ? "saas-comp-pop" : ""}`}>
                         {p.popular && (
                           <span className="absolute left-1/2 top-1.5 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white"
@@ -363,11 +399,11 @@ export default function PlansPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {comparisonFeatures.map((feature) => (
-                    <tr key={feature.name} className="saas-comp-row" style={{ borderTop: `1px solid ${V.line2}` }}>
-                      <td className="px-6 py-3.5 text-sm font-medium" style={{ color: V.ink }}>{feature.name}</td>
-                      {plans.map((p) => {
-                        const val = feature[p.key];
+                  {COMPARE_ROWS.map((row) => (
+                    <tr key={row.label} className="saas-comp-row" style={{ borderTop: `1px solid ${V.line2}` }}>
+                      <td className="px-6 py-3.5 text-sm font-medium" style={{ color: V.ink }}>{row.label}</td>
+                      {cardPlans.map((p) => {
+                        const val = compareValue(p, row);
                         return (
                           <td key={p.key} className={`px-4 py-3.5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
                             {typeof val === "boolean" ? (
@@ -390,7 +426,7 @@ export default function PlansPage() {
                 <tfoot>
                   <tr style={{ borderTop: `1px solid ${V.line}` }}>
                     <td className="px-6 py-5" />
-                    {plans.map((p) => (
+                    {cardPlans.map((p) => (
                       <td key={p.key} className={`px-4 py-5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
                         <Link to={`/register?plan=${p.key}&billing=monthly`}
                           className="saas-btn-primary group inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"

@@ -1,4 +1,5 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const baseURL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 const axiosInstance = axios.create({
@@ -54,6 +55,11 @@ axiosInstance.interceptors.response.use(
       const prefix = getStoragePrefix();
       localStorage.removeItem(prefix + "token");
       localStorage.removeItem(prefix + "user");
+    }
+    // A view-only support session blocks writes server-side — surface a friendly
+    // message instead of a generic failure.
+    if (error.response?.status === 403 && error.response?.data?.code === "VIEW_ONLY") {
+      toast.error(error.response.data.error || "View-only support session — changes are disabled");
     }
     return Promise.reject(error);
   }

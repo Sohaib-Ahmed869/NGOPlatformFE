@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import tenantService from "../../services/tenant.service";
 import {
   motion, AnimatePresence, useInView, useMotionValue, useSpring,
   useReducedMotion, useScroll, useTransform,
@@ -307,6 +308,18 @@ const pricingPlans = [
   { tier: "Professional", desc: "For growing charities running active appeals.", priceNum: 500, annualNum: 400, annualTotal: 4800, popular: true, features: ["Up to 5 campaigns", "Everything in Basic", "Up to 10 volunteers", "Campaign updates", "Event management"] },
   { tier: "Enterprise", desc: "For established charities operating at scale.", priceNum: 1000, annualNum: 800, annualTotal: 9600, features: ["Unlimited campaigns", "Everything in Professional", "Unlimited volunteers", "Priority support", "Tailored onboarding"] },
 ];
+
+// Live (SuperAdmin-managed) plan → the home pricing-card shape.
+const mapHomePlan = (p) => ({
+  code: p.code,
+  tier: p.name,
+  desc: p.description || "",
+  priceNum: p.price?.monthly || 0,
+  annualTotal: p.price?.annual || 0,
+  annualNum: Math.round((p.price?.annual || 0) / 12),
+  popular: !!p.isPopular,
+  features: Array.isArray(p.features) ? p.features : [],
+});
 
 const faqs = [
   { q: "Can I change my plan later?", a: "Yes — you can upgrade or downgrade at any time from your dashboard. Changes take effect on your next billing date." },
@@ -1038,7 +1051,19 @@ function RollingPrice({ value, className = "", style = {} }) {
    prices and reveals the annual saving; the popular plan is spotlit. ── */
 function PricingCards() {
   const [billing, setBilling] = useState("monthly");
+  const [dbPlans, setDbPlans] = useState(null); // null = loading
   const annual = billing === "annual";
+
+  useEffect(() => {
+    tenantService
+      .getPublicPlans()
+      .then((res) => setDbPlans(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setDbPlans([]));
+  }, []);
+
+  // Live plans drive the section; curated defaults show while loading / if none.
+  const cards = dbPlans && dbPlans.length ? dbPlans.map(mapHomePlan) : pricingPlans;
+
   return (
     <>
       {/* Billing toggle */}
@@ -1071,12 +1096,12 @@ function PricingCards() {
       {/* Cards */}
       <motion.div className="grid grid-cols-1 items-stretch gap-5 pt-3 md:grid-cols-3"
         initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger}>
-        {pricingPlans.map((plan, i) => {
+        {cards.map((plan, i) => {
           // Show the ACTUAL price for the selected cycle: the yearly total when
           // annual is on, the monthly price otherwise (per-month equiv goes below).
           const bigPrice = annual ? plan.annualTotal : plan.priceNum;
           return (
-            <motion.div key={plan.tier} variants={fadeUpChild} custom={i} className="h-full">
+            <motion.div key={plan.code || plan.tier} variants={fadeUpChild} custom={i} className="h-full">
               {/* middle wrapper carries the static spotlight transform (kept off the
                   framer-animated & hover-animated layers to avoid transform clashes) */}
               <div className={`h-full ${plan.popular ? "md:relative md:z-10 md:-translate-y-2 md:scale-[1.035]" : ""}`}>
@@ -1123,7 +1148,7 @@ function PricingCards() {
                       </li>
                     ))}
                   </ul>
-                  <Link to={`/register?plan=${plan.tier.toLowerCase()}&billing=${billing}`}
+                  <Link to={`/register?plan=${plan.code || plan.tier.toLowerCase()}&billing=${billing}`}
                     className={`group flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14.5px] font-semibold transition-all ${plan.popular ? "saas-btn-primary text-white" : ""}`}
                     style={plan.popular
                       ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 12px 26px -10px rgba(var(--tenant-accent-rgb),.5)` }

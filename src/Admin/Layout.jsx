@@ -5,7 +5,6 @@ import { AdminUiProvider, useAdminUi } from "../context/AdminUiContext";
 import { AdminRealtimeProvider } from "../context/AdminRealtimeContext";
 import { AdminSidebar } from "./components/AdminSidebar";
 import { AdminTopbar } from "./components/AdminTopbar";
-import SupportSessionBanner from "./components/SupportSessionBanner";
 import ProfileService from "../services/profile.service";
 import { cn } from "../utils/cn";
 import "./admin-theme.css";
@@ -29,7 +28,6 @@ const AdminShell = () => {
     >
       <AdminSidebar />
       <AdminTopbar />
-      <SupportSessionBanner />
 
       <main
         className={cn(

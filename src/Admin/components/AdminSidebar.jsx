@@ -39,7 +39,7 @@ const activeItemStyle = {
 
 export function AdminSidebar() {
   const { user, logout } = useAuth()
-  const { organisation, branding, slug } = useTenant()
+  const { organisation, branding, slug, hasFeature } = useTenant()
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar, collapsedGroups, toggleGroup } = useAdminUi()
   const { unreadContacts, pendingVolunteers } = useAdminRealtime()
 
@@ -53,7 +53,13 @@ export function AdminSidebar() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const allItems = NAV_GROUPS.flatMap((g) => g.items)
+  // Hide nav items whose plan feature is disabled (core items carry no
+  // `feature` and are always shown); drop any group left empty.
+  const navGroups = NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((it) => !it.feature || hasFeature(it.feature)) }))
+    .filter((g) => g.items.length > 0)
+
+  const allItems = navGroups.flatMap((g) => g.items)
   const activePath = findActivePath(location.pathname, allItems)
 
   const brandName = prettifyName(organisation?.name || slug)
@@ -148,7 +154,7 @@ export function AdminSidebar() {
 
         {/* Nav */}
         <nav className="scrollbar-none flex-1 space-y-4 overflow-y-auto px-3 py-4">
-          {NAV_GROUPS.map((group) => {
+          {navGroups.map((group) => {
             const groupOpen = group.flat || sidebarCollapsed || !collapsedGroups[group.label]
             return (
               <div key={group.label}>

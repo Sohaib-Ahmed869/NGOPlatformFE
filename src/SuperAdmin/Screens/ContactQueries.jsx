@@ -61,9 +61,19 @@ function timeAgo(d) {
   return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+// Resolve a stored avatar path (relative upload, absolute URL or data-URI) —
+// mirrors SATopbar/Settings, so operator photos load off the API host.
+function resolveAvatar(path) {
+  if (!path || path.includes("/api/placeholder")) return "";
+  if (/^https?:\/\//i.test(path) || path.startsWith("data:")) return path;
+  return `${API_BASE}/${String(path).replace(/\\/g, "/").replace(/^\/+/, "")}`;
+}
+
 function Avatar({ name, src, size = "md" }) {
   const s = size === "xs" ? "h-5 w-5 text-[9px]" : size === "sm" ? "h-7 w-7 text-[11px]" : "h-10 w-10 text-sm";
-  if (src) return <img src={src} alt={name || ""} className={cn("shrink-0 rounded-full object-cover", s)} />;
+  const url = resolveAvatar(src);
+  if (url) return <img src={url} alt={name || ""} className={cn("shrink-0 rounded-full object-cover", s)} />;
   return (
     <span className={cn("grid shrink-0 place-items-center rounded-full bg-accent/10 font-bold uppercase text-accent", s)}>
       {(name || "?").charAt(0)}
@@ -82,6 +92,26 @@ function StatusBadge({ status }) {
 
 const isRichEmpty = (html) =>
   !sanitizeRichText(html || "").replace(/<[^>]*>/g, "").replace(/&nbsp;| /g, " ").trim();
+
+const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
+// Brand hero gradient — resolves to the platform palette (same vars as the
+// sidebar), mirroring the Organisations / Audit / Support-session hero.
+const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
+
+/* Stat cell in the attached strip under the hero banner (Organisations look). */
+function HeaderStat({ icon: Icon, label, value, color }) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
+        <p className="mt-1 text-xs text-gray-400">{label}</p>
+      </div>
+    </div>
+  );
+}
 
 /* ── main ────────────────────────────────────────────────────────────── */
 
@@ -377,10 +407,50 @@ export default function ContactQueries() {
   const teamOptions = [{ value: "", label: "Unassigned" }, ...staff.map((t) => ({ value: t._id, label: t.name || t.email }))];
   const sel = detail;
 
+  // Stat strip — the inbox loads the whole list client-side, so these counts are
+  // exact (not page-scoped).
+  const statTiles = [
+    { label: "Total queries", value: queries.length, icon: Inbox, color: "#6366f1" },
+    { label: "Unread", value: unreadTotal, icon: Mail, color: unreadTotal > 0 ? "#ef4444" : "#9ca3af" },
+    { label: "New", value: queries.filter((c) => (c.status || "new") === "new").length, icon: MessageSquare, color: "#f59e0b" },
+    { label: "In progress", value: queries.filter((c) => c.status === "in_progress").length, icon: Clock, color: "#06b6d4" },
+  ];
+
   return (
-    // The platform subdomain applies no tenant design, so the shape tokens default
-    // to 0. Set them locally so `rounded-token` matches the console's rounded cards.
-    <div className="flex h-[calc(100vh-7rem)] min-h-[540px] gap-4" style={{ "--radius-card": "0.75rem", "--radius-btn": "0.5rem" }}>
+    // Sharp-corner variant: square every descendant's corners (cards, pills,
+    // avatars, bubbles, inputs, modal) for an angular look — matches the
+    // Organisations / Audit / Support-session screens — with a gradient hero on top.
+    <div className="flex h-[calc(100vh-7rem)] min-h-[640px] flex-col gap-4 [&_*]:!rounded-none" style={{ "--radius-card": "0.75rem", "--radius-btn": "0.5rem" }}>
+      {/* Hero — gradient banner + attached stat strip (mirrors Organisations) */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className={`${card} shrink-0 overflow-hidden`}
+      >
+        <div className="relative flex flex-wrap items-start justify-between gap-4 overflow-hidden px-6 py-6 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+          {/* Editorial corner decoration — SVG circle (so the page-wide sharp-corner
+              override can't square it) + dot grid. */}
+          <svg aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 text-white" viewBox="0 0 128 128" fill="none">
+            <circle cx="64" cy="64" r="46" fill="currentColor" fillOpacity="0.06" />
+            <circle cx="64" cy="64" r="46" stroke="currentColor" strokeOpacity="0.18" strokeWidth="2" />
+          </svg>
+          <div aria-hidden className="pointer-events-none absolute bottom-4 right-12 h-10 w-24 opacity-[.20]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.95) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
+          <div className="relative z-10 min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Helpdesk</p>
+            <h1 className="mt-1 text-2xl font-bold text-white">Contact Queries</h1>
+            <p className="mt-1 text-sm text-white/80">Messages from your marketing site's contact form — triage, reply and assign.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
+          {statTiles.map((t) => (
+            <HeaderStat key={t.label} {...t} />
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Split — inbox list + conversation */}
+      <div className="flex min-h-0 flex-1 gap-4">
       {/* ── Left: inbox list ── */}
       <div
         className={cn(
@@ -391,9 +461,9 @@ export default function ContactQueries() {
         <div className="shrink-0 border-b border-gray-100 p-4 dark:border-white/10">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h1 className="text-lg font-bold text-primary">Contact Queries</h1>
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-primary"><Inbox className="h-4 w-4" /> Inbox</h2>
               <p className="text-[11px] text-text-muted">
-                {queries.length} total{unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
+                {visible.length} shown{unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -450,7 +520,7 @@ export default function ContactQueries() {
                     <StatusBadge status={c.status} />
                     {c.assignee?.name ? (
                       <span className="inline-flex items-center gap-1 text-[10px] text-text-muted">
-                        <Avatar name={c.assignee.name} size="xs" />
+                        <Avatar name={c.assignee.name} src={c.assignee.userId?.profileImage} size="xs" />
                         {(c.assignee.name || "").split(" ")[0]}
                       </span>
                     ) : null}
@@ -582,12 +652,14 @@ export default function ContactQueries() {
           </motion.div>
         )}
       </div>
+      </div>
 
-      {/* delete confirmation */}
+      {/* delete confirmation — rendered in a Portal (outside the sharp-corner
+          wrapper), so it carries its own !rounded-none override. */}
       <Portal>
         <AnimatePresence>
           {deleteTarget && (
-            <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 [&_*]:!rounded-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !deleting && setDeleteTarget(null)} />
               <motion.div className="relative w-full max-w-sm border border-gray-100 bg-white p-6 text-center shadow-2xl dark:border-white/10 dark:bg-[var(--admin-elevated)]" initial={{ scale: 0.96, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 16 }}>
                 <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-red-50 dark:bg-red-500/10"><AlertTriangle className="h-5 w-5 text-red-500" /></div>

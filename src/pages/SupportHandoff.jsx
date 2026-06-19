@@ -34,14 +34,17 @@ export default function SupportHandoff() {
       return;
     }
 
+    const role = claims.role || "admin";
     const user = {
       _id: claims.id,
       name: claims.name,
       email: claims.email,
-      role: claims.role || "admin",
+      role,
       token,
-      isAdmin: true,
+      isAdmin: role.includes("admin"),
       support_session: true,
+      support_mode: claims.mode || "admin",
+      support_access: claims.access || "full",
       impersonatedBy: claims.impersonatedBy,
       orgId: claims.orgId,
       slug: claims.slug,
@@ -53,9 +56,10 @@ export default function SupportHandoff() {
     localStorage.setItem(prefix + "user", JSON.stringify(user));
     setUser(user);
 
-    // Strip the token from the URL, then enter the tenant admin.
+    // Strip the token from the URL, then enter the chosen surface: the public
+    // website (impersonating the reported user) or the tenant admin portal.
     window.history.replaceState(null, "", "/support-handoff");
-    navigate("/admin/dashboard", { replace: true });
+    navigate(claims.mode === "website" ? "/" : "/admin/dashboard", { replace: true });
   }, [navigate, setUser]);
 
   return (

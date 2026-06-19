@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import platformService from "../../services/platform.service";
+import { useTenant } from "../../context/TenantContext";
 import { themeCategories } from "../../config/themePresets";
 import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
@@ -259,6 +260,7 @@ function LivePreview({ branding, name }) {
 }
 
 export default function PlatformSettings() {
+  const { refreshPlatform } = useTenant();
   const [tab, setTab] = useState("general");
   // Hydrate from the session cache so revisits are instant — the loader only
   // shows on the very first, uncached open.
@@ -321,7 +323,8 @@ export default function PlatformSettings() {
       const next = updated ? toForm(updated) : form;
       setForm(next);
       savedRef.current = pickSaveable(next);
-      toast.success("Platform settings saved — reload the website to see changes");
+      refreshPlatform(); // push the new name/colours to the live tab + loader instantly
+      toast.success("Platform settings saved");
     } catch {
       toast.error("Failed to save platform settings");
     } finally {
@@ -347,6 +350,7 @@ export default function PlatformSettings() {
       fd.append("file", file);
       const data = await platformService.uploadAsset(type, fd);
       upBrand(data.field, data.url);
+      refreshPlatform(); // a new logo/favicon shows in the tab immediately
       toast.success("Image uploaded");
     } catch {
       toast.error("Upload failed");
@@ -359,6 +363,7 @@ export default function PlatformSettings() {
     try {
       await platformService.deleteAsset(type);
       upBrand(SLOT_FIELD[type], "");
+      refreshPlatform(); // reflect the removal in the tab immediately
       toast.success("Image removed");
     } catch {
       toast.error("Failed to remove image");
@@ -381,7 +386,10 @@ export default function PlatformSettings() {
   ];
 
   return (
-    <div>
+    // Sharp-corner variant of this screen: square every descendant's corners
+    // (cards, tabs, pills, buttons, inputs, dropzones, swatches, previews) for an
+    // angular look — matches the Organisations / OrganisationDetail screens.
+    <div className="[&_*]:!rounded-none">
       <SAPageHeader eyebrow="Platform" title="Platform Settings" subtitle="Your public marketing website's identity, branding and contact details." />
 
       <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">

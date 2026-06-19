@@ -96,3 +96,18 @@
 [data-admin-theme="dark"] .shadow-md {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
+
+/*
+ * Platform console (SuperAdmin) — the UI is sharp-cornered (screens carry the
+ * page-wide `[&_*]:!rounded-none` override), but IMAGERY should stay rounded:
+ * profile/avatar photos read as circles, contained logos get soft corners.
+ * Scoped to [data-sa-console] (only the SuperAdmin shell), so the tenant admin
+ * is untouched. The attribute + type + class selectors out-specify the
+ * `.<override> *` rule, so these win over the !important square-off.
+ */
+[data-sa-console] img {
+  border-radius: 0.5rem !important;
+}
+[data-sa-console] img.object-cover {
+  border-radius: 9999px !important;
+}

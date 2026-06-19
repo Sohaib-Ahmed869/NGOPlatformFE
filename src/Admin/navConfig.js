@@ -43,36 +43,39 @@ export const NAV_GROUPS = [
     ],
   },
   {
+    // `feature` (optional) = config/featureCatalog flag key; the item is hidden
+    // when the tenant's plan doesn't allow that feature. Items with no `feature`
+    // are always shown (core).
     label: 'Fundraising',
     items: [
       { label: 'All Donations', path: '/admin/donations', icon: Heart },
-      { label: 'Subscriptions', path: '/admin/subscriptions', icon: RefreshCcw },
-      { label: 'Installments', path: '/admin/installments', icon: Layers },
-      { label: 'Cancellation Requests', path: '/admin/cancellation-requests', icon: XCircle },
+      { label: 'Subscriptions', path: '/admin/subscriptions', icon: RefreshCcw, feature: 'recurringGiving' },
+      { label: 'Installments', path: '/admin/installments', icon: Layers, feature: 'recurringGiving' },
+      { label: 'Cancellation Requests', path: '/admin/cancellation-requests', icon: XCircle, feature: 'recurringGiving' },
     ],
   },
   {
     label: 'Supporters',
     items: [
       { label: 'Donors', path: '/admin/donors', icon: Users },
-      { label: 'Volunteers', path: '/admin/volunteers', icon: HeartHandshake },
-      { label: 'Partners', path: '/admin/partners', icon: Handshake },
+      { label: 'Volunteers', path: '/admin/volunteers', icon: HeartHandshake, feature: 'volunteers' },
+      { label: 'Partners', path: '/admin/partners', icon: Handshake, feature: 'partners' },
       { label: 'Contacts', path: '/admin/contacts', icon: Contact },
-      { label: 'Support Tickets', path: '/admin/support', icon: LifeBuoy },
-      { label: 'Newsletter', path: '/admin/newsletter', icon: Mail },
+      { label: 'Support Tickets', path: '/admin/support', icon: LifeBuoy, feature: 'supportTickets' },
+      { label: 'Newsletter', path: '/admin/newsletter', icon: Mail, feature: 'newsletter' },
     ],
   },
   {
     label: 'Programs & Store',
     items: [
-      { label: 'Programs', path: '/admin/programs', icon: Target },
-      { label: 'Program Payments', path: '/admin/program-payments', icon: Coins },
-      { label: 'P2P Campaigns', path: '/admin/p2p-campaigns', icon: Megaphone },
-      { label: 'Campaign Payments', path: '/admin/campaign-payments', icon: Wallet },
-      { label: 'Events', path: '/admin/events', icon: CalendarDays },
-      { label: 'Event Payments', path: '/admin/event-payments', icon: Banknote },
-      { label: 'Products', path: '/admin/products', icon: ShoppingBag, match: ['/admin/products'] },
-      { label: 'Donation Types', path: '/admin/donation-types', icon: HandCoins },
+      { label: 'Programs', path: '/admin/programs', icon: Target, feature: 'programs' },
+      { label: 'Program Payments', path: '/admin/program-payments', icon: Coins, feature: 'programs' },
+      { label: 'P2P Campaigns', path: '/admin/p2p-campaigns', icon: Megaphone, feature: 'p2pCampaigns' },
+      { label: 'Campaign Payments', path: '/admin/campaign-payments', icon: Wallet, feature: 'p2pCampaigns' },
+      { label: 'Events', path: '/admin/events', icon: CalendarDays, feature: 'events' },
+      { label: 'Event Payments', path: '/admin/event-payments', icon: Banknote, feature: 'events' },
+      { label: 'Products', path: '/admin/products', icon: ShoppingBag, match: ['/admin/products'], feature: 'store' },
+      { label: 'Donation Types', path: '/admin/donation-types', icon: HandCoins, feature: 'programs' },
     ],
   },
   {
@@ -80,7 +83,7 @@ export const NAV_GROUPS = [
     items: [
       { label: 'Website Pages', path: '/admin/pages', icon: FileText },
       { label: 'Portal Branding', path: '/admin/branding', icon: Paintbrush },
-      { label: 'Design', path: '/admin/design', icon: Type },
+      { label: 'Design', path: '/admin/design', icon: Type, feature: 'designSystem' },
     ],
   },
   {

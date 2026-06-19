@@ -1,17 +1,20 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Search, Inbox, Building2, Star, RefreshCw, CircleDot, AlertCircle, UserRound, ChevronRight, MessageSquare } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { supportCategoryLabel } from "../../config/supportCategories";
 import { ticketSourceKey, ticketSourceMeta, TICKET_SOURCE_FILTER_OPTIONS } from "../../config/ticketSource";
 import { useSARealtime } from "../context/SARealtimeContext";
-import SAPageHeader from "../components/SAPageHeader";
 import SASelect from "../components/SASelect";
 import SALoader from "../SALoader";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
 
-const card = "rounded-xl border border-gray-100 bg-white shadow-sm";
+const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
+// Brand hero gradient — the platform palette (same vars as the sidebar),
+// mirroring the Organisations / Audit / Support-session / Kanban hero.
+const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
 const inputCls =
   "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-accent dark:border-white/10 dark:bg-white/5";
 
@@ -51,14 +54,16 @@ function SourceBadge({ reporter, className }) {
     </span>
   );
 }
-function Kpi({ icon: Icon, label: lbl, value, hint, chip }) {
+/* Stat cell in the attached strip under the hero banner (Organisations look). */
+function HeaderStat({ icon: Icon, label: lbl, value, color }) {
   return (
-    <div className={`${card} flex items-center gap-3 px-4 py-3.5`}>
-      <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", chip)}><Icon className="h-5 w-5" /></span>
+    <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">{lbl}</p>
-        <p className="text-xl font-bold leading-tight text-gray-900">{value}</p>
-        {hint ? <p className="truncate text-[11px] text-gray-400">{hint}</p> : null}
+        <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
+        <p className="mt-1 text-xs text-gray-400">{lbl}</p>
       </div>
     </div>
   );
@@ -164,27 +169,56 @@ export default function Tickets() {
     });
   }, [all, filters]);
 
-  return (
-    <div>
-      <SAPageHeader
-        eyebrow="Helpdesk"
-        title="Support Tickets"
-        subtitle="Every support ticket across all tenants — triage, classify and route to the board."
-        actions={
-          <button onClick={fetchAll} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5">
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-        }
-      />
+  const statTiles = [
+    { label: "Total tickets", value: stats.total, icon: Inbox, color: "#6366f1" },
+    { label: "Open", value: stats.open, icon: CircleDot, color: "#3b82f6" },
+    { label: "Unassigned", value: stats.unassigned, icon: UserRound, color: "#f59e0b" },
+    { label: "Untriaged", value: stats.untriaged, icon: AlertCircle, color: "#8b5cf6" },
+  ];
 
-      {/* KPIs */}
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi icon={Inbox} label="Total" value={stats.total} chip="bg-gray-100 text-gray-500" />
-        <Kpi icon={CircleDot} label="Open" value={stats.open} hint="new · in progress · hold" chip="bg-blue-50 text-blue-600" />
-        <Kpi icon={UserRound} label="Unassigned" value={stats.unassigned} hint="open & no owner" chip="bg-orange-50 text-orange-600" />
-        <Kpi icon={AlertCircle} label="Untriaged" value={stats.untriaged} hint="awaiting triage" chip="bg-violet-50 text-violet-600" />
-        <Kpi icon={Star} label="CSAT" value={stats.csat ? `${stats.csat.toFixed(1)}★` : "—"} hint={`${stats.ratedCount} rated`} chip="bg-amber-50 text-amber-600" />
-      </div>
+  return (
+    // Sharp-corner variant: square every descendant's corners for an angular look.
+    <div className="[&_*]:!rounded-none">
+      {/* Hero — gradient banner + attached stat strip (matches the other screens),
+          with the CSAT score featured on the banner. */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className={`${card} mb-6 overflow-hidden`}
+      >
+        <div className="relative flex flex-wrap items-center justify-between gap-4 overflow-hidden px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+          {/* Editorial corner decoration — SVG circle (so the page-wide sharp-corner
+              override can't square it) + dot grid. */}
+          <svg aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 text-white" viewBox="0 0 128 128" fill="none">
+            <circle cx="64" cy="64" r="46" fill="currentColor" fillOpacity="0.06" />
+            <circle cx="64" cy="64" r="46" stroke="currentColor" strokeOpacity="0.18" strokeWidth="2" />
+          </svg>
+          <div aria-hidden className="pointer-events-none absolute bottom-4 right-44 hidden h-10 w-24 opacity-[.20] sm:block" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.95) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
+          <div className="relative z-10 min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Helpdesk</p>
+            <h1 className="mt-1 text-2xl font-bold text-white">Support Tickets</h1>
+            <p className="mt-1 text-sm text-white/80">Every ticket across all tenants — triage, classify and route to the board.</p>
+          </div>
+          {/* Featured CSAT metric */}
+          {stats.ratedCount > 0 ? (
+            <div className="relative z-10 flex items-center gap-2.5 bg-white/[0.12] px-4 py-2.5 text-white ring-1 ring-white/20 backdrop-blur-sm">
+              <Star className="h-6 w-6 shrink-0 fill-amber-300 text-amber-300" />
+              <div className="leading-tight">
+                <p className="text-xl font-bold">{stats.csat.toFixed(1)}<span className="text-xs font-medium text-white/70"> / 5</span></p>
+                <p className="text-[10px] uppercase tracking-wide text-white/70">CSAT · {stats.ratedCount} rated</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        {!loading && (
+          <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
+            {statTiles.map((t) => (
+              <HeaderStat key={t.label} {...t} />
+            ))}
+          </div>
+        )}
+      </motion.div>
 
       {/* Status quick-filter pills */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -230,6 +264,14 @@ export default function Tickets() {
             options={f.opts.map((o) => ({ value: o, label: o === "all" ? `All ${f.key}` : label(o) }))}
           />
         ))}
+        <button
+          type="button"
+          onClick={fetchAll}
+          title="Refresh tickets"
+          className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </button>
       </div>
 
       {loading ? (
@@ -238,7 +280,7 @@ export default function Tickets() {
         <div className={`${card} py-20 text-center`}><Inbox className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="text-gray-500">No tickets match your filters</p></div>
       ) : (
         <div className={`${card} overflow-hidden`}>
-          <div className="hidden grid-cols-[1fr_120px_110px_130px_70px_90px] gap-3 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 lg:grid">
+          <div className="hidden grid-cols-[1fr_120px_110px_130px_70px_90px] gap-3 border-b border-gray-100 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 lg:grid dark:border-white/10" style={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.10)" }}>
             <span>Ticket</span><span>Category</span><span>Priority</span><span>Status</span><span>CSAT</span><span className="text-right">Age</span>
           </div>
           <div className="divide-y divide-gray-100">
@@ -251,10 +293,11 @@ export default function Tickets() {
                 <div className="flex min-w-0 items-start gap-2.5">
                   <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PRIORITY_DOT[t.priority] || "#9ca3af" }} title={`${t.priority} priority`} />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-900">{t.summary}</p>
+                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{t.summary}</p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
                       <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-500 dark:bg-white/10"><Building2 className="h-2.5 w-2.5" />{t.organisationId?.name || "—"}</span>
                       <SourceBadge reporter={t.reporter} />
+                      {t.triage && t.triage !== "unclassified" ? <Badge className={TRIAGE[t.triage]}>{t.triage}</Badge> : null}
                       <span className="font-mono">#{t.ticketNumber}</span>
                       <span className="truncate">{t.reporter?.name || t.reporter?.email}</span>
                       {t.comments?.length ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.comments.length}</span> : null}
@@ -272,7 +315,6 @@ export default function Tickets() {
                 <div className="flex flex-wrap items-center gap-1.5 lg:hidden">
                   <Badge className={PRIORITY[t.priority]}>{t.priority}</Badge>
                   <StatusPill status={t.status} />
-                  <Badge className={TRIAGE[t.triage]}>{t.triage}</Badge>
                 </div>
               </button>
             ))}

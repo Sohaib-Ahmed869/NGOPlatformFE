@@ -69,7 +69,20 @@ const superadminService = {
   endSupportSession: () =>
     axiosInstance.post(`/superadmin/support-session/end`),
 
+  // Support-session audit + kill switch (platform operator view)
+  getSupportSessions: (params) =>
+    axiosInstance.get("/superadmin/support-sessions", { params }),
+  getSupportSession: (sessionId) =>
+    axiosInstance.get(`/superadmin/support-sessions/${sessionId}`),
+  revokeSupportSession: (sessionId) =>
+    axiosInstance.post(`/superadmin/support-sessions/${sessionId}/revoke`),
+
+  // Global platform operator audit log
+  getAuditLog: (params) => axiosInstance.get("/superadmin/audit", { params }),
+
   getBillingStats: () => axiosInstance.get("/superadmin/billing"),
+
+  getDashboardStats: () => axiosInstance.get("/superadmin/dashboard"),
 
   getInvoices: (params) => axiosInstance.get("/superadmin/invoices", { params }),
 
@@ -85,6 +98,14 @@ const superadminService = {
   archivePlan: (code) => axiosInstance.post(`/superadmin/plans/${code}/archive`),
   migratePlanSubscribers: (code, body) =>
     axiosInstance.post(`/superadmin/plans/${code}/migrate-subscribers`, body || {}),
+  resyncPlan: (code) => axiosInstance.post(`/superadmin/plans/${code}/resync`),
+
+  // Per-plan feature flags + metered limits (the Features matrix)
+  getFeatureCatalog: () => axiosInstance.get("/superadmin/feature-catalog"),
+
+  getPlanBullets: () => axiosInstance.get("/superadmin/plan-bullets"),
+  updatePlanBullets: (bullets) => axiosInstance.put("/superadmin/plan-bullets", { bullets }),
+  saveEntitlements: (plans) => axiosInstance.put("/superadmin/entitlements", { plans }),
 
   // Support helpdesk (cross-tenant triage + kanban)
   getTickets: (params) => axiosInstance.get("/superadmin/tickets", { params }),
@@ -199,6 +220,8 @@ const superadminService = {
   // Branding requests
   getBrandingRequests: (status) =>
     axiosInstance.get(`/superadmin/branding-requests?status=${status || "pending"}`),
+
+  getBrandingPendingCount: () => axiosInstance.get("/superadmin/branding-requests/pending-count"),
 
   approveBrandingRequest: (id, note) =>
     axiosInstance.patch(`/superadmin/branding-requests/${id}/approve`, { note }),
