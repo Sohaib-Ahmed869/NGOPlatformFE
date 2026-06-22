@@ -116,6 +116,7 @@ import SaaSHome from "./pages/SaaS/SaaSHome";
 import PlansPage from "./pages/SaaS/PlansPage";
 import SaaSNavbar from "./pages/SaaS/SaaSNavbar";
 import SaaSFooter from "./pages/SaaS/SaaSFooter";
+import CtaSection from "./pages/SaaS/CtaSection";
 import RegistrationFlow from "./pages/Registration/RegistrationFlow";
 import RegistrationSuccess from "./pages/Registration/RegistrationSuccess";
 import ContactPage from "./pages/SaaS/ContactPage";
@@ -425,6 +426,11 @@ const AppLayout = ({ children }) => {
     return children;
   }
 
+  // Support handoff is a transient redirect screen — render it bare (no chrome).
+  if (location.pathname === "/support-handoff") {
+    return children;
+  }
+
   // While tenant loader is active, don't render layout chrome
   if (tenantMode === "tenant" && !loaderDone) {
     return children;
@@ -458,6 +464,15 @@ const AppLayout = ({ children }) => {
     return (
       <div data-public-site style={buildPlatformVars(platform)}>
         {children}
+        {/* Closing CTA between the signup flow and the footer, with a gap above it. */}
+        <CtaSection
+          title="Questions before you set up your charity?"
+          primaryLabel="Talk to our team"
+          primaryTo="/contact"
+          secondaryLabel="Compare plans"
+          secondaryTo="/plans"
+          className="px-6 pt-20 pb-24 sm:pt-24 [&_*]:!rounded-none"
+        />
         <SaaSFooter />
       </div>
     );
@@ -501,6 +516,14 @@ const AppLayout = ({ children }) => {
 // ============================================================
 const RouteSelector = ({ loaderDone, setLoaderDone }) => {
   const { tenantMode, slug, loading, error, branding } = useTenant();
+
+  // Platform-support impersonation handoff: must run on ANY surface, BEFORE the
+  // tenant-mode gating or the loader can route us to the public site instead.
+  // It decodes the token, stores the session and self-redirects to the chosen
+  // surface (admin portal or public website).
+  if (typeof window !== "undefined" && window.location.pathname === "/support-handoff") {
+    return <SupportHandoff />;
+  }
 
   // For tenant mode: show loader while fetching, then play exit animation
   if (tenantMode === "tenant" && !loaderDone) {

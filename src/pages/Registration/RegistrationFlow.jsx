@@ -413,9 +413,9 @@ export default function RegistrationFlow() {
       {/* Ambient grid */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px)", backgroundSize: "64px 64px", maskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)", WebkitMaskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)" }} />
 
-      <div className={`relative z-[1] mx-auto px-4 py-6 transition-[max-width] duration-500 ease-out sm:px-6 lg:py-12 ${step === 1 ? "max-w-6xl" : "max-w-5xl"}`}>
-        <div className="grid grid-cols-1 overflow-hidden border lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)]"
-          style={{ borderColor: V.line, boxShadow: "0 30px 70px -36px rgba(6,40,30,.4)" }}>
+      <div className="relative z-[1]">
+        {/* Full-page split: brand panel = 1/3, form = 2/3 */}
+        <div className="grid min-h-screen grid-cols-1 overflow-hidden lg:grid-cols-3">
 
           {/* ═══ LEFT — dark brand panel + stepper ═══ */}
           <div className="relative overflow-hidden p-8 text-white sm:p-10"
@@ -486,13 +486,13 @@ export default function RegistrationFlow() {
             </div>
           </div>
 
-          {/* ═══ RIGHT — white form ═══ */}
-          <div className="relative bg-white p-7 pt-16 sm:p-10 sm:pt-16">
+          {/* ═══ RIGHT — white form (2/3) ═══ */}
+          <div className="relative bg-white p-7 pt-16 sm:p-10 sm:pt-16 lg:col-span-2">
             <Link to="/" className="absolute right-6 top-6 z-10 inline-flex items-center gap-1.5 text-[12.5px] font-medium transition-opacity hover:opacity-70" style={{ color: V.inkFaint }}>
               <ArrowLeft className="h-3.5 w-3.5" /> Back to home
             </Link>
             <AnimatePresence mode="wait" custom={dir}>
-              <motion.div key={step} {...slide} className={`mx-auto w-full ${step === 1 ? "max-w-none" : "max-w-[480px]"}`}>
+              <motion.div key={step} {...slide} className={`mx-auto w-full ${step === 1 ? "max-w-none" : "max-w-[560px]"}`}>
 
                 {/* ── STEP 0: Organisation ── */}
                 {step === 0 && (

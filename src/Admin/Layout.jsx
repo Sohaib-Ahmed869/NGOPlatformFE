@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AuthService from "../services/auth.service";
 import { AdminUiProvider, useAdminUi } from "../context/AdminUiContext";
 import { AdminRealtimeProvider } from "../context/AdminRealtimeContext";
 import { AdminSidebar } from "./components/AdminSidebar";
@@ -49,27 +50,37 @@ const AdminShell = () => {
 const AdminLayout = () => {
   const { user, setUser } = useAuth();
 
+  // Fallback: if the in-memory user hasn't hydrated yet (e.g. the instant after a
+  // support-session handoff stores it), read it from storage so we never fire the
+  // one-shot redirect on a transient null and bounce a valid admin out.
+  const effectiveUser = user || AuthService.getCurrentUser();
+
+  // Adopt the stored user into context so the rest of the portal sees it.
+  useEffect(() => {
+    if (!user && effectiveUser) setUser(effectiveUser);
+  }, [user, effectiveUser, setUser]);
+
   // The login / cached user may not carry the profile photo. Hydrate it once
   // from the profile endpoint so the topbar + sidebar avatars can use it.
   useEffect(() => {
-    if (!user || user.profileImage !== undefined) return;
+    if (!effectiveUser || effectiveUser.profileImage !== undefined) return;
     let cancelled = false;
     ProfileService.getProfile()
       .then((p) => {
         if (!cancelled && p) {
-          setUser((prev) => ({ ...prev, profileImage: p.profileImage || "" }));
+          setUser((prev) => ({ ...(prev || effectiveUser), profileImage: p.profileImage || "" }));
         }
       })
       .catch(() => {
         // Best-effort — fall back to initials if the profile can't load.
-        if (!cancelled) setUser((prev) => ({ ...prev, profileImage: "" }));
+        if (!cancelled) setUser((prev) => ({ ...(prev || effectiveUser), profileImage: "" }));
       });
     return () => {
       cancelled = true;
     };
-  }, [user, setUser]);
+  }, [effectiveUser, setUser]);
 
-  if (!user || !user.role?.includes("admin")) {
+  if (!effectiveUser || !effectiveUser.role?.includes("admin")) {
     return <Navigate to="/login" replace />;
   }
 
