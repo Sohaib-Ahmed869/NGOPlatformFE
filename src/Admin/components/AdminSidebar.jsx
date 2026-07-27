@@ -7,6 +7,7 @@ import { useAdminUi } from '../../context/AdminUiContext'
 import { useAdminRealtime } from '../../context/AdminRealtimeContext'
 import { NAV_GROUPS } from '../navConfig'
 import { cn } from '../../utils/cn'
+import useLogoFit from '../../hooks/useLogoFit'
 
 // Present an org name nicely even when only a raw slug is available
 // ("calcite" → "Calcite", "hope-fund" → "Hope Fund"). Real names that already
@@ -72,6 +73,9 @@ export function AdminSidebar() {
   const logo = sidebarCollapsed
     ? branding?.iconLogo || branding?.iconLogoDark || darkBgLogo
     : darkBgLogo
+  // Size the logo box to the logo's own shape — a stacked lockup needs more
+  // height than a horizontal wordmark. See hooks/useLogoFit.
+  const logoFit = useLogoFit(logo)
 
   const handleLogout = async () => {
     try { await logout() } catch { /* best-effort */ }
@@ -108,30 +112,25 @@ export function AdminSidebar() {
         <div
           className={cn(
             'flex shrink-0 items-center',
-            sidebarCollapsed ? 'h-16 justify-center px-3' : 'gap-2.5 px-4 pt-6 pb-4',
+            sidebarCollapsed ? 'h-16 justify-center px-2' : 'gap-2.5 px-4 pt-6 pb-4',
           )}
         >
           <Link to="/admin/dashboard" className="flex min-w-0 items-center gap-2.5" onClick={closeMobileSidebar}>
             {logo ? (
               // A logo image already carries the brand mark/wordmark, so show it
-              // on its own. Collapsed → square icon; expanded → let a horizontal
-              // wordmark breathe (auto width). No name/tagline alongside it.
+              // on its own — no name/tagline alongside it. The box is sized to
+              // the logo's measured shape so a stacked lockup isn't crushed to
+              // wordmark height.
               <img
                 src={logo}
                 alt={brandName}
-                className={cn(
-                  'shrink-0 object-contain',
-                  sidebarCollapsed
-                    ? 'h-9 w-9' // collapsed: just the icon, no ring/background
-                    : // expanded: nudge left to offset typical logo whitespace
-                      'object-left h-10 w-auto max-w-[170px] -ml-1.5',
-                )}
+                className={cn('shrink-0', sidebarCollapsed ? logoFit.collapsedClass : logoFit.expandedClass)}
               />
             ) : (
               // No logo → letter badge, plus the org name + "Admin Portal" label.
               <>
                 <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-extrabold leading-none text-white ring-1 ring-white/20"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-extrabold leading-none text-on-accent ring-1 ring-white/20"
                   style={{
                     background: 'linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))',
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.25)',

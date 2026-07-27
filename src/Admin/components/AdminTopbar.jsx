@@ -159,7 +159,7 @@ function UserMenu() {
           />
         ) : (
           <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-on-accent"
             style={{ background: 'linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))' }}
           >
             {getInitials(displayName)}

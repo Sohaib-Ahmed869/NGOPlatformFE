@@ -189,7 +189,7 @@ const OrderConfirmation = () => {
           {/* Gradient success header */}
           <div
             className="relative overflow-hidden px-6 py-10 text-center text-white"
-            style={{ background: "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-accent, #C9A84C))" }}
+            style={{ background: "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-accent-grad, #C9A84C))" }}
           >
             <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
             <span aria-hidden className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />

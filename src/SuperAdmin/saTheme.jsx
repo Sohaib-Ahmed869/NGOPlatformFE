@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { themeCategories, getThemeById } from "../config/themePresets";
+import { onColor, gradientStop } from "../utils/contrast";
 
 /**
  * Platform-console colour theme. Mirrors the tenant admin's theming
@@ -42,6 +43,9 @@ function computeVars({ primary, accent, bg }) {
     "--tenant-sidebar-bottom": shiftHex(primary, 20),
     "--tenant-primary-light": shiftHex(primary, -15),
     "--tenant-accent-light": shiftHex(accent, -15),
+    // Keeps accent-filled console buttons legible on a pale accent.
+    "--tenant-accent-contrast": onColor(accent, primary),
+    "--tenant-accent-grad": gradientStop(accent, shiftHex(primary, -15)),
   };
 }
 

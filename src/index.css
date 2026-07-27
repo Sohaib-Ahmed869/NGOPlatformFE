@@ -15,6 +15,13 @@
     --tenant-bg-rgb: 250, 247, 242;
     --tenant-sidebar-top: #4A3F30;
     --tenant-sidebar-bottom: #3D3226;
+    /* Label colour for accent-filled surfaces — recomputed from the accent's
+       luminance wherever the tenant vars are set (utils/contrast.js). White
+       here matches the historical default. */
+    --tenant-accent-contrast: #FFFFFF;
+    /* Far stop for primary→accent gradients that carry white text — the accent
+       itself unless it's too pale to hold a white label. */
+    --tenant-accent-grad: #C9A84C;
 
     /* Design tokens (shape) — defaults reproduce the current square look.
        Overridden per tenant by TenantContext.applyDesign(). */
@@ -37,6 +44,16 @@
 }
 
 @layer utilities {
+  /* Accent-filled surfaces carry `text-white` at ~300 call sites, which assumes
+     a dark accent. --tenant-accent-contrast resolves to white for dark accents
+     (so those are untouched) and to dark ink for pale ones, where a white label
+     would be invisible. The two-class selectors outrank Tailwind's .text-white
+     without needing !important or edits at the call sites. */
+  .bg-accent.text-white,
+  .bg-accent .text-white {
+    color: var(--tenant-accent-contrast, #ffffff);
+  }
+
   /* Hide scrollbars while keeping scroll behaviour — used by the admin sidebar
      nav (this project has no tailwind-scrollbar plugin). */
   .scrollbar-none {

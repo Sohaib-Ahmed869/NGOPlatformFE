@@ -7,7 +7,7 @@ import {
 import { toast } from "react-hot-toast";
 import platformService from "../../services/platform.service";
 import { useTenant } from "../../context/TenantContext";
-import { themeCategories } from "../../config/themePresets";
+import { themeCategories, getThemeById } from "../../config/themePresets";
 import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
 import SAPageHeader from "../components/SAPageHeader";
@@ -269,7 +269,12 @@ export default function PlatformSettings() {
   const [saving, setSaving] = useState(false);
   const [busyAsset, setBusyAsset] = useState(null);
   const [form, setForm] = useState(cached ? toForm(cached) : DEFAULTS);
-  const [themeCat, setThemeCat] = useState(themeCategories[0]?.id || "modern");
+  // Open on the category holding the saved theme, so the highlighted swatch is
+  // actually on screen — defaulting to the first category made a saved theme
+  // look unapplied.
+  const [themeCat, setThemeCat] = useState(
+    () => getThemeById((cached ? toForm(cached) : DEFAULTS).branding.theme).categoryId,
+  );
   // Snapshot of the last-saved values (excludes logos) → powers the dirty state
   // so "Save"/"Discard" only act when there's an actual unsaved edit.
   const savedRef = useRef(cached ? pickSaveable(toForm(cached)) : null);
@@ -282,6 +287,7 @@ export default function PlatformSettings() {
         const data = await withMinDelay(platformService.getSettings());
         const next = toForm(data);
         setForm(next);
+        setThemeCat(getThemeById(next.branding.theme).categoryId); // follow the loaded theme
         savedRef.current = pickSaveable(next);
       } catch {
         toast.error("Failed to load platform settings");
@@ -401,7 +407,7 @@ export default function PlatformSettings() {
             return (
               <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors", active ? "text-white" : "text-gray-600 hover:bg-gray-50")}>
                 {active ? (
-                  <motion.span layoutId="saPlatformTab" className="absolute inset-0 z-0" style={{ background: "linear-gradient(135deg, var(--tenant-primary, #0f172a), var(--tenant-accent, #10b981))" }} transition={{ type: "spring", stiffness: 380, damping: 32 }}>
+                  <motion.span layoutId="saPlatformTab" className="absolute inset-0 z-0" style={{ background: "linear-gradient(135deg, var(--tenant-primary, #0f172a), var(--tenant-accent-grad, #10b981))" }} transition={{ type: "spring", stiffness: 380, damping: 32 }}>
                     <span className="absolute inset-y-0 left-0 w-1 bg-accent" aria-hidden="true" />
                   </motion.span>
                 ) : null}
@@ -508,6 +514,10 @@ export default function PlatformSettings() {
                   <div className="border-t border-gray-100 pt-6">
                     <p className="text-sm font-semibold text-gray-800">Colour theme</p>
                     <p className="mt-0.5 text-xs text-gray-400">Recolours the whole marketing site — navbar, buttons, footer gradient, borders and accents.</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      <span className="font-medium text-gray-500">Public, and saved for everyone.</span> This does not recolour
+                      the operator console — that&apos;s Settings → Appearance, which is per-operator.
+                    </p>
 
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {themeCategories.map((c) => (

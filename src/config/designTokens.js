@@ -7,6 +7,7 @@
  * Applied via CSS variables on <html> by TenantContext.applyDesign().
  */
 import { getThemeById } from "./themePresets";
+import { onColor } from "../utils/contrast";
 
 /* ── Curated fonts (~12) ──────────────────────────────────────────────────
  * `stack`  = the CSS font-family applied (var --font-heading/body/nav).
@@ -135,6 +136,9 @@ export function designCssVars(design) {
     if (d.colors.primary) vars["--tenant-primary"] = d.colors.primary;
     if (d.colors.accent) vars["--tenant-accent"] = d.colors.accent;
     if (d.colors.bg) vars["--tenant-bg"] = d.colors.bg;
+    // Preview the same label flip the live site applies, so a pale accent looks
+    // the same here as after publishing.
+    if (d.colors.accent) vars["--tenant-accent-contrast"] = onColor(d.colors.accent, d.colors.primary);
   }
   return vars;
 }

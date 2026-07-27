@@ -3,6 +3,7 @@ import axiosInstance from "../services/axios";
 import siteService from "../services/site.service";
 import planLimitsConfig from "../config/planLimits";
 import { resolveDesign, FONT_MAP, ROUNDNESS_MAP, BORDER_WIDTH_MAP, SHADOW_MAP } from "../config/designTokens";
+import { onColor, gradientStop } from "../utils/contrast";
 
 const TenantContext = createContext(null);
 
@@ -73,6 +74,10 @@ function applyColorVars(primary, accent, bg) {
   root.style.setProperty("--tenant-sidebar-bottom", darkenHex(primary, 20));
   root.style.setProperty("--tenant-primary-light", darkenHex(primary, -15));
   root.style.setProperty("--tenant-accent-light", darkenHex(accent, -15));
+  // Label colour for accent-filled buttons/badges — white unless the accent is
+  // too pale to carry it, then the tenant's primary. See utils/contrast.js.
+  root.style.setProperty("--tenant-accent-contrast", onColor(accent, primary));
+  root.style.setProperty("--tenant-accent-grad", gradientStop(accent, darkenHex(primary, -15)));
 }
 
 function applyBrandingCSS(branding) {

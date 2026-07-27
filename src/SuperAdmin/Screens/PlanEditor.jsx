@@ -372,7 +372,7 @@ export default function PlanEditor() {
             return (
               <button key={t.key} type="button" onClick={() => setTab(t.key)} className={cn("relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors", active ? "text-white" : "text-gray-600 hover:bg-gray-50")}>
                 {active ? (
-                  <motion.span layoutId="saPlanTab" className="absolute inset-0 z-0" style={{ background: "linear-gradient(135deg, var(--tenant-primary, #0f172a), var(--tenant-accent, #10b981))" }} transition={{ type: "spring", stiffness: 380, damping: 32 }}>
+                  <motion.span layoutId="saPlanTab" className="absolute inset-0 z-0" style={{ background: "linear-gradient(135deg, var(--tenant-primary, #0f172a), var(--tenant-accent-grad, #10b981))" }} transition={{ type: "spring", stiffness: 380, damping: 32 }}>
                     <span className="absolute inset-y-0 left-0 w-1" style={{ background: ACCENT }} aria-hidden="true" />
                   </motion.span>
                 ) : null}

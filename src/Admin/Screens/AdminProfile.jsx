@@ -535,7 +535,7 @@ export default function AdminProfile() {
                 <img src={avatar} alt={fullName} className="h-24 w-24 rounded-none object-cover ring-4 ring-white dark:ring-[var(--admin-card)]" />
               ) : (
                 <div
-                  className="flex h-24 w-24 items-center justify-center rounded-none text-2xl font-bold text-white ring-4 ring-white dark:ring-[var(--admin-card)]"
+                  className="flex h-24 w-24 items-center justify-center rounded-none text-2xl font-bold text-on-accent ring-4 ring-white dark:ring-[var(--admin-card)]"
                   style={{ background: "linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))" }}
                 >
                   {initialsOf(fullName)}
@@ -606,7 +606,7 @@ export default function AdminProfile() {
                   <motion.span
                     layoutId="profileTabActive"
                     className="absolute inset-0 z-0"
-                    style={{ background: "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-accent, #C9A84C))" }}
+                    style={{ background: "linear-gradient(135deg, var(--tenant-primary, #2C2418), var(--tenant-accent-grad, #C9A84C))" }}
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   >
                     <span className="absolute inset-y-0 left-0 w-1 bg-accent" aria-hidden="true" />

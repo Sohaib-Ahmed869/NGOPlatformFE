@@ -611,7 +611,7 @@ export default function OrganisationDetail() {
                     <img src={org.adminUserId.profileImage} alt={org.adminUserId?.name || "Owner"} className="h-full w-full object-cover" />
                   </span>
                 ) : (
-                  <span className="grid h-11 w-11 shrink-0 place-items-center text-sm font-bold uppercase text-white" style={{ background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))" }}>
+                  <span className="grid h-11 w-11 shrink-0 place-items-center text-sm font-bold uppercase text-on-accent" style={{ background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))" }}>
                     {(org.adminUserId?.name || org.name)?.charAt(0)}
                   </span>
                 )}

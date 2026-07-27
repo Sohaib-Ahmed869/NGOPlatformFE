@@ -436,7 +436,7 @@ const UserDashboard = () => {
                 <img src={avatar} alt={displayName} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white/40" />
               ) : (
                 <span
-                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white ring-2 ring-white/40"
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-on-accent ring-2 ring-white/40"
                   style={{ background: "linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))" }}
                 >
                   {getInitials(displayName)}

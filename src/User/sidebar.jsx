@@ -4,6 +4,7 @@ import { toast } from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import { useTenant } from "../context/TenantContext";
 import { cn } from "../utils/cn";
+import useLogoFit from "../hooks/useLogoFit";
 
 function prettifyName(raw) {
   if (!raw) return "My Account";
@@ -50,6 +51,10 @@ const UserSidebar = ({ collapsed, mobileOpen, onClose }) => {
   // variant. Collapsed uses a dedicated square icon mark when available.
   const expandedLogo = branding?.logo || branding?.logoDark;
   const collapsedLogo = branding?.iconLogo || branding?.iconLogoDark || expandedLogo;
+  // Both rails render at once (one is hidden per breakpoint), and the two slots
+  // can hold differently-shaped files, so measure each. See hooks/useLogoFit.
+  const expandedFit = useLogoFit(expandedLogo);
+  const collapsedFit = useLogoFit(collapsedLogo);
 
   const handleLogout = async () => {
     try {
@@ -79,7 +84,7 @@ const UserSidebar = ({ collapsed, mobileOpen, onClose }) => {
         }}
       >
         {/* Brand */}
-        <div className={cn("flex shrink-0 items-center px-4 pb-4 pt-6", collapsed && "md:justify-center md:px-3")}>
+        <div className={cn("flex shrink-0 items-center px-4 pb-4 pt-6", collapsed && "md:justify-center md:px-2")}>
           {/* Expanded brand (hidden at md when collapsed) */}
           <Link
             to="/user/dashboard"
@@ -87,11 +92,11 @@ const UserSidebar = ({ collapsed, mobileOpen, onClose }) => {
             className={cn("flex min-w-0 items-center gap-2.5", collapsed && "md:hidden")}
           >
             {expandedLogo ? (
-              <img src={expandedLogo} alt={brandName} className="-ml-1.5 h-10 w-auto max-w-[170px] object-contain object-left" />
+              <img src={expandedLogo} alt={brandName} className={cn("shrink-0", expandedFit.expandedClass)} />
             ) : (
               <>
                 <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-extrabold leading-none text-white ring-1 ring-white/20"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-extrabold leading-none text-on-accent ring-1 ring-white/20"
                   style={{
                     background: "linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.25)",
@@ -111,10 +116,10 @@ const UserSidebar = ({ collapsed, mobileOpen, onClose }) => {
           {collapsed ? (
             <Link to="/user/dashboard" onClick={onClose} title={brandName} className="hidden md:flex">
               {collapsedLogo ? (
-                <img src={collapsedLogo} alt={brandName} className="h-9 w-9 object-contain" />
+                <img src={collapsedLogo} alt={brandName} className={collapsedFit.collapsedClass} />
               ) : (
                 <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-extrabold leading-none text-white ring-1 ring-white/20"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[15px] font-extrabold leading-none text-on-accent ring-1 ring-white/20"
                   style={{
                     background: "linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.25)",

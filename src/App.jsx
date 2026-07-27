@@ -146,6 +146,7 @@ import AuditLog from "./SuperAdmin/Screens/AuditLog";
 import SupportSessionBanner from "./Admin/components/SupportSessionBanner";
 import ProtectedSuperAdminRoute from "./components/ProtectedSuperAdminRoute";
 import TenantLoader from "./components/TenantLoader";
+import { onColor, gradientStop } from "./utils/contrast";
 
 import { Toaster } from "react-hot-toast";
 
@@ -353,6 +354,8 @@ const PLATFORM_VARS = {
   "--tenant-accent": "#047857",
   "--tenant-accent-light": "#059669",
   "--tenant-accent-rgb": "4, 120, 87",
+  "--tenant-accent-contrast": "#FFFFFF", // emerald is dark → white labels read fine
+  "--tenant-accent-grad": "#047857",
   "--tenant-bg": "#F3F8F5",
   "--tenant-bg-rgb": "243, 248, 245",
   "--tenant-sidebar-top": "#0D241E",
@@ -408,6 +411,8 @@ function buildPlatformVars(platform) {
     "--tenant-accent": ac,
     "--tenant-accent-light": _shiftHex(ac, -15),
     "--tenant-accent-rgb": _hexToRgb(ac),
+    "--tenant-accent-contrast": onColor(ac, pr),
+    "--tenant-accent-grad": gradientStop(ac, _shiftHex(pr, -15)),
     "--tenant-bg": bg,
     "--tenant-bg-rgb": _hexToRgb(bg),
     "--tenant-sidebar-top": _shiftHex(pr, 10),

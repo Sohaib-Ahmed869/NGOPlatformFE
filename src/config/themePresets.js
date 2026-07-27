@@ -1,6 +1,6 @@
 /**
  * Comprehensive theme presets for organisation portals.
- * 4 categories × 10 themes = 40 total presets.
+ * 4 categories × 10 themes, plus the 2 Donexus brand presets = 42 total.
  * Each theme defines: primary (text/headings), accent (buttons/CTA), bg (page background),
  * sidebar (dark surface), surface (cards/panels).
  */
@@ -38,6 +38,12 @@ const themeCategories = [
       { id: "modern-indigo", name: "Indigo", primary: "#1E1B4B", accent: "#4F46E5", bg: "#EEF2FF", sidebar: "#1E1B4B", surface: "#FFFFFF", desc: "Deep indigo depth" },
       { id: "modern-emerald", name: "Emerald Pop", primary: "#0F172A", accent: "#10B981", bg: "#F0FDF4", sidebar: "#162032", surface: "#FFFFFF", desc: "Bold emerald contrast" },
       { id: "modern-slate", name: "Slate", primary: "#0F172A", accent: "#6366F1", bg: "#F8FAFC", sidebar: "#1E293B", surface: "#FFFFFF", desc: "Sleek and minimal" },
+      // Donexus brand palette (Branding Stage 03, 24 Jul 2026). Two supplied
+      // trios, verbatim; both keep the brand near-black #00091E as the sidebar.
+      // NOTE both accents are pale — 2.1:1 and 1.3:1 against white — so their
+      // buttons need DARK (#182A54) label text, not the usual white.
+      { id: "donexus", name: "Donexus", primary: "#182A54", accent: "#A8BA70", bg: "#EEF8FF", sidebar: "#00091E", surface: "#FFFFFF", desc: "Navy on pale blue, olive CTA" },
+      { id: "donexus-lime", name: "Donexus Lime", primary: "#182A54", accent: "#E4EB99", bg: "#FEFFE6", sidebar: "#00091E", surface: "#FFFFFF", desc: "Navy on cream, lime CTA" },
     ],
   },
   {

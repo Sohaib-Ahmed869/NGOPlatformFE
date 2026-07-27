@@ -531,7 +531,7 @@ function PaymentDetail({ payment: p, onBack }) {
             {/* Gradient hero header */}
             <div
               className="relative overflow-hidden px-6 py-7 text-white"
-              style={{ background: "linear-gradient(120deg, var(--tenant-primary, #2C2418), var(--tenant-accent, #C9A84C))" }}
+              style={{ background: "linear-gradient(120deg, var(--tenant-primary, #2C2418), var(--tenant-accent-grad, #C9A84C))" }}
             >
               <span aria-hidden className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
               <span aria-hidden className="pointer-events-none absolute -bottom-16 -left-8 h-40 w-40 rounded-full bg-white/10 blur-3xl" />

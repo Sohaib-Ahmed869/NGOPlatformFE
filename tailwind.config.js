@@ -23,6 +23,9 @@ export default {
         'primary-light': 'var(--tenant-primary-light, #4A3C2A)',
         accent: 'var(--tenant-accent, #C9A84C)',
         'accent-light': 'var(--tenant-accent-light, #D4B85A)',
+        // Label colour that stays legible on an accent fill — use `text-on-accent`
+        // in new code instead of `text-white`. See src/utils/contrast.js.
+        'on-accent': 'var(--tenant-accent-contrast, #FFFFFF)',
         background: 'var(--tenant-bg, #FAF7F2)',
         surface: '#FFFFFF',
         'text-dark': 'var(--tenant-primary, #2C2418)',

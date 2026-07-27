@@ -263,7 +263,7 @@ export default function SADashboard() {
                       {orgLogo(org) ? (
                         <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden"><img src={orgLogo(org)} alt={org.name || ""} className="h-full w-full object-contain" /></span>
                       ) : (
-                        <span className="grid h-9 w-9 shrink-0 place-items-center text-xs font-bold uppercase text-white" style={{ background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))" }}>{org.name?.charAt(0)}</span>
+                        <span className="grid h-9 w-9 shrink-0 place-items-center text-xs font-bold uppercase text-on-accent" style={{ background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))" }}>{org.name?.charAt(0)}</span>
                       )}
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{org.name}</p>

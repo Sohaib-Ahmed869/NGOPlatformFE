@@ -142,7 +142,7 @@ const UserTopbar = ({ onMenu, collapsed, onToggleCollapse }) => {
                 <img src={avatar} alt={displayName} className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/15" />
               ) : (
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-on-accent"
                   style={{ background: "linear-gradient(135deg, var(--tenant-accent, #C9A84C), var(--tenant-accent-light, #D4B85A))" }}
                 >
                   {getInitials(displayName)}

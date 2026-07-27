@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
 import { cn } from "../../utils/cn";
+import useLogoFit from "../../hooks/useLogoFit";
 import platformService from "../../services/platform.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 
@@ -76,6 +77,9 @@ export default function SASidebar() {
   const brandName = brand?.name || "NGO Platform";
   const expandedLogo = brand?.logo || brand?.logoDark || "";
   const collapsedIcon = brand?.iconLogo || brand?.iconLogoDark || "";
+  // Centred brand block → no left anchor/nudge; sizing still follows the logo's
+  // own shape so a stacked lockup isn't squashed. See hooks/useLogoFit.
+  const logoFit = useLogoFit(expandedLogo, { align: "center" });
 
   const handleLogout = async () => {
     try {
@@ -106,14 +110,14 @@ export default function SASidebar() {
         }}
       >
         {/* Brand — collapsed shows the icon, expanded shows the full logo */}
-        <div className={cn("flex shrink-0 items-center", sidebarCollapsed ? "h-16 justify-center px-3" : "gap-2.5 px-4 pt-6 pb-4")}>
-          <Link to="/dashboard" className="flex min-w-0 items-center gap-2.5" onClick={closeMobileSidebar}>
+        <div className={cn("flex shrink-0 items-center justify-center", sidebarCollapsed ? "h-16 px-2" : "gap-2.5 px-4 pt-6 pb-4")}>
+          <Link to="/dashboard" className="flex min-w-0 items-center justify-center gap-2.5" onClick={closeMobileSidebar}>
             {sidebarCollapsed ? (
               collapsedIcon ? (
-                <img src={collapsedIcon} alt={brandName} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+                <img src={collapsedIcon} alt={brandName} className={cn("shrink-0 rounded-lg", logoFit.collapsedClass)} />
               ) : (
                 <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white ring-1 ring-white/20"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-on-accent ring-1 ring-white/20"
                   style={{
                     background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.25)",
@@ -123,11 +127,11 @@ export default function SASidebar() {
                 </span>
               )
             ) : expandedLogo ? (
-              <img src={expandedLogo} alt={brandName} className="h-9 w-auto max-w-[180px] shrink-0 object-contain object-left" />
+              <img src={expandedLogo} alt={brandName} className={cn("shrink-0", logoFit.expandedClass)} />
             ) : (
               <>
                 <span
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white ring-1 ring-white/20"
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-on-accent ring-1 ring-white/20"
                   style={{
                     background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))",
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.25)",

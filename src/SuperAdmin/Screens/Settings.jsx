@@ -136,7 +136,12 @@ export default function SASettings() {
   const { user, setUser } = useAuth();
   const { theme, toggleTheme, sidebarCollapsed, setSidebarCollapsed } = useAdminUi();
   const { themeId, primary, accent, bg, setTheme, setColor, reset, categories } = useSATheme();
-  const [themeCat, setThemeCat] = useState(categories[0]?.id || "warm");
+  // Open on the category holding the active theme, so the highlighted swatch is
+  // actually on screen. Defaulting to the first category made an applied theme
+  // look unset. A custom colour edit clears themeId → fall back to the first.
+  const [themeCat, setThemeCat] = useState(
+    () => categories.find((c) => c.themes?.some((t) => t.id === themeId))?.id || categories[0]?.id || "warm",
+  );
   const fileRef = useRef(null);
   const [tab, setTab] = useState("profile");
   // Hydrate from the session caches so revisits are instant (no loader/flicker,
@@ -300,7 +305,7 @@ export default function SASettings() {
             {avatar ? (
               <img src={avatar} alt={fullName} className="h-24 w-24 rounded-2xl object-cover ring-4 ring-white dark:ring-[var(--admin-card)]" />
             ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl text-2xl font-bold text-white ring-4 ring-white dark:ring-[var(--admin-card)]" style={{ background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))" }}>
+              <div className="flex h-24 w-24 items-center justify-center rounded-2xl text-2xl font-bold text-on-accent ring-4 ring-white dark:ring-[var(--admin-card)]" style={{ background: "linear-gradient(135deg, var(--tenant-accent, #10b981), var(--tenant-accent-light, #34d399))" }}>
                 {initialsOf(fullName)}
               </div>
             )}
@@ -330,7 +335,7 @@ export default function SASettings() {
             return (
               <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cn("relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors", active ? "text-white" : "text-gray-600 hover:bg-gray-50")}>
                 {active ? (
-                  <motion.span layoutId="saSettingsTab" className="absolute inset-0 z-0" style={{ background: "linear-gradient(135deg, var(--tenant-primary, #0f172a), var(--tenant-accent, #10b981))" }} transition={{ type: "spring", stiffness: 380, damping: 32 }}>
+                  <motion.span layoutId="saSettingsTab" className="absolute inset-0 z-0" style={{ background: "linear-gradient(135deg, var(--tenant-primary, #0f172a), var(--tenant-accent-grad, #10b981))" }} transition={{ type: "spring", stiffness: 380, damping: 32 }}>
                     <span className="absolute inset-y-0 left-0 w-1 bg-accent" aria-hidden="true" />
                   </motion.span>
                 ) : null}
@@ -528,6 +533,10 @@ export default function SASettings() {
                       <div>
                         <p className="text-sm font-semibold text-gray-800">Colour theme</p>
                         <p className="mt-0.5 text-xs text-gray-400">Recolours the whole console — sidebar gradient, accents, charts and background.</p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          <span className="font-medium text-gray-500">Just for you.</span> Saved in this browser only — other
+                          operators keep their own, and the public site is unaffected (that&apos;s Platform → Branding).
+                        </p>
                       </div>
                       <button type="button" onClick={reset} className="shrink-0 text-xs font-medium text-accent hover:underline">Reset</button>
                     </div>
