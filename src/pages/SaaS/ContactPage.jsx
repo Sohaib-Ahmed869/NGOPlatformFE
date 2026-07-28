@@ -83,8 +83,10 @@ const Reveal = ({ children, delay = 0, className = "" }) => {
 };
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
 .saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
+/* Display headings at 500, not bold — see the note on the home page. */
+.saas-page h1,.saas-page h2{font-weight:500!important}
 /* Sharp, editorial corners — force EVERY element square, overriding both the
    rounded-* utilities AND the [data-public-site] auto-rounding of borders/buttons/inputs. */
 .saas-page, .saas-page *, .saas-page *::before, .saas-page *::after{border-radius:0 !important}
@@ -184,7 +186,7 @@ export default function ContactPage() {
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: V.accent, boxShadow: `0 0 0 3px rgba(245,158,11,.25)` }} />
                   Get in touch
                 </span>
-                <h1 className="mt-5 text-[clamp(32px,4vw,46px)] font-semibold leading-[1.05] text-white">Let's talk.</h1>
+                <h1 className="mt-5 text-[clamp(27px,3.2vw,38px)] font-semibold leading-[1.05] text-white">Let's talk.</h1>
                 <p className="mt-4 max-w-[36ch] text-[15px] leading-relaxed text-white/75">
                   Questions about the platform, pricing or what's right for your organisation? Tell us what you're working on — a real person will get back to you.
                 </p>
@@ -318,7 +320,7 @@ export default function ContactPage() {
       <section className="relative z-[1] px-6 pb-28">
         <div className="mx-auto max-w-3xl">
           <Reveal className="mb-6 flex items-end justify-between gap-4">
-            <h2 className="text-[clamp(22px,3vw,30px)] font-semibold" style={{ color: V.ink }}>Common questions</h2>
+            <h2 className="text-[clamp(20px,2.4vw,26px)] font-semibold" style={{ color: V.ink }}>Common questions</h2>
             <a href="/#faq" className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold" style={{ color: V.primary }}>
               See all FAQs <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </a>

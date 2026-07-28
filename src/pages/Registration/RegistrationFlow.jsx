@@ -11,6 +11,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import tenantService from "../../services/tenant.service";
 import themeCategories, { getThemeById } from "../../config/themePresets";
+import { useTenant } from "../../context/TenantContext";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
@@ -54,8 +55,10 @@ const font = "'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Rob
 const mono = "'JetBrains Mono', monospace";
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
 .reg-page h1,.reg-page h2,.reg-page h3{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
+/* Display headings at 500, not bold — see the note on the SaaS home page. */
+.reg-page h1,.reg-page h2{font-weight:500!important}
 .reg-page button,.reg-page input,.reg-page textarea,.reg-page [class*="rounded"],.reg-page [class*="border"]{border-radius:0 !important}
 .reg-uline{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(16,42,35,.18);padding:10px 2px;font-size:14px;color:var(--tenant-primary,#102A23);outline:none;transition:border-color .3s,box-shadow .3s}
 .reg-uline::placeholder{color:#9aada4}
@@ -186,7 +189,7 @@ function PaymentInner({ slug, onBack, priceLabel }) {
 function PaymentStep({ clientSecret, slug, summary, onBack }) {
   return (
     <div>
-      <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Payment details</h2>
+      <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Payment details</h2>
       <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Enter your card to start your subscription. Cancel anytime.</p>
 
       <div className="mt-5 flex items-center justify-between border p-4 text-[13.5px]" style={{ borderColor: V.line, background: V.surface2 }}>
@@ -211,6 +214,11 @@ function PaymentStep({ clientSecret, slug, summary, onBack }) {
 
 export default function RegistrationFlow() {
   const [searchParams] = useSearchParams();
+  // Platform brand (SuperAdmin → Platform): the panel is dark, so prefer the
+  // light logo and fall back to the dark one, exactly like SaaSNavbar does.
+  const { platform } = useTenant();
+  const brandName = platform?.name || "NGO Platform";
+  const brandLogo = platform?.logo || platform?.logoDark || "";
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -427,14 +435,22 @@ export default function RegistrationFlow() {
 
             <div className="relative flex h-full flex-col">
               <Link to="/" className="inline-flex items-center gap-2.5">
-                <span className="grid h-9 w-9 place-items-center text-[15px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${V.primary2}, ${V.primary})` }}>N</span>
-                <span className="text-[17px] font-bold tracking-tight text-white">NGO Platform</span>
+                {brandLogo ? (
+                  <img src={brandLogo} alt={brandName} className="h-9 w-auto max-w-[170px] object-contain" />
+                ) : (
+                  <>
+                    <span className="grid h-9 w-9 place-items-center text-[15px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${V.primary2}, ${V.primary})` }}>
+                      {brandName.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="text-[17px] font-bold tracking-tight text-white">{brandName}</span>
+                  </>
+                )}
               </Link>
 
               <span className="mt-9 inline-flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white/55" style={{ fontFamily: mono }}>
                 <span className="h-1.5 w-1.5" style={{ background: V.glow }} /> Start your portal
               </span>
-              <h1 className="mt-4 text-[clamp(28px,3.4vw,40px)] font-semibold leading-[1.05] text-white">
+              <h1 className="mt-4 text-[clamp(24px,2.8vw,33px)] font-semibold leading-[1.05] text-white">
                 Set up your charity in minutes.
               </h1>
               <p className="mt-3 max-w-[34ch] text-[14px] leading-relaxed text-white/70">
@@ -497,7 +513,7 @@ export default function RegistrationFlow() {
                 {/* ── STEP 0: Organisation ── */}
                 {step === 0 && (
                   <div>
-                    <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Tell us about your organisation</h2>
+                    <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Tell us about your organisation</h2>
                     <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>We'll use this to create your branded portal.</p>
 
                     <div className="mt-8 space-y-6">
@@ -573,7 +589,7 @@ export default function RegistrationFlow() {
                   <div>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Choose your theme</h2>
+                        <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Choose your theme</h2>
                         <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Pick a style — fully customisable later.</p>
                       </div>
                       <button onClick={next} className="inline-flex shrink-0 items-center gap-1.5 border px-3 py-2 text-xs font-medium transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.inkSoft }}>
@@ -639,7 +655,7 @@ export default function RegistrationFlow() {
                 {/* ── STEP 2: Account ── */}
                 {step === 2 && (
                   <div>
-                    <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Create your admin account</h2>
+                    <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Create your admin account</h2>
                     <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>You'll use these credentials to manage your portal.</p>
 
                     <div className="mt-8 space-y-6">
@@ -703,7 +719,7 @@ export default function RegistrationFlow() {
                 {/* ── STEP 3: Review ── */}
                 {step === 3 && (
                   <div>
-                    <h2 className="text-[clamp(24px,3vw,32px)] font-semibold" style={{ color: V.ink }}>Review your details</h2>
+                    <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Review your details</h2>
                     <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Confirm everything looks good before payment.</p>
 
                     <div className="mt-7 space-y-4">

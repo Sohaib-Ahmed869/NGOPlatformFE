@@ -44,7 +44,10 @@ export default function CtaSection({
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ background: "linear-gradient(180deg, rgba(255,255,255,.08), transparent)" }} />
 
           <div className="relative flex flex-col items-center gap-6 text-center md:flex-row md:justify-between md:gap-10 md:text-left">
-            <h2 className="max-w-[24ch] text-[clamp(24px,2.8vw,34px)] font-bold leading-[1.14] tracking-[-0.02em] text-white">{title}</h2>
+            {/* font-medium, not bold: matches the 500 the pages set on h1/h2, and
+                this component also mounts OUTSIDE .saas-page (the register route),
+                where that CSS rule can't reach it. */}
+            <h2 className="max-w-[24ch] text-[clamp(21px,2.3vw,28px)] font-medium leading-[1.14] tracking-[-0.02em] text-white">{title}</h2>
 
             <div className="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row">
               <Link to={primaryTo}

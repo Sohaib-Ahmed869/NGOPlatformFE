@@ -49,12 +49,14 @@ const fadeUpChild = {
 
 /* Injected CSS — hover effects + grid matching homepage */
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
 /* Editorial serif headings + sharp corners everywhere — matches the home page. */
 .saas-page h1, .saas-page h2, .saas-page h3, .saas-page h4, .saas-page h5, .saas-page h6 {
   font-family: 'Fraunces', 'Outfit', Georgia, serif !important;
   letter-spacing: -0.015em;
 }
+/* Display headings at 500, not bold — see the note on the home page. */
+.saas-page h1, .saas-page h2 { font-weight: 500 !important; }
 .saas-page [class*="rounded"] { border-radius: 0 !important; }
 
 /* Regular (non-featured) price cards */
@@ -311,7 +313,7 @@ export default function PlansPage() {
       <section data-hero className="relative z-[1] pt-32 pb-8 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <Reveal delay={0.1}>
-            <h1 className="text-[clamp(36px,5vw,56px)] font-medium tracking-[-0.03em] leading-[1.04] mb-4" style={{ color: V.ink }}>
+            <h1 className="text-[clamp(30px,4vw,44px)] font-medium tracking-[-0.03em] leading-[1.04] mb-4" style={{ color: V.ink }}>
               Simple, transparent pricing
             </h1>
           </Reveal>
@@ -372,7 +374,7 @@ export default function PlansPage() {
         <div className="max-w-4xl mx-auto">
           <Reveal>
             <div className="text-center mb-12">
-              <h2 className="text-[clamp(28px,3.8vw,44px)] font-bold tracking-[-0.025em]" style={{ color: V.ink }}>
+              <h2 className="text-[clamp(24px,3vw,36px)] font-bold tracking-[-0.025em]" style={{ color: V.ink }}>
                 Compare all features
               </h2>
               <p className="mt-3" style={{ color: V.inkSoft }}>A detailed look at what each plan includes.</p>
@@ -450,7 +452,7 @@ export default function PlansPage() {
         <div className="max-w-3xl mx-auto">
           <Reveal>
             <div className="text-center mb-12">
-              <h2 className="text-[clamp(28px,3.8vw,44px)] font-bold tracking-[-0.025em]" style={{ color: V.ink }}>
+              <h2 className="text-[clamp(24px,3vw,36px)] font-bold tracking-[-0.025em]" style={{ color: V.ink }}>
                 Frequently asked questions
               </h2>
               <p className="mt-3 mx-auto max-w-[520px] text-[16.5px] leading-relaxed" style={{ color: V.inkSoft }}>

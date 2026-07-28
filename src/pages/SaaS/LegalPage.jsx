@@ -89,7 +89,7 @@ function LegalLayout({ title, intro, updated, sections }) {
       <section data-hero className="relative z-[1] px-6 pt-24 pb-8">
         <div className="mx-auto max-w-3xl text-center">
           <Reveal>
-            <h1 className="text-[clamp(36px,5vw,56px)] font-bold leading-[1.04] tracking-[-0.03em]" style={{ color: V.ink }}>{title}</h1>
+            <h1 className="text-[clamp(30px,4vw,44px)] font-bold leading-[1.04] tracking-[-0.03em]" style={{ color: V.ink }}>{title}</h1>
           </Reveal>
           <Reveal delay={0.1}>
             <p className="mx-auto mt-4 max-w-xl text-[16.5px] leading-relaxed" style={{ color: V.inkSoft }}>{intro}</p>

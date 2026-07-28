@@ -80,13 +80,17 @@ const MagneticBtn = ({ children, className = "", style = {}, as: Tag = "a", ...p
 
 /* ── Injected CSS ── */
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
 /* Distinct, editorial display serif for headings (not the generic geometric
    sans every generated landing page ships). Body text stays as-is. */
 .saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{
   font-family:'Fraunces','Outfit',Georgia,serif !important;
   letter-spacing:-0.015em;
 }
+/* Display headings run at 500, NOT Tailwind's font-bold: Fraunces is already a
+   high-contrast serif, so 700 at 40–80px reads as a slab. Small headings
+   (h3–h6, card + list titles) keep their own weights — they need the density. */
+.saas-page h1,.saas-page h2{font-weight:500 !important}
 /* Sharp, editorial corners everywhere — overrides every Tailwind rounded-*
    utility (and any inline radius) for a crisp, intentional, non-generic look. */
 .saas-page [class*="rounded"]{border-radius:0 !important}
@@ -142,7 +146,7 @@ const Badge = ({ icon: Icon, children, center }) => (
 const SectionHead = ({ badge, badgeIcon, title, subtitle, center }) => (
   <Reveal className={`mb-14 max-w-[680px] ${center ? "mx-auto text-center" : ""}`}>
     {badge && <Badge icon={badgeIcon} center={center}>{badge}</Badge>}
-    <h2 className="mt-5 text-[clamp(30px,4vw,50px)] leading-[1.08] font-bold tracking-[-0.02em]"
+    <h2 className="mt-5 text-[clamp(25px,3.2vw,40px)] leading-[1.08] font-bold tracking-[-0.02em]"
       style={{ color: V.ink }} dangerouslySetInnerHTML={{ __html: title }} />
     {subtitle && (
       <p className={`mt-4 text-[16.5px] leading-relaxed ${center ? "mx-auto" : ""} max-w-[560px]`}
@@ -406,7 +410,7 @@ function HeroSection() {
       <motion.div className="relative z-10 flex flex-1 items-center justify-center" style={{ y: contentY, opacity: contentFade }}>
         <div className="mx-auto w-full max-w-3xl px-6 pt-32 pb-12 text-center">
           <Reveal delay={0.1}>
-            <h1 className="mx-auto mt-7 text-[clamp(46px,6.4vw,82px)] font-bold leading-[1.03] tracking-[-0.03em] text-white">
+            <h1 className="mx-auto mt-7 text-[clamp(36px,5vw,64px)] font-bold leading-[1.03] tracking-[-0.03em] text-white">
               Help your charity{" "}
               <span className="bg-clip-text text-transparent"
                 style={{ backgroundImage: "linear-gradient(100deg, var(--tenant-accent-light, #059669) 0%, var(--tenant-accent, #047857) 100%)" }}>
@@ -1261,7 +1265,7 @@ export default function SaaSHome() {
       <section className="py-24 px-8">
         <div className="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <Reveal>
-            <h2 className="mt-5 text-[clamp(28px,3.4vw,44px)] leading-[1.1] font-bold tracking-[-0.02em]" style={{ color: V.ink }}>
+            <h2 className="mt-5 text-[clamp(24px,2.8vw,36px)] leading-[1.1] font-bold tracking-[-0.02em]" style={{ color: V.ink }}>
               A donation page that feels like <span style={{ color: V.primary }}>yours</span>.
             </h2>
             <p className="mt-4 text-[16px] leading-relaxed max-w-[460px]" style={{ color: V.inkSoft }}>
@@ -1298,7 +1302,7 @@ export default function SaaSHome() {
             <CampaignStory />
           </Reveal>
           <Reveal delay={0.15} className="order-1 lg:order-2">
-            <h2 className="mt-5 text-[clamp(28px,3.4vw,44px)] leading-[1.1] font-bold tracking-[-0.02em]" style={{ color: V.ink }}>
+            <h2 className="mt-5 text-[clamp(24px,2.8vw,36px)] leading-[1.1] font-bold tracking-[-0.02em]" style={{ color: V.ink }}>
               Campaigns supporters can <span style={{ color: V.primary }}>follow</span>.
             </h2>
             <p className="mt-4 text-[16px] leading-relaxed max-w-[460px]" style={{ color: V.inkSoft }}>
