@@ -4,10 +4,13 @@ import { ArrowRight, MessageCircle } from "lucide-react";
 
 /* Shared closing CTA for the marketing site (home, plans, …). Extracted from the
    home page's editorial CTA so both pages reuse ONE component. Token-driven (themes
-   with the brand colour) and self-contained (injects its own button CSS). */
+   with the brand colour) and self-contained (injects its own button CSS).
+   The band is the brand gradient itself: primary → accent, left to right, with a
+   short primary hold so the split reads roughly half and half (the 50/50 mix lands
+   near 60%). Recolours with the SuperAdmin platform brand. */
 const V = {
-  primary: "var(--tenant-accent, #047857)",
-  primary2: "var(--pf-accent-2, #065F46)",
+  primary: "var(--tenant-primary, #102A23)",
+  accent: "var(--tenant-accent, #047857)",
   glow: "var(--tenant-accent-light, #059669)",
 };
 
@@ -32,7 +35,7 @@ export default function CtaSection({
       <style>{css}</style>
       <div className="mx-auto max-w-[1120px]">
         <div className="relative overflow-hidden rounded-3xl px-8 py-9 sm:px-12 sm:py-10"
-          style={{ background: `linear-gradient(135deg, ${V.primary} 0%, ${V.primary2} 72%, #06231b 100%)`, boxShadow: "0 40px 80px -42px rgba(0,0,0,.55)" }}>
+          style={{ background: `linear-gradient(90deg, ${V.primary} 0%, ${V.primary} 22%, ${V.accent} 100%)`, boxShadow: "0 40px 80px -42px rgba(0,0,0,.55)" }}>
 
           {/* Editorial geometric shapes */}
           <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 border-2" style={{ borderColor: "rgba(255,255,255,.14)" }} />
@@ -46,7 +49,7 @@ export default function CtaSection({
             <div className="flex w-full shrink-0 flex-col gap-3 sm:w-auto sm:flex-row">
               <Link to={primaryTo}
                 className="cta-btn group inline-flex items-center justify-center gap-2.5 rounded-full px-7 py-3.5 text-[15px] font-semibold"
-                style={{ background: "#fff", color: V.primary, boxShadow: "0 16px 34px -16px rgba(0,0,0,.5)" }}>
+                style={{ background: "#fff", color: V.accent, boxShadow: "0 16px 34px -16px rgba(0,0,0,.5)" }}>
                 {primaryLabel}
                 <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>

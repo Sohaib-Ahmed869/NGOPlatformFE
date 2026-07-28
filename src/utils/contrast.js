@@ -2,7 +2,7 @@
  * WCAG luminance/contrast helpers, used to keep accent-filled surfaces legible.
  *
  * Buttons across the app are `bg-accent text-white`. That assumes a dark accent
- * — a tenant who picks a pale one (olive #A8BA70 → 2.1:1, lime #E4EB99 → 1.3:1)
+ * — a tenant who picks a pale one (mint #4FB587 → 2.5:1, lime #E4EB99 → 1.3:1)
  * gets a white label on near-white, i.e. an invisible button. `onColor()` picks
  * the label colour that actually reads, and index.css applies it through
  * --tenant-accent-contrast so the 300+ existing call sites need no edit.

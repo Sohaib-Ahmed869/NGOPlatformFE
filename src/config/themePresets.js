@@ -1,6 +1,6 @@
 /**
  * Comprehensive theme presets for organisation portals.
- * 4 categories × 10 themes, plus the 2 Donexus brand presets = 42 total.
+ * 4 categories × 10 themes, plus the 3 Donexus brand presets = 43 total.
  * Each theme defines: primary (text/headings), accent (buttons/CTA), bg (page background),
  * sidebar (dark surface), surface (cards/panels).
  */
@@ -38,12 +38,14 @@ const themeCategories = [
       { id: "modern-indigo", name: "Indigo", primary: "#1E1B4B", accent: "#4F46E5", bg: "#EEF2FF", sidebar: "#1E1B4B", surface: "#FFFFFF", desc: "Deep indigo depth" },
       { id: "modern-emerald", name: "Emerald Pop", primary: "#0F172A", accent: "#10B981", bg: "#F0FDF4", sidebar: "#162032", surface: "#FFFFFF", desc: "Bold emerald contrast" },
       { id: "modern-slate", name: "Slate", primary: "#0F172A", accent: "#6366F1", bg: "#F8FAFC", sidebar: "#1E293B", surface: "#FFFFFF", desc: "Sleek and minimal" },
-      // Donexus brand palette (Branding Stage 03, 24 Jul 2026). Two supplied
-      // trios, verbatim; both keep the brand near-black #00091E as the sidebar.
-      // NOTE both accents are pale — 2.1:1 and 1.3:1 against white — so their
-      // buttons need DARK (#182A54) label text, not the usual white.
-      { id: "donexus", name: "Donexus", primary: "#182A54", accent: "#A8BA70", bg: "#EEF8FF", sidebar: "#00091E", surface: "#FFFFFF", desc: "Navy on pale blue, olive CTA" },
-      { id: "donexus-lime", name: "Donexus Lime", primary: "#182A54", accent: "#E4EB99", bg: "#FEFFE6", sidebar: "#00091E", surface: "#FFFFFF", desc: "Navy on cream, lime CTA" },
+      // Donexus brand palette. Three supplied trios, verbatim: each is a dark
+      // ink, a green CTA and the shared off-white #F8FCF9 page. The dark ink
+      // doubles as the sidebar, so each preset is exactly its three colours.
+      // NOTE the mint accent #4FB587 is pale — 2.5:1 against white — so its
+      // buttons take DARK label text via --tenant-accent-contrast.
+      { id: "donexus", name: "Donexus", primary: "#102621", accent: "#4FB587", bg: "#F8FCF9", sidebar: "#102621", surface: "#FFFFFF", desc: "Pine on off-white, mint CTA" },
+      { id: "donexus-forest", name: "Donexus Forest", primary: "#010101", accent: "#1C5241", bg: "#F8FCF9", sidebar: "#010101", surface: "#FFFFFF", desc: "Black on off-white, forest CTA" },
+      { id: "donexus-noir", name: "Donexus Noir", primary: "#010101", accent: "#4FB587", bg: "#F8FCF9", sidebar: "#010101", surface: "#FFFFFF", desc: "Black on off-white, mint CTA" },
     ],
   },
   {
