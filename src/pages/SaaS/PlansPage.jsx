@@ -191,7 +191,10 @@ const compareValue = (plan, row) => {
   if (row.type === "limit") {
     const v = plan.limits?.[row.key];
     if (v === null) return "Unlimited";
-    if (v === undefined || v === "") return "—";
+    // No limit defined on the plan = the feature isn't in it. Returning false
+    // routes the cell to the same muted cross the flag rows use, so the table
+    // never renders a bare dash.
+    if (v === undefined || v === "") return false;
     return String(v);
   }
   return !!plan.featureFlags?.[row.key];
@@ -214,7 +217,7 @@ const faqs = [
   { q: "Can I switch plans later?", a: "Yes. You can upgrade or downgrade your plan at any time from your admin dashboard. Changes take effect at the start of your next billing cycle." },
   { q: "What payment methods do my donors get?", a: "All plans include Stripe-powered credit/debit card processing (Visa, Mastercard, Amex), bank transfers, and PayPal. Your donors can also set up recurring donations and installment plans." },
   { q: "Is there a transaction fee on donations?", a: "We do not charge any platform transaction fee. Standard Stripe processing fees apply (typically 1.7% + 30c per transaction in Australia). 100% of the remaining amount goes to your organisation." },
-  { q: "How does the branded portal work?", a: "When you register, you choose a subdomain (e.g., yourcharity.ourplatform.com). Your donors visit this URL to see your organisation's donation pages, campaigns, and events — fully branded with your identity." },
+  { q: "How does the branded portal work?", a: "When you register, you choose a subdomain (e.g., yourcharity.ourplatform.com). Your donors visit this URL to see your organisation's donation pages, campaigns, and events, fully branded with your identity." },
   { q: "Can I cancel anytime?", a: "Yes. There are no lock-in contracts. You can cancel your subscription at any time and your portal will remain active until the end of your current billing period." },
   { q: "Is my donor data safe?", a: "Absolutely. Each organisation's data is completely isolated. We use industry-standard encryption, and all payment processing is handled by Stripe's PCI-compliant infrastructure." },
 ];
@@ -414,7 +417,10 @@ export default function PlansPage() {
                                   <Check className="h-3.5 w-3.5" strokeWidth={3} style={{ color: V.primary }} />
                                 </span>
                               ) : (
-                                <span className="text-[15px] font-medium text-gray-300">—</span>
+                                <span className="inline-grid h-6 w-6 place-items-center align-middle" style={{ background: "rgba(15,23,42,.05)" }}>
+                                  <X className="h-3.5 w-3.5" strokeWidth={3} style={{ color: "rgba(15,23,42,.30)" }} />
+                                  <span className="sr-only">Not included</span>
+                                </span>
                               )
                             ) : (
                               <span className="text-sm font-semibold" style={{ color: V.ink }}>{val}</span>

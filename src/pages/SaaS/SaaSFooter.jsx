@@ -20,12 +20,12 @@ const supportLinks = [
    description, contact details and socials are dynamic (SuperAdmin → Platform). */
 export default function SaaSFooter() {
   const { platform } = useTenant();
-  const name = platform?.name || "NGO Platform";
+  const name = platform?.name || "Donexus";
   const logo = platform?.logo || platform?.logoDark || ""; // light logo for the dark footer
   const description =
     platform?.description ||
-    "The warm, all-in-one platform that helps charities raise funds, welcome donors and run campaigns — with their own branded portal.";
-  const email = platform?.contactEmail || "support@ngoplatform.com";
+    "The warm, all-in-one platform that helps charities raise funds, welcome donors and run campaigns, with their own branded portal.";
+  const email = platform?.contactEmail || "support@donexus.com";
   const phone = platform?.contactPhone || "";
   const address = platform?.address || "";
   const social = [

@@ -31,6 +31,10 @@ function patchBranding(patch) {
 const platformService = {
   getPublic: () => axiosInstance.get("/platform/public"),
 
+  // Aggregate platform totals for the marketing hero (no auth). Server-cached,
+  // so calling this on every home render is cheap.
+  getPublicStats: () => axiosInstance.get("/platform/stats"),
+
   // Synchronous peek at the cached settings document (null until first load) —
   // lets the screen skip the loader on revisits within a session.
   getCached: () => _cache,

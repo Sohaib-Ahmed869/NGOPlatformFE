@@ -172,7 +172,7 @@ function AdminPreview({ p, a, bg, sb, name }) {
         </div>
         <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
           <p className="text-[8px] font-bold mb-2" style={{ color: p }}>Recent Donations</p>
-          {["Sarah M. — $250", "Ahmed K. — $100", "Maria S. — $500"].map((d) => (
+          {["Sarah M. · $250", "Ahmed K. · $100", "Maria S. · $500"].map((d) => (
             <div key={d} className="flex justify-between py-1 border-b border-gray-50 last:border-0">
               <span className="text-[7px]" style={{ color: p }}>{d}</span>
               <span className="text-[6px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: a + "15", color: a }}>completed</span>

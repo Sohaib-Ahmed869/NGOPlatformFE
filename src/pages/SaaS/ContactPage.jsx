@@ -22,9 +22,9 @@ const TOPICS = ["General enquiry", "Sales", "Support", "Partnership", "Press"];
 
 // A few quick answers (mirrors the home FAQ) to deflect common questions.
 const faqs = [
-  { q: "Can I change my plan later?", a: "Yes — upgrade or downgrade anytime from your dashboard. Changes take effect on your next billing date." },
-  { q: "Do you take a cut of donations?", a: "Never. There's no platform fee on donations — you only pay the standard payment-processing fee." },
-  { q: "Do I need technical skills?", a: "Not at all. Your portal, branding and campaigns are set up through simple forms — most charities are live in minutes." },
+  { q: "Can I change my plan later?", a: "Yes. Upgrade or downgrade anytime from your dashboard. Changes take effect on your next billing date." },
+  { q: "Do you take a cut of donations?", a: "Never. There's no platform fee on donations. You only pay the standard payment-processing fee." },
+  { q: "Do I need technical skills?", a: "Not at all. Your portal, branding and campaigns are set up through simple forms, and most charities are live in minutes." },
   { q: "Is my donor data safe?", a: "Yes. Each charity's data is isolated and encrypted, with role-based access and audit logs." },
 ];
 
@@ -113,7 +113,7 @@ export default function ContactPage() {
 
   const up = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-  const email = platform?.contactEmail || "support@ngoplatform.com";
+  const email = platform?.contactEmail || "support@donexus.com";
   const phone = platform?.contactPhone || "";
   const address = platform?.address || "";
   const social = [
@@ -188,7 +188,7 @@ export default function ContactPage() {
                 </span>
                 <h1 className="mt-5 text-[clamp(27px,3.2vw,38px)] font-semibold leading-[1.05] text-white">Let's talk.</h1>
                 <p className="mt-4 max-w-[36ch] text-[15px] leading-relaxed text-white/75">
-                  Questions about the platform, pricing or what's right for your organisation? Tell us what you're working on — a real person will get back to you.
+                  Questions about the platform, pricing or what's right for your organisation? Tell us what you're working on and a real person will get back to you.
                 </p>
 
                 <div className="mt-8 space-y-4">
@@ -235,7 +235,7 @@ export default function ContactPage() {
                     <CheckCircle className="h-8 w-8" style={{ color: V.success }} />
                   </div>
                   <h3 className="mb-2 text-xl font-semibold" style={{ color: V.ink }}>Message sent!</h3>
-                  <p className="text-sm" style={{ color: V.inkSoft }}>Thanks for reaching out — we'll get back to you shortly.</p>
+                  <p className="text-sm" style={{ color: V.inkSoft }}>Thanks for reaching out. We'll get back to you shortly.</p>
                   <button onClick={() => setSent(false)} className="mt-6 text-sm font-semibold" style={{ color: V.primary }}>Send another message</button>
                 </motion.div>
               ) : (

@@ -22,23 +22,19 @@ export default function SaaSNavbar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { platform } = useTenant();
-  const brandName = platform?.name || "NGO Platform";
+  const brandName = platform?.name || "Donexus";
 
-  // The home hero is a deep, immersive surface; every other page opens on a
-  // light surface. So while we're on home AND still over the hero (not yet
-  // collapsed into the capsule), the bar wears white text + the light logo;
-  // everywhere else — and once collapsed — it reverts to dark on light.
+  // Every page — home included, since the hero was rebuilt on light — opens on
+  // a light surface, so the bar is dark-on-light throughout. `isHome` survives
+  // only to decide WHEN the bar collapses (see below), not how it's coloured.
   const isHome = location.pathname === "/";
-  const onDark = isHome && !scrolled;
-  const navLogo = onDark
-    ? platform?.logo || platform?.logoDark || ""
-    : platform?.logoDark || platform?.logo || "";
+  const navLogo = platform?.logoDark || platform?.logo || "";
 
   useEffect(() => {
     const NAV_H = 64; // expanded bar height (h-16)
     const measure = () => {
-      // Home: collapse only after the immersive full-screen hero (the bar stays
-      // white-on-dark while over it). Every other page (plans, contact, …):
+      // Home: collapse only after the full-screen hero, so the bar rides it
+      // transparent and edge-to-edge. Every other page (plans, contact, …):
       // collapse into the capsule the moment the visitor starts scrolling.
       if (!isHome) {
         setScrolled(window.scrollY > 8);
@@ -81,24 +77,13 @@ export default function SaaSNavbar() {
   const isActive = (path) =>
     (path === "/plans" || path === "/contact") && location.pathname === path;
 
-  const linkClass = (path) => {
-    const base =
-      "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-nav font-medium tracking-wide transition-all duration-200";
-    if (onDark) {
-      return cn(
-        base,
-        isActive(path)
-          ? "text-white bg-white/15"
-          : "text-white/75 hover:text-white hover:bg-white/10",
-      );
-    }
-    return cn(
-      base,
+  const linkClass = (path) =>
+    cn(
+      "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-nav font-medium tracking-wide transition-all duration-200",
       isActive(path)
         ? "text-accent bg-accent/10"
         : "text-primary/60 hover:text-primary hover:bg-primary/5",
     );
-  };
 
   return (
     <>
@@ -141,7 +126,7 @@ export default function SaaSNavbar() {
                   >
                     <HeartHandshake className={cn("transition-all", scrolled ? "h-[17px] w-[17px]" : "h-[19px] w-[19px]")} />
                   </span>
-                  <span className={cn("whitespace-nowrap font-nav text-[17px] font-extrabold leading-none tracking-tight transition-colors", onDark ? "text-white" : "text-primary")}>
+                  <span className="whitespace-nowrap font-nav text-[17px] font-extrabold leading-none tracking-tight text-primary">
                     {brandName}
                   </span>
                 </>
@@ -171,10 +156,7 @@ export default function SaaSNavbar() {
                 onClick={() => setOpen((v) => !v)}
                 aria-label={open ? "Close menu" : "Open menu"}
                 aria-expanded={open}
-                className={cn(
-                  "inline-flex items-center justify-center rounded-full p-2 transition-colors lg:hidden",
-                  onDark ? "text-white hover:bg-white/10" : "text-primary hover:bg-primary/5",
-                )}
+                className="inline-flex items-center justify-center rounded-full p-2 text-primary transition-colors hover:bg-primary/5 lg:hidden"
               >
                 {open ? <X size={22} /> : <Menu size={22} />}
               </button>

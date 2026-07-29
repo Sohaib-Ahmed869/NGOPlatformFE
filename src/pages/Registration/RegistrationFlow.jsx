@@ -161,7 +161,7 @@ function PaymentInner({ slug, onBack, priceLabel }) {
     setPaying(true);
     setErr("");
     const { error, paymentIntent } = await stripe.confirmPayment({ elements, redirect: "if_required" });
-    if (error) { setErr(error.message || "Payment failed — please check your card details."); setPaying(false); return; }
+    if (error) { setErr(error.message || "Payment failed. Please check your card details."); setPaying(false); return; }
     if (paymentIntent && ["succeeded", "processing"].includes(paymentIntent.status)) {
       window.location.href = `/register/success?slug=${encodeURIComponent(slug)}`;
     } else { setErr("Payment was not completed."); setPaying(false); }
@@ -280,7 +280,7 @@ export default function RegistrationFlow() {
       if (r.data?.valid) {
         setCoupon(r.data);
         const off = r.data.type === "percent" ? `${r.data.value}% off` : `$${r.data.value} off`;
-        setCouponMsg({ ok: true, text: `${r.data.code} applied — ${off}` });
+        setCouponMsg({ ok: true, text: `${r.data.code} applied · ${off}` });
       } else {
         setCoupon(null);
         setCouponMsg({ ok: false, text: r.data?.error || "Invalid coupon" });
@@ -590,7 +590,7 @@ export default function RegistrationFlow() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Choose your theme</h2>
-                        <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Pick a style — fully customisable later.</p>
+                        <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Pick a style, fully customisable later.</p>
                       </div>
                       <button onClick={next} className="inline-flex shrink-0 items-center gap-1.5 border px-3 py-2 text-xs font-medium transition-colors hover:bg-black/[0.03]" style={{ borderColor: V.line, color: V.inkSoft }}>
                         <SkipForward className="h-3 w-3" /> Skip

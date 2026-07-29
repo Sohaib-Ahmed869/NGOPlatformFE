@@ -159,7 +159,7 @@ function contactSection({ name, email, phone, address }) {
   return {
     id: "contact",
     title: "Contact us",
-    paras: [`If you have any questions about this policy, your data, or how ${name} works, we're happy to help — reach out any time:`],
+    paras: [`If you have any questions about this policy, your data, or how ${name} works, we're happy to help. Reach out any time:`],
     bullets,
   };
 }
@@ -167,8 +167,8 @@ function contactSection({ name, email, phone, address }) {
 /* ═══════════════ PRIVACY ═══════════════ */
 export function PrivacyPage() {
   const { platform } = useTenant();
-  const name = platform?.name || "NGO Platform";
-  const email = platform?.contactEmail || "support@ngoplatform.com";
+  const name = platform?.name || "Donexus";
+  const email = platform?.contactEmail || "support@donexus.com";
   const phone = platform?.contactPhone || "";
   const address = platform?.address || "";
 
@@ -180,11 +180,11 @@ export function PrivacyPage() {
     { id: "data-we-collect", title: "Information we collect", paras: [
       "We only collect what we need to provide and improve the service:",
     ], bullets: [
-      "<strong>Account &amp; organisation details</strong> — your name, email, charity name, web address and the colours/logo you choose.",
-      "<strong>Donor records you manage</strong> — the supporter information your charity adds or receives through its portal (names, emails, giving history).",
-      "<strong>Payment information</strong> — processed securely by our payment provider (Stripe). We never see or store full card numbers.",
-      "<strong>Usage data</strong> — pages visited, features used and basic device/browser information, to keep the service reliable and secure.",
-      "<strong>Communications</strong> — messages you send us through support or contact forms.",
+      "<strong>Account &amp; organisation details:</strong> your name, email, charity name, web address and the colours/logo you choose.",
+      "<strong>Donor records you manage:</strong> the supporter information your charity adds or receives through its portal (names, emails, giving history).",
+      "<strong>Payment information:</strong> processed securely by our payment provider (Stripe). We never see or store full card numbers.",
+      "<strong>Usage data:</strong> pages visited, features used and basic device/browser information, to keep the service reliable and secure.",
+      "<strong>Communications:</strong> messages you send us through support or contact forms.",
     ] },
     { id: "how-we-use", title: "How we use your information", bullets: [
       "Provide, operate and maintain your branded donation portal.",
@@ -199,10 +199,10 @@ export function PrivacyPage() {
     { id: "sharing", title: "How we share information", paras: [
       "We do not sell your data. We share it only with trusted providers that help us run the service, and only as needed:",
     ], bullets: [
-      "<strong>Payment processing</strong> — Stripe (and PayPal where enabled), under their own privacy terms.",
-      "<strong>Email delivery</strong> — to send receipts, notifications and campaign updates.",
-      "<strong>Hosting &amp; infrastructure</strong> — to store and serve the platform securely.",
-      "<strong>Legal</strong> — where required by law, or to protect rights, safety and the integrity of the service.",
+      "<strong>Payment processing:</strong> Stripe (and PayPal where enabled), under their own privacy terms.",
+      "<strong>Email delivery:</strong> to send receipts, notifications and campaign updates.",
+      "<strong>Hosting &amp; infrastructure:</strong> to store and serve the platform securely.",
+      "<strong>Legal:</strong> where required by law, or to protect rights, safety and the integrity of the service.",
     ] },
     { id: "cookies", title: "Cookies", paras: [
       "We use essential cookies to keep you signed in and to keep the service secure, plus a small amount of analytics to understand how the platform is used. You can control cookies through your browser settings; disabling essential cookies may affect how the site works.",
@@ -237,7 +237,7 @@ export function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      intro={`How ${name} collects, uses and safeguards information — explained simply.`}
+      intro={`How ${name} collects, uses and safeguards information, explained simply.`}
       updated={LAST_UPDATED}
       sections={sections}
     />
@@ -247,8 +247,8 @@ export function PrivacyPage() {
 /* ═══════════════ TERMS ═══════════════ */
 export function TermsPage() {
   const { platform } = useTenant();
-  const name = platform?.name || "NGO Platform";
-  const email = platform?.contactEmail || "support@ngoplatform.com";
+  const name = platform?.name || "Donexus";
+  const email = platform?.contactEmail || "support@donexus.com";
   const phone = platform?.contactPhone || "";
   const address = platform?.address || "";
 
@@ -283,10 +283,10 @@ export function TermsPage() {
       "Infringe the intellectual property or privacy rights of others.",
     ] },
     { id: "your-content", title: "Your content", paras: [
-      "You keep ownership of the content you add — your logo, text, images, campaigns and donor records. You grant us a limited licence to host and display that content solely to operate the Service for you.",
+      "You keep ownership of the content you add: your logo, text, images, campaigns and donor records. You grant us a limited licence to host and display that content solely to operate the Service for you.",
     ] },
     { id: "ip", title: "Our intellectual property", paras: [
-      `The Service itself — including the platform, software, design and ${name} branding — belongs to us and our licensors. These Terms don't grant you any rights to it except the right to use the Service as described.`,
+      `The Service itself, including the platform, software, design and ${name} branding, belongs to us and our licensors. These Terms don't grant you any rights to it except the right to use the Service as described.`,
     ] },
     { id: "third-party", title: "Third-party services", paras: [
       "The Service integrates with third parties such as Stripe and PayPal for payments. Your use of those services is also governed by their terms, and we're not responsible for their acts or omissions.",
@@ -315,7 +315,7 @@ export function TermsPage() {
   return (
     <LegalLayout
       title="Terms of Service"
-      intro={`The terms for using ${name} — what you can expect from us, and what we ask of you.`}
+      intro={`The terms for using ${name}: what you can expect from us, and what we ask of you.`}
       updated={LAST_UPDATED}
       sections={sections}
     />
