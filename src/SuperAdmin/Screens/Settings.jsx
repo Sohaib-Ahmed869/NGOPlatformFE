@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { User, Lock, Palette, Camera, Loader2, Save, Mail, Eye, EyeOff, Check, Sun, Moon, PanelLeftClose, PanelLeftOpen, ShieldCheck } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { QRCodeSVG } from "qrcode.react";
-import { ShieldAlert, Smartphone, KeyRound } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import OtpInput from "../../components/OtpInput";
 import ProfileService from "../../services/profile.service";
 import AuthService from "../../services/auth.service";
@@ -13,7 +12,9 @@ import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
 import { useSATheme } from "../saTheme";
 import SAPageHeader from "../components/SAPageHeader";
+import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
+import MfaEnrollPanel from "../components/MfaEnrollPanel";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 // Tenant's underline + dark-mode phone styling, scoped to [data-admin-theme]
@@ -154,34 +155,43 @@ export default function SASettings() {
   const [form, setForm] = useState(cachedProfile ? toForm(cachedProfile) : toForm());
   const [pwd, setPwd] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [mfa, setMfa] = useState({ enabled: !!cachedMfa?.enabled });
-  const [mfaSetup, setMfaSetup] = useState(null); // { secret, otpauthUrl }
   const [mfaCode, setMfaCode] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
   const [disarming, setDisarming] = useState(false); // confirming a 2FA disable
+  const [loadError, setLoadError] = useState(null);
 
+  // Both of these used to force a refetch on EVERY mount, so the caches only
+  // saved the loader flash. Nothing changes this data except THIS screen —
+  // there's no external actor — and every mutation now keeps its cache in step
+  // (updateProfile, uploadProfileImage, mfaEnable/mfaDisable). So a revisit is
+  // free, and a first open is the only fetch.
   useEffect(() => {
-    // Revalidate on every mount (navigation OR reload): a cached open renders
-    // instantly and refreshes in the background (no loader); a fresh/uncached
-    // open shows the loader while it fetches.
     const cached = ProfileService.getCached?.();
+    if (cached) {
+      setForm(toForm(cached));
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
-        const p = cached
-          ? await ProfileService.getProfile({ force: true }) // stale-while-revalidate
-          : await withMinDelay(ProfileService.getProfile());
-        setForm(toForm(p));
-      } catch {
-        if (!cached) toast.error("Failed to load profile");
+        setForm(toForm(await withMinDelay(ProfileService.getProfile())));
+        setLoadError(null);
+      } catch (err) {
+        // A blank profile form reads as "you have no details" — say it failed.
+        setLoadError(err?.error || err?.message || "Couldn't load your profile.");
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // Revalidate the 2FA status on every mount (the cached value shows first).
-    AuthService.mfaStatus({ force: true })
+    const cachedNow = AuthService.getCachedMfaStatus?.();
+    if (cachedNow) {
+      setMfa({ enabled: !!cachedNow.enabled });
+      return;
+    }
+    AuthService.mfaStatus()
       .then((d) => setMfa({ enabled: !!d.enabled }))
       .catch(() => {});
   }, []);
@@ -192,15 +202,18 @@ export default function SASettings() {
   const onAvatarPick = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || uploading) return;
+    // Cheap client-side checks so an oversized file isn't a wasted round trip.
+    if (!/^image\//.test(file.type || "")) return toast.error("That file isn't an image");
+    if (file.size > 5 * 1024 * 1024) return toast.error("Images must be 5MB or smaller");
     setUploading(true);
     try {
       const res = await ProfileService.uploadProfileImage(file);
       setForm((f) => ({ ...f, profileImage: res.imageUrl }));
       setUser((u) => (u ? { ...u, profileImage: res.imageUrl } : u));
       toast.success("Profile photo updated");
-    } catch {
-      toast.error("Failed to upload photo");
+    } catch (err) {
+      toast.error(err?.error || err?.message || "Failed to upload photo");
     } finally {
       setUploading(false);
     }
@@ -208,6 +221,7 @@ export default function SASettings() {
 
   const saveProfile = async (e) => {
     e.preventDefault();
+    if (saving) return; // a second submit would fire another PUT
     setSaving(true);
     try {
       const updated = await ProfileService.updateProfile({ firstName: form.firstName, lastName: form.lastName, phone: form.phone });
@@ -215,8 +229,8 @@ export default function SASettings() {
       const fullName = `${updated.firstName || ""} ${updated.lastName || ""}`.trim();
       if (fullName) setUser((u) => (u ? { ...u, name: fullName } : u));
       toast.success("Profile updated");
-    } catch {
-      toast.error("Failed to update profile");
+    } catch (err) {
+      toast.error(err?.error || err?.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -224,7 +238,10 @@ export default function SASettings() {
 
   const savePassword = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    if (!pwd.currentPassword || !pwd.newPassword) return toast.error("Fill in both your current and new password");
     if (pwd.newPassword !== pwd.confirmPassword) return toast.error("New passwords don't match");
+    if (pwd.newPassword === pwd.currentPassword) return toast.error("The new password must be different");
     setSaving(true);
     try {
       const res = await ProfileService.updatePassword({ currentPassword: pwd.currentPassword, newPassword: pwd.newPassword });
@@ -237,37 +254,9 @@ export default function SASettings() {
     }
   };
 
-  const startMfaSetup = async () => {
-    setMfaBusy(true);
-    try {
-      const d = await AuthService.mfaSetup();
-      setMfaSetup(d);
-      setMfaCode("");
-    } catch {
-      toast.error("Failed to start 2FA setup");
-    } finally {
-      setMfaBusy(false);
-    }
-  };
-  const enableMfa = async (codeArg) => {
-    const code = codeArg || mfaCode;
-    if (code.length !== 6) return toast.error("Enter the 6-digit code");
-    setMfaBusy(true);
-    try {
-      await AuthService.mfaEnable(code);
-      setMfa({ enabled: true });
-      setMfaSetup(null);
-      setMfaCode("");
-      toast.success("Two-factor authentication enabled");
-    } catch (e) {
-      toast.error(e?.response?.data?.error || "Invalid code");
-      setMfaCode("");
-    } finally {
-      setMfaBusy(false);
-    }
-  };
   const disableMfa = async (codeArg) => {
     const code = codeArg || mfaCode;
+    if (mfaBusy) return;
     if (code.length !== 6) return toast.error("Enter your current 6-digit code");
     setMfaBusy(true);
     try {
@@ -289,11 +278,30 @@ export default function SASettings() {
   const avatar = resolveAvatar(form.profileImage);
 
   if (loading) return <SALoader />;
+  // A blank profile form would read as "you have no details on file".
+  if (loadError) {
+    return (
+      <SAErrorState
+        message={loadError}
+        onRetry={() => {
+          ProfileService.clearCache?.();
+          setLoadError(null);
+          setLoading(true);
+          ProfileService.getProfile()
+            .then((p) => setForm(toForm(p)))
+            .catch((err) => setLoadError(err?.error || err?.message || "Couldn't load your profile."))
+            .finally(() => setLoading(false));
+        }}
+      />
+    );
+  }
 
   return (
     // Sharp-corner variant of this screen: square every descendant's corners
     // (cards, tabs, avatar, pills, buttons, inputs, QR/2FA panels, swatches) for an
     // angular look — matches the Platform / Organisations screens.
+    // MotionConfig honours the OS "reduce motion" preference for everything inside.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       <SAPageHeader eyebrow="Account" title="Settings" subtitle="Manage your account and console preferences." />
 
@@ -446,49 +454,8 @@ export default function SASettings() {
                         </div>
                       </div>
                     )
-                  ) : mfaSetup ? (
-                    <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-white/10">
-                      {/* Step 1 — scan */}
-                      <div className="flex flex-col gap-5 border-b border-gray-100 p-6 dark:border-white/10 sm:flex-row sm:items-start">
-                        <div className="mx-auto shrink-0 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:mx-0">
-                          <QRCodeSVG value={mfaSetup.otpauthUrl} size={168} level="M" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1.5 inline-flex items-center gap-2">
-                            <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[11px] font-bold text-white">1</span>
-                            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white"><Smartphone className="h-4 w-4 text-accent" /> Scan with your authenticator app</span>
-                          </div>
-                          <p className="mb-3 text-xs leading-relaxed text-gray-500">Open Google Authenticator, Authy, Microsoft Authenticator or 1Password and point your camera at this code.</p>
-                          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
-                            <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400"><KeyRound className="h-3 w-3" /> Can't scan? Enter this key</div>
-                            <p className="select-all break-all font-mono text-sm font-bold tracking-[0.16em] text-gray-900 dark:text-white">{mfaSetup.secret}</p>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Step 2 — verify */}
-                      <div className="p-6">
-                        <div className="mb-3 inline-flex items-center gap-2">
-                          <span className="grid h-6 w-6 place-items-center rounded-full bg-accent text-[11px] font-bold text-white">2</span>
-                          <span className="text-sm font-semibold text-gray-900 dark:text-white">Enter the 6-digit code</span>
-                        </div>
-                        <OtpInput value={mfaCode} onChange={setMfaCode} disabled={mfaBusy} autoFocus onComplete={(c) => enableMfa(c)} />
-                        <div className="mt-5 flex gap-3">
-                          <button type="button" onClick={() => { setMfaSetup(null); setMfaCode(""); }} className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/10 dark:text-white/80">Cancel</button>
-                          <button type="button" onClick={() => enableMfa()} disabled={mfaBusy || mfaCode.length !== 6} className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-light disabled:opacity-50">
-                            {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Verify &amp; Enable
-                          </button>
-                        </div>
-                      </div>
-                    </div>
                   ) : (
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-6 text-center dark:border-white/10 dark:bg-white/5 sm:p-8">
-                      <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent"><ShieldCheck className="h-7 w-7" /></span>
-                      <h4 className="text-base font-semibold text-gray-900 dark:text-white">Add an extra layer of security</h4>
-                      <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">Protect your operator account with an authenticator app. You'll enter a rotating 6-digit code each time you sign in.</p>
-                      <button type="button" onClick={startMfaSetup} disabled={mfaBusy} className="mx-auto mt-5 inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-light disabled:opacity-50">
-                        {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Enable 2FA
-                      </button>
-                    </div>
+                    <MfaEnrollPanel onEnabled={() => setMfa({ enabled: true })} />
                   )}
                 </div>
               )}
@@ -630,6 +597,7 @@ export default function SASettings() {
         </div>
       </div>
     </div>
+    </MotionConfig>
   );
 }
 

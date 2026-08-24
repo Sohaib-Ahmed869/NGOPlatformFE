@@ -87,6 +87,18 @@ export default {
     return null;
   },
 
+  // Patches the cached user object in localStorage (e.g. clearing
+  // mfaSetupRequired after enrollment) without a re-login. Callers still need
+  // to push the result into AuthContext's `user` state via setUser for the
+  // change to take effect on THIS page load.
+  updateStoredUser(patch) {
+    const current = this.getCurrentUser();
+    if (!current) return null;
+    const updated = { ...current, ...patch };
+    localStorage.setItem(prefixKey("user"), JSON.stringify(updated));
+    return updated;
+  },
+
   async instagramFeed() {
     const response = await axios.get(`/users/instagram-feed`, {});
     return response.data;

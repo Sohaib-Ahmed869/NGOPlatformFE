@@ -145,8 +145,15 @@ export default function SaaSNavbar() {
             {/* Right cluster */}
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <Link
+                to="/get-started"
+                className="hidden font-nav text-[14px] font-semibold text-primary/80 transition-colors hover:text-primary lg:inline-flex"
+              >
+                Talk to Sales
+              </Link>
+              <Link
                 to="/register"
-                className="hidden items-center gap-2 rounded-token-btn bg-accent px-4 py-2 font-nav text-[14px] font-semibold text-white shadow-lg shadow-accent/30 transition-colors hover:bg-accent-light sm:inline-flex"
+                className="hidden items-center gap-2 rounded-token-btn px-4 py-2 font-nav text-[14px] font-semibold text-white shadow-lg shadow-accent/30 transition-all duration-300 hover:brightness-110 sm:inline-flex"
+                style={{ background: "linear-gradient(90deg, var(--tenant-primary, #102A23) 0%, var(--tenant-primary, #102A23) 22%, var(--tenant-accent, #047857) 100%)" }}
               >
                 Get started <ArrowRight className="h-4 w-4" />
               </Link>
@@ -194,6 +201,12 @@ export default function SaaSNavbar() {
                   className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-4 font-nav text-base font-semibold text-primary"
                 >
                   Get started <ArrowRight size={16} />
+                </Link>
+                <Link
+                  to="/get-started"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/25 px-6 py-4 font-nav text-base font-semibold text-white"
+                >
+                  Talk to Sales
                 </Link>
               </div>
             </nav>

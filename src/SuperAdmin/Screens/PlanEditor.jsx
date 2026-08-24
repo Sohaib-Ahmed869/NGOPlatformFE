@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   ArrowLeft,
   Layers,
@@ -20,9 +21,15 @@ import {
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import SALoader from "../SALoader";
+import { useConfirm } from "../components/ConfirmProvider";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.45s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.45} {...props} />;
 const card = "border border-gray-100 bg-white shadow-sm";
 const inputCls =
   "w-full border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
@@ -37,6 +44,14 @@ const money = (v, ccy) => {
   const sym = CCY_SYMBOL[c] || "";
   return `${sym}${Number(v || 0).toLocaleString()}${sym ? "" : ` ${c}`}`;
 };
+
+// Plan code normalisation. While TYPING we only lowercase, drop leading
+// whitespace and turn spaces into dashes — a trailing dash has to survive so
+// "my " → "my-" → "my-plan" types naturally. `tidyCode` then strips the
+// leading/trailing/duplicate dashes on blur and again before saving, so what
+// you see is exactly what the server stores.
+const normalizeCodeInput = (v) => String(v).toLowerCase().replace(/^\s+/, "").replace(/\s+/g, "-");
+const tidyCode = (v) => String(v).replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
 
 const EMPTY_FORM = {
   code: "",
@@ -78,7 +93,8 @@ const TABS = [
   { key: "review", label: "Review", desc: "Preview & save", icon: Eye },
 ];
 
-// On/off switch (sharp, theme-coloured).
+// On/off switch (sharp, theme-coloured). The knob springs across rather than
+// sliding linearly, so toggling a capability feels physical.
 function Switch({ checked, onChange, disabled }) {
   return (
     <button
@@ -89,10 +105,29 @@ function Switch({ checked, onChange, disabled }) {
       style={{ background: checked ? ACCENT : "#d1d5db" }}
       aria-pressed={checked}
     >
-      <span className={cn("inline-block h-4 w-4 transform bg-white transition-transform", checked ? "translate-x-4" : "translate-x-0.5")} />
+      <motion.span
+        className="inline-block h-4 w-4 bg-white"
+        animate={{ x: checked ? 18 : 2 }}
+        transition={{ type: "spring", stiffness: 600, damping: 32 }}
+      />
     </button>
   );
 }
+
+/* Panel choreography — the active tab's cards stagger in. */
+const panelVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut", staggerChildren: 0.07, delayChildren: 0.03 } },
+};
+const panelCardVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.2, 0.7, 0.2, 1] } },
+};
+/* Rows inside a card (capability toggles, limit meters). */
+const rowVariants = {
+  hidden: { opacity: 0, x: -6 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.25, ease: "easeOut" } },
+};
 
 // Live pricing-card preview (mirrors the public pricing card).
 function PlanCardPreview({ form }) {
@@ -133,9 +168,12 @@ function PlanCardPreview({ form }) {
 export default function PlanEditor() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const isEdit = !!code;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [stripeEnabled, setStripeEnabled] = useState(true);
   const [tab, setTab] = useState("basics");
@@ -143,6 +181,7 @@ export default function PlanEditor() {
   const [catalog, setCatalog] = useState({ groups: [], features: [] });
   const [featureDraft, setFeatureDraft] = useState("");
   const [migrate, setMigrate] = useState(null); // { count }
+  const [migrating, setMigrating] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null); // { monthly, annual } booleans on edit
   // Editable suggestion library (persisted platform-wide).
   const [library, setLibrary] = useState([]);
@@ -150,15 +189,30 @@ export default function PlanEditor() {
   const [libDraft, setLibDraft] = useState("");
   const [libSaving, setLibSaving] = useState(false);
 
+  // ── Unsaved-changes tracking ─────────────────────────────────────────────
+  // A plan is a six-tab form; leaving by accident used to discard everything
+  // silently. `baselineRef` holds the form exactly as loaded (the blank form
+  // for a new plan) — anything different is dirty. It's written synchronously
+  // with setForm below, so the "Unsaved" badge can't flash on load.
+  const baselineRef = useRef(JSON.stringify(EMPTY_FORM));
+  const savedRef = useRef(false); // set on a successful save so we don't prompt
+
+  // All three sources are session-cached in the service (the feature catalog is
+  // static server config; plans and the bullet library invalidate on their own
+  // mutations), so arriving here from the Plans list usually costs NO requests.
+  // A failed load must NOT fall through to a blank form — on an edit route that
+  // looks like a plan with no data, so we show an explicit error instead.
   useEffect(() => {
+    let alive = true;
     (async () => {
       setLoading(true);
       try {
         const [cat, plansRes, bulletsRes] = await Promise.all([
-          superadminService.getFeatureCatalog(),
-          superadminService.getPlans(),
-          superadminService.getPlanBullets(),
+          superadminService.getFeatureCatalogCached(),
+          superadminService.getPlansCached(),
+          superadminService.getPlanBulletsCached(),
         ]);
+        if (!alive) return;
         setCatalog(cat.data || { groups: [], features: [] });
         setStripeEnabled(plansRes.data.stripeEnabled !== false);
         setLibrary(bulletsRes.data.bullets?.length ? bulletsRes.data.bullets : COMMON_BULLETS);
@@ -169,7 +223,7 @@ export default function PlanEditor() {
             navigate("/plans");
             return;
           }
-          setForm({
+          const loaded = {
             code: p.code,
             name: p.name,
             description: p.description || "",
@@ -182,17 +236,55 @@ export default function PlanEditor() {
             isPublic: p.isPublic !== false,
             isPopular: !!p.isPopular,
             sortOrder: p.sortOrder || 0,
-          });
+          };
+          baselineRef.current = JSON.stringify(loaded); // pristine snapshot
+          setForm(loaded);
           setSyncStatus({ monthly: !!p.stripePriceIds?.monthly, annual: !!p.stripePriceIds?.annual });
+        } else {
+          baselineRef.current = JSON.stringify(EMPTY_FORM); // fresh "new plan"
         }
-      } catch {
-        toast.error("Failed to load plan editor");
+        setLoadError(null);
+      } catch (err) {
+        if (!alive || axios.isCancel(err)) return;
+        console.error("Failed to load plan editor:", err);
+        setLoadError(err?.response?.data?.error || "Couldn't load the plan editor.");
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+  }, [code, reloadKey]);
+
+  const isDirty = !savedRef.current && !loading && !loadError && JSON.stringify(form) !== baselineRef.current;
+
+  // Warn on tab close / reload while there are unsaved edits.
+  useEffect(() => {
+    if (!isDirty) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
+
+  // Single exit path for Back / Cancel — confirms first when dirty.
+  const leave = async () => {
+    if (isDirty) {
+      const ok = await confirm({
+        title: "Discard changes?",
+        message: "This plan has unsaved edits. Leaving now discards them.",
+        tone: "danger",
+        confirmText: "Discard",
+        cancelText: "Keep editing",
+      });
+      if (!ok) return;
+    }
+    navigate("/plans");
+  };
 
   const flags = useMemo(() => catalog.features.filter((f) => f.type === "flag"), [catalog]);
   const meters = useMemo(() => catalog.features.filter((f) => f.type === "meter"), [catalog]);
@@ -273,8 +365,8 @@ export default function PlanEditor() {
       else if (v !== "" && v !== undefined) limits[k] = Number(v);
     });
     return {
-      code: form.code,
-      name: form.name,
+      code: tidyCode(form.code), // belt-and-braces: never save "-x-" or "a--b"
+      name: form.name.trim(),
       description: form.description,
       price: { monthly: Number(form.price.monthly) || 0, annual: Number(form.price.annual) || 0 },
       limits,
@@ -288,15 +380,27 @@ export default function PlanEditor() {
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (!form.name.trim() || (!isEdit && !form.code.trim())) {
       toast.error("Name and code are required");
       setTab("basics");
+      return;
+    }
+    // Prices reach Stripe — never let a negative or non-numeric one through.
+    const bad = ["monthly", "annual"].find((c) => {
+      const raw = form.price[c];
+      return raw !== "" && raw != null && (!Number.isFinite(Number(raw)) || Number(raw) < 0);
+    });
+    if (bad) {
+      toast.error(`The ${bad} price must be a positive number`);
+      setTab("pricing");
       return;
     }
     setSaving(true);
     try {
       if (isEdit) {
         const res = await superadminService.updatePlan(code, buildBody());
+        savedRef.current = true; // don't prompt about "unsaved" changes now
         if (res.data?.priceChanged && res.data?.subscribersAffected > 0) {
           setMigrate({ count: res.data.subscribersAffected });
           toast.success("Plan updated");
@@ -305,8 +409,15 @@ export default function PlanEditor() {
           navigate("/plans");
         }
       } else {
-        await superadminService.createPlan(buildBody());
-        toast.success("Plan created");
+        const res = await superadminService.createPlan(buildBody());
+        savedRef.current = true;
+        // A plan with no Stripe Price can't be subscribed to, and the save
+        // succeeds regardless — surface that instead of a clean confirmation.
+        if (res?.data?.stripeSynced === false) {
+          toast.error(res.data.warning || "Plan saved but not synced to Stripe", { duration: 9000 });
+        } else {
+          toast.success("Plan created");
+        }
         navigate("/plans");
       }
     } catch (err) {
@@ -316,28 +427,66 @@ export default function PlanEditor() {
     }
   };
 
+  // Migration moves live Stripe subscriptions — guard against a double click,
+  // and on failure KEEP the dialog open so the operator can retry (it used to
+  // navigate away regardless, stranding subscribers on the old price with no
+  // way back to this prompt).
   const handleMigrate = async (doMigrate) => {
-    if (doMigrate) {
-      try {
-        const res = await superadminService.migratePlanSubscribers(code);
-        toast.success(`Migrated ${res.data?.migrated ?? 0} subscriber(s)`);
-      } catch {
-        toast.error("Migration failed");
-      }
+    if (migrating) return;
+    if (!doMigrate) {
+      setMigrate(null);
+      navigate("/plans");
+      return;
     }
-    setMigrate(null);
-    navigate("/plans");
+    setMigrating(true);
+    try {
+      const res = await superadminService.migratePlanSubscribers(code);
+      toast.success(`Migrated ${res.data?.migrated ?? 0} subscriber(s)`);
+      setMigrate(null);
+      navigate("/plans");
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Migration failed — subscribers stay on the old price");
+    } finally {
+      setMigrating(false);
+    }
   };
 
   if (loading) return <SALoader />;
+  if (loadError) {
+    return (
+      <div className={`${card} py-20 text-center`}>
+        <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-300" />
+        <p className="mb-4 text-gray-600">{loadError}</p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Try again
+          </button>
+          <button onClick={() => navigate("/plans")} className="bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-light">
+            Back to Plans
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const enabledCount = flags.filter((f) => flagOn(f)).length;
 
   return (
+    // MotionConfig honours the OS "reduce motion" preference for everything inside.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
-      <button onClick={() => navigate("/plans")} className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800">
+      <motion.button
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        onClick={leave}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
+      >
         <ArrowLeft className="h-4 w-4" /> Back to Plans
-      </button>
+      </motion.button>
 
       {/* Hero */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }} className="mb-5 overflow-hidden border border-gray-100 bg-white shadow-sm">
@@ -347,25 +496,67 @@ export default function PlanEditor() {
             <circle cx="64" cy="64" r="46" stroke="currentColor" strokeOpacity="0.18" strokeWidth="2" />
           </svg>
           <div className="relative flex items-center gap-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center bg-white/15 text-white ring-1 ring-white/25"><Layers className="h-6 w-6" /></span>
-            <div className="min-w-0">
+            <motion.span
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.1 }}
+              className="grid h-12 w-12 shrink-0 place-items-center bg-white/15 text-white ring-1 ring-white/25"
+            >
+              <Layers className="h-6 w-6" />
+            </motion.span>
+            <motion.div
+              className="min-w-0"
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15, duration: 0.35, ease: "easeOut" }}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Billing · Plans</p>
-              <h1 className="mt-0.5 text-2xl font-bold text-white">{isEdit ? `Edit ${form.name || "plan"}` : "New plan"}</h1>
+              <h1 className="mt-0.5 flex items-center gap-2 text-2xl font-bold text-white">
+                {isEdit ? `Edit ${form.name || "plan"}` : "New plan"}
+                {/* Live unsaved-changes marker */}
+                <AnimatePresence>
+                  {isDirty && (
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="inline-flex items-center gap-1.5 bg-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white ring-1 ring-white/30"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-300" /> Unsaved
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </h1>
               <p className="mt-1 text-sm text-white/80">{isEdit ? "Editing a price mints a new Stripe price; existing subscribers stay grandfathered until migrated." : "Creates a Stripe product + prices automatically."}</p>
-            </div>
+            </motion.div>
           </div>
         </div>
       </motion.div>
 
-      {!stripeEnabled && (
-        <div className="mb-5 flex items-center gap-2 border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
-          <CloudOff className="h-4 w-4 shrink-0" /> Stripe is not configured — the plan is saved but not synced to Stripe.
-        </div>
-      )}
+      <AnimatePresence>
+        {!stripeEnabled && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mb-5 flex items-center gap-2 border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+              <CloudOff className="h-4 w-4 shrink-0" /> Stripe is not configured — the plan is saved but not synced to Stripe.
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
         {/* Left rail */}
-        <nav className={`${card} overflow-hidden lg:sticky lg:top-24`}>
+        <motion.nav
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.35, ease: "easeOut" }}
+          className={`${card} overflow-hidden lg:sticky lg:top-24`}
+        >
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = tab === t.key;
@@ -384,13 +575,22 @@ export default function PlanEditor() {
               </button>
             );
           })}
-        </nav>
+        </motion.nav>
 
-        {/* Content */}
-        <div className="min-w-0 space-y-4">
+        {/* Content — panels crossfade and their cards stagger in, keyed by tab */}
+        <div className="min-w-0">
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          className="space-y-4"
+          variants={panelVariants}
+          initial="hidden"
+          animate="show"
+          exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+        >
           {/* Basics */}
           {tab === "basics" && (
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Name</label>
@@ -398,7 +598,17 @@ export default function PlanEditor() {
                 </div>
                 <div>
                   <label className={labelCls}>Code</label>
-                  <input className={cn(inputCls, isEdit && "cursor-not-allowed opacity-60")} value={form.code} disabled={isEdit} onChange={(e) => set("code", e.target.value)} placeholder="professional" />
+                  {/* Normalised as typed to match what the server stores
+                      (lowercase, dashes) — no surprise rename on save. */}
+                  <input
+                    className={cn(inputCls, isEdit && "cursor-not-allowed opacity-60")}
+                    value={form.code}
+                    disabled={isEdit}
+                    onChange={(e) => set("code", normalizeCodeInput(e.target.value))}
+                    onBlur={() => set("code", tidyCode(form.code))}
+                    placeholder="professional"
+                  />
+                  {!isEdit && <p className="mt-1 text-[11px] text-gray-400">Permanent once created — used in URLs and Stripe.</p>}
                 </div>
               </div>
               <div className="mt-4">
@@ -426,12 +636,12 @@ export default function PlanEditor() {
                 <input type="checkbox" checked={form.isPopular} onChange={(e) => set("isPopular", e.target.checked)} className="h-4 w-4 border-gray-300 text-accent focus:ring-accent" />
                 Highlight as “Most popular”
               </label>
-            </div>
+            </motion.div>
           )}
 
           {/* Pricing */}
           {tab === "pricing" && (
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Monthly ({(form.currency || "aud").toUpperCase()})</label>
@@ -454,23 +664,25 @@ export default function PlanEditor() {
               <p className="mt-4 border-l-2 px-3 py-2 text-xs text-gray-500" style={{ borderColor: accentTint(0.4), background: accentTint(0.05) }}>
                 Changing a price mints a new Stripe price. Existing subscribers stay on the old price until you migrate them (you'll be prompted after saving).
               </p>
-            </div>
+            </motion.div>
           )}
 
           {/* Capabilities */}
           {tab === "capabilities" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between px-1 text-xs text-gray-500">
+              <motion.div variants={panelCardVariants} className="flex items-center justify-between px-1 text-xs text-gray-500">
                 <span>Toggle the features this plan unlocks.</span>
-                <span className="font-medium" style={{ color: ACCENT }}>{enabledCount} enabled</span>
-              </div>
+                <span className="font-medium" style={{ color: ACCENT }}>
+                  <AnimatedNumber value={enabledCount} /> enabled
+                </span>
+              </motion.div>
               {flagsByGroup.map((g) => (
-                <div key={g.key} className={`${card} p-6`}>
+                <motion.div key={g.key} variants={panelCardVariants} className={`${card} p-6`}>
                   <h3 className="text-sm font-semibold text-gray-900">{g.label}</h3>
                   {g.blurb ? <p className="mb-3 text-xs text-gray-400">{g.blurb}</p> : null}
                   <div className="divide-y divide-gray-50">
                     {g.items.map((fl) => (
-                      <div key={fl.key} className="flex items-center justify-between gap-3 py-3">
+                      <motion.div key={fl.key} variants={rowVariants} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
                           <p className="flex items-center gap-1.5 text-sm font-medium text-gray-800">
                             {fl.label}
@@ -480,23 +692,23 @@ export default function PlanEditor() {
                           {fl.description ? <p className="text-xs text-gray-400">{fl.description}</p> : null}
                         </div>
                         <Switch checked={flagOn(fl)} disabled={fl.core} onChange={(v) => setFlag(fl.key, v)} />
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
 
           {/* Limits */}
           {tab === "limits" && (
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <p className="mb-3 text-xs text-gray-400">Set a cap per resource, or mark it unlimited. Leave blank to use the catalog default.</p>
               <div className="divide-y divide-gray-50">
                 {meters.map((m) => {
                   const unl = isUnlimited(m.key);
                   return (
-                    <div key={m.key} className="flex items-center justify-between gap-3 py-3">
+                    <motion.div key={m.key} variants={rowVariants} className="flex items-center justify-between gap-3 py-3">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-800">{m.label}</p>
                         {m.description ? <p className="text-xs text-gray-400">{m.description}</p> : null}
@@ -516,16 +728,16 @@ export default function PlanEditor() {
                           ∞
                         </label>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Marketing */}
           {tab === "marketing" && (
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <label className={labelCls}>Pricing-card bullets</label>
               <div className="flex gap-2">
                 <input className={inputCls} value={featureDraft} onChange={(e) => setFeatureDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }} placeholder="Add a bullet and press Enter" />
@@ -540,28 +752,64 @@ export default function PlanEditor() {
                   </button>
                 </div>
                 {bulletSuggestions.length > 0 ? (
+                  // `layout` + AnimatePresence: consuming a chip makes the rest
+                  // flow into the gap instead of snapping.
                   <div className="flex flex-wrap gap-1.5">
-                    {bulletSuggestions.map((b) => (
-                      <button key={b} type="button" onClick={() => addFeatureValue(b)} className="inline-flex items-center gap-1 border px-2.5 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50" style={{ borderColor: accentTint(0.3) }}>
-                        <Plus className="h-3 w-3" style={{ color: ACCENT }} /> {b}
-                      </button>
-                    ))}
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      {bulletSuggestions.map((b) => (
+                        <motion.button
+                          key={b}
+                          layout
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
+                          transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                          whileTap={{ scale: 0.94 }}
+                          type="button"
+                          onClick={() => addFeatureValue(b)}
+                          className="inline-flex items-center gap-1 border px-2.5 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-50"
+                          style={{ borderColor: accentTint(0.3) }}
+                        >
+                          <Plus className="h-3 w-3" style={{ color: ACCENT }} /> {b}
+                        </motion.button>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400">All suggestions added.</p>
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-gray-400">
+                    All suggestions added.
+                  </motion.p>
                 )}
 
+                <AnimatePresence initial={false}>
                 {manageOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.28, ease: "easeOut" }}
+                    className="overflow-hidden"
+                  >
                   <div className="mt-3 border border-gray-100 bg-gray-50 p-4">
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Suggestion library</p>
                     <div className="flex flex-wrap gap-1.5">
                       {library.length === 0 && <span className="text-xs text-gray-400">No suggestions in the library.</span>}
-                      {library.map((item) => (
-                        <span key={item} className="inline-flex items-center gap-1 border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600">
-                          {item}
-                          <button type="button" onClick={() => removeLibraryItem(item)} className="text-gray-400 hover:text-red-500"><X className="h-3 w-3" /></button>
-                        </span>
-                      ))}
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        {library.map((item) => (
+                          <motion.span
+                            key={item}
+                            layout
+                            initial={{ opacity: 0, scale: 0.85 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.15 } }}
+                            transition={{ type: "spring", stiffness: 500, damping: 34 }}
+                            className="inline-flex items-center gap-1 border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
+                          >
+                            {item}
+                            <button type="button" onClick={() => removeLibraryItem(item)} className="text-gray-400 hover:text-red-500"><X className="h-3 w-3" /></button>
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
                     </div>
                     <div className="mt-3 flex gap-2">
                       <input className={inputCls} value={libDraft} onChange={(e) => setLibDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLibraryItem(); } }} placeholder="Add a suggestion to the library" />
@@ -571,51 +819,87 @@ export default function PlanEditor() {
                       {libSaving ? "Saving…" : "Save suggestions"}
                     </button>
                   </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
               </div>
 
               {form.features.length > 0 ? (
+                // Keyed by the bullet text (not the index) so removing one
+                // animates that row out instead of re-labelling the rest.
                 <ul className="mt-4 space-y-2">
-                  {form.features.map((f, idx) => (
-                    <li key={idx} className="flex items-center justify-between gap-2 border border-gray-100 px-3 py-2 text-sm text-gray-700">
-                      <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5" style={{ color: form.color }} /> {f}</span>
-                      <button type="button" onClick={() => removeFeature(idx)} className="text-gray-400 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
-                    </li>
-                  ))}
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {form.features.map((f, idx) => (
+                      <motion.li
+                        key={f}
+                        layout
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10, transition: { duration: 0.15 } }}
+                        transition={{ type: "spring", stiffness: 460, damping: 34 }}
+                        className="flex items-center justify-between gap-2 border border-gray-100 px-3 py-2 text-sm text-gray-700"
+                      >
+                        <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5" style={{ color: form.color }} /> {f}</span>
+                        <button type="button" onClick={() => removeFeature(idx)} className="text-gray-400 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
+                      </motion.li>
+                    ))}
+                  </AnimatePresence>
                 </ul>
               ) : (
                 <p className="mt-4 text-xs text-gray-400">No bullets yet — type one above or pick from Quick add.</p>
               )}
-            </div>
+            </motion.div>
           )}
 
           {/* Review */}
           {tab === "review" && (
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-              <div className={`${card} p-6`}>
+              <motion.div variants={panelCardVariants} className={`${card} p-6`}>
                 <h3 className="mb-4 text-sm font-semibold text-gray-900">Summary</h3>
                 <div className="divide-y divide-gray-50 text-sm">
                   <div className="flex justify-between py-2"><span className="text-gray-500">Name</span><span className="font-medium text-gray-800">{form.name || "—"}</span></div>
                   <div className="flex justify-between py-2"><span className="text-gray-500">Code</span><span className="font-mono text-gray-800">{form.code || "—"}</span></div>
                   <div className="flex justify-between py-2"><span className="text-gray-500">Monthly</span><span className="font-medium text-gray-800">{money(form.price.monthly, form.currency)}</span></div>
                   <div className="flex justify-between py-2"><span className="text-gray-500">Annual</span><span className="font-medium text-gray-800">{money(form.price.annual, form.currency)}</span></div>
-                  <div className="flex justify-between py-2"><span className="text-gray-500">Capabilities on</span><span className="font-medium text-gray-800">{enabledCount} of {flags.length}</span></div>
+                  <div className="flex justify-between py-2"><span className="text-gray-500">Capabilities on</span><span className="font-medium text-gray-800"><AnimatedNumber value={enabledCount} /> of {flags.length}</span></div>
+                  <div className="flex justify-between py-2"><span className="text-gray-500">Bullets</span><span className="font-medium text-gray-800"><AnimatedNumber value={form.features.length} /></span></div>
                   <div className="flex justify-between py-2"><span className="text-gray-500">Public</span><span className="font-medium text-gray-800">{form.isPublic ? "Yes" : "Hidden"}</span></div>
                 </div>
-              </div>
-              <div>
+              </motion.div>
+              <motion.div variants={panelCardVariants}>
                 <p className={labelCls}>Live preview</p>
                 <PlanCardPreview form={form} />
-              </div>
+              </motion.div>
             </div>
           )}
+        </motion.div>
+        </AnimatePresence>
 
-          {/* Sticky save bar */}
-          <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-gray-100 bg-white/90 px-4 py-3 backdrop-blur">
-            <button type="button" onClick={() => navigate("/plans")} className="border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">Cancel</button>
-            <button type="button" onClick={handleSave} disabled={saving} className="bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
+          {/* Sticky save bar — outside the crossfade so it never flickers */}
+          <div className="sticky bottom-0 z-10 mt-4 flex items-center justify-end gap-3 border-t border-gray-100 bg-white/90 px-4 py-3 backdrop-blur">
+            {/* Dirty hint sits with the actions so it's visible on every tab */}
+            <AnimatePresence>
+              {isDirty && (
+                <motion.span
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8 }}
+                  className="mr-auto inline-flex items-center gap-1.5 text-xs text-gray-400"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Unsaved changes
+                </motion.span>
+              )}
+            </AnimatePresence>
+            <button type="button" onClick={leave} disabled={saving} className="border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10">Cancel</button>
+            <motion.button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              whileTap={{ scale: 0.97 }}
+              className="bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"
+            >
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create plan"}
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -625,18 +909,28 @@ export default function PlanEditor() {
         {migrate && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
-              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center bg-amber-50 ring-1 ring-amber-100"><Zap className="h-6 w-6 text-amber-500" /></div>
+            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.92, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }} transition={{ type: "spring", stiffness: 380, damping: 30 }}>
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.08 }}
+                className="mx-auto mb-4 grid h-12 w-12 place-items-center bg-amber-50 ring-1 ring-amber-100"
+              >
+                <Zap className="h-6 w-6 text-amber-500" />
+              </motion.div>
               <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">New Stripe price created</h3>
               <p className="mb-6 text-center text-sm text-gray-500"><strong className="text-gray-800">{migrate.count}</strong> active tenant{migrate.count === 1 ? "" : "s"} stay on the old price until migrated. Move them now?</p>
               <div className="flex gap-3">
-                <button type="button" onClick={() => handleMigrate(false)} className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">Keep grandfathered</button>
-                <button type="button" onClick={() => handleMigrate(true)} className="flex-1 bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">Migrate {migrate.count}</button>
+                <button type="button" disabled={migrating} onClick={() => handleMigrate(false)} className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10">Keep grandfathered</button>
+                <button type="button" disabled={migrating} onClick={() => handleMigrate(true)} className="flex-1 bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-60">
+                  {migrating ? "Migrating…" : `Migrate ${migrate.count}`}
+                </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

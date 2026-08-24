@@ -1,13 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup, MotionConfig } from "framer-motion";
 import { Bug, Sparkles, ChevronLeft, ChevronRight, Building2, MessageSquare, Inbox, Search, RefreshCw, ArrowUpRight, Layers, Clock } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { useSARealtime } from "../context/SARealtimeContext";
 import { ticketSourceMeta } from "../../config/ticketSource";
+import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.6s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.6} {...props} />;
 const card = "border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
 // Brand hero gradient — the platform palette (same vars as the sidebar),
 // mirroring the Organisations / Audit / Support-session / Contact hero.
@@ -50,7 +57,7 @@ function timeAgo(d) {
 }
 
 /* Stat cell in the attached strip under the hero banner (Organisations look). */
-function HeaderStat({ icon: Icon, label, value, color }) {
+function HeaderStat({ icon: Icon, label, value, sub, color }) {
   return (
     <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
@@ -58,7 +65,8 @@ function HeaderStat({ icon: Icon, label, value, color }) {
       </span>
       <div className="min-w-0">
         <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
-        <p className="mt-1 text-xs text-gray-400">{label}</p>
+        <p className="mt-1 truncate text-xs text-gray-400">{label}</p>
+        {sub ? <p className="truncate text-[10px] text-gray-300 dark:text-white/30">{sub}</p> : null}
       </div>
     </div>
   );
@@ -66,12 +74,14 @@ function HeaderStat({ icon: Icon, label, value, color }) {
 
 export default function KanbanBoard() {
   const navigate = useNavigate();
+  const { ticketsVersion } = useSARealtime();
   // Hydrate from the session cache so revisits are instant (no loader flash) —
   // null cache = first visit (show the loader).
   const cachedBoard = superadminService.getTicketBoardCached();
   const [board, setBoard] = useState(cachedBoard || EMPTY);
   const [loading, setLoading] = useState(!cachedBoard);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
   const [tab, setTab] = useState("bug"); // "bug" | "feature"
   const [search, setSearch] = useState("");
   const [dragId, setDragId] = useState(null);
@@ -80,6 +90,8 @@ export default function KanbanBoard() {
   // Set true while a drag is in flight so the click that follows a drop doesn't
   // also navigate to the ticket (drag-vs-click disambiguation).
   const dragMovedRef = useRef(false);
+  // Ticket ids with a move request in flight (see moveTo).
+  const movingRef = useRef(new Set());
 
   // Background/forced refresh (failed-move fallback + revalidate on revisit) —
   // never toggles the full-page loader; that's owned by the first-visit path.
@@ -87,8 +99,12 @@ export default function KanbanBoard() {
     try {
       const data = await superadminService.loadTicketBoard({ force });
       setBoard(data || EMPTY);
-    } catch {
-      toast.error("Failed to load board");
+      setError(null);
+    } catch (err) {
+      // An empty board reads as "nothing to triage" — say the load failed.
+      const msg = err?.response?.data?.error || "Couldn't load the board.";
+      if (superadminService.getTicketBoardCached()) toast.error(msg);
+      else setError(msg);
     }
   }, []);
 
@@ -101,25 +117,34 @@ export default function KanbanBoard() {
     }
   };
 
+  // Same fix as the Tickets list: this force-refetched on every mount, so the
+  // cache never saved a request. Triage (here or on the detail page) and
+  // realtime ticket events now flag the board stale, so an unchanged revisit
+  // makes no call and `ticketsVersion` refreshes it when something lands.
   useEffect(() => {
-    if (superadminService.getTicketBoardCached()) {
-      // Cached → render instantly, then silently revalidate (the board can change
-      // on the Support Tickets screen while we're away).
+    const cachedNow = superadminService.getTicketBoardCached();
+    if (cachedNow && !superadminService.isBoardStale()) {
+      setBoard(cachedNow);
+      setLoading(false);
+      return;
+    }
+    if (cachedNow) {
       fetchBoard({ force: true });
     } else {
       // First, uncached visit → show the loader.
       (async () => {
         try {
           setBoard((await superadminService.loadTicketBoard()) || EMPTY);
-        } catch {
-          toast.error("Failed to load board");
+          setError(null);
+        } catch (err) {
+          setError(err?.response?.data?.error || "Couldn't load the board.");
         } finally {
           setLoading(false);
         }
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ticketsVersion]);
 
   // Mirror optimistic drag-moves into the session cache so a revisit shows the
   // latest board instantly (then the background revalidate confirms it).
@@ -129,6 +154,12 @@ export default function KanbanBoard() {
 
   const moveTo = async (ticket, targetCol) => {
     if (!ticket || ticket.kanbanStatus === targetCol) return;
+    // One move per card at a time. Without this, a fast drag-drop-drag fired
+    // two PATCHes whose responses could land out of order and leave the card
+    // in the wrong column.
+    if (movingRef.current.has(ticket._id)) return;
+    movingRef.current.add(ticket._id);
+
     const lane = ticket.triage; // "bug" | "feature"
     setBoard((prev) => {
       if (!prev[lane]) return prev;
@@ -139,9 +170,11 @@ export default function KanbanBoard() {
     });
     try {
       await superadminService.triageTicket(ticket._id, { kanbanStatus: targetCol });
-    } catch {
-      toast.error("Failed to move");
-      fetchBoard();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Failed to move");
+      fetchBoard(); // server truth wins — undoes the optimistic move
+    } finally {
+      movingRef.current.delete(ticket._id);
     }
   };
 
@@ -171,11 +204,12 @@ export default function KanbanBoard() {
 
   // Board-wide overview (both lanes) for the hero stat strip — stable across tabs.
   const inProgressAll = (board.bug?.in_progress?.length || 0) + (board.feature?.in_progress?.length || 0);
+  const boardTotal = bugCount + featureCount;
   const statTiles = [
-    { label: "Total tickets", value: bugCount + featureCount, icon: Layers, color: "#6366f1" },
-    { label: "Bugs", value: bugCount, icon: Bug, color: "#ef4444" },
-    { label: "Feature requests", value: featureCount, icon: Sparkles, color: "#8b5cf6" },
-    { label: "In progress", value: inProgressAll, icon: Clock, color: "#f59e0b" },
+    { label: "Total tickets", value: <AnimatedNumber value={boardTotal} />, sub: "triaged onto the board", icon: Layers, color: "#6366f1" },
+    { label: "Bugs", value: <AnimatedNumber value={bugCount} />, sub: boardTotal ? `${Math.round((bugCount / boardTotal) * 100)}% of the board` : "none", icon: Bug, color: "#ef4444" },
+    { label: "Feature requests", value: <AnimatedNumber value={featureCount} />, sub: boardTotal ? `${Math.round((featureCount / boardTotal) * 100)}% of the board` : "none", icon: Sparkles, color: "#8b5cf6" },
+    { label: "In progress", value: <AnimatedNumber value={inProgressAll} />, sub: "across both lanes", icon: Clock, color: "#f59e0b" },
   ];
 
   // Free-text board filter (client-side over the loaded lane).
@@ -194,6 +228,9 @@ export default function KanbanBoard() {
 
   return (
     // Sharp-corner variant: square every descendant's corners for an angular look.
+    // MotionConfig honours the OS "reduce motion" preference — important here,
+    // where cards animate between lanes on every drag.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       {/* Hero — gradient banner + attached stat strip (matches the other screens) */}
       <motion.div
@@ -218,8 +255,15 @@ export default function KanbanBoard() {
         </div>
         {!loading && (
           <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
-            {statTiles.map((t) => (
-              <HeaderStat key={t.label} {...t} />
+            {statTiles.map((t, i) => (
+              <motion.div
+                key={t.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+              >
+                <HeaderStat {...t} />
+              </motion.div>
             ))}
           </div>
         )}
@@ -281,6 +325,8 @@ export default function KanbanBoard() {
 
       {loading ? (
         <SALoader />
+      ) : error ? (
+        <SAErrorState message={error} onRetry={refresh} />
       ) : total === 0 ? (
         <div className={`${card} py-20 text-center`}>
           <Inbox className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -374,7 +420,7 @@ export default function KanbanBoard() {
                           <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-white/10">
                             <span className="inline-flex min-w-0 items-center gap-1 font-mono text-[10px] text-gray-400"><Building2 className="h-3 w-3 shrink-0" /><span className="truncate">{t.organisationId?.slug || "—"}</span></span>
                             <div className="flex shrink-0 items-center gap-2 text-[10px] text-gray-400">
-                              {t.comments?.length ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.comments.length}</span> : null}
+                              {(t.commentCount ?? t.comments?.length) ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.commentCount ?? t.comments.length}</span> : null}
                               <span>{timeAgo(t.createdAt)}</span>
                               {assignee ? (
                                 resolveAvatar(assignee.profileImage) ? (
@@ -406,6 +452,7 @@ export default function KanbanBoard() {
         </LayoutGroup>
       )}
     </div>
+    </MotionConfig>
   );
 }
 

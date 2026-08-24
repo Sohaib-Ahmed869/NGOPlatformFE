@@ -1,4 +1,4 @@
-import { Mail, Phone, MapPin, HeartHandshake, ArrowRight, ArrowUpRight, LifeBuoy } from "lucide-react";
+import { Mail, Phone, MapPin, HeartHandshake, ArrowRight, ArrowUpRight, LifeBuoy, HelpCircle } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaXTwitter, FaLinkedinIn, FaWhatsapp } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
@@ -101,6 +101,9 @@ const Footer = () => {
                   {l.label}
                 </Link>
               ))}
+              <Link to="/faq" className="font-body text-sm text-white/60 transition-colors hover:text-accent">
+                FAQs
+              </Link>
               <Link to="/support/new" className="font-body text-sm text-white/60 transition-colors hover:text-accent">
                 Support
               </Link>
@@ -144,6 +147,9 @@ const Footer = () => {
                   {l.label}
                 </Link>
               ))}
+              <Link to="/faq" className="font-body text-sm text-white/60 transition-colors hover:text-accent">
+                FAQs
+              </Link>
               <Link to="/support/new" className="font-body text-sm text-white/60 transition-colors hover:text-accent">
                 Support
               </Link>
@@ -271,6 +277,17 @@ const Footer = () => {
           <div className="lg:col-span-4">
             <h4 className="mb-4 font-body text-xs font-semibold uppercase tracking-[0.2em] text-accent">Contact</h4>
             <ul className="space-y-4">
+              <li>
+                <Link to="/faq" className="group flex items-center gap-3 font-body text-sm">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">
+                    <HelpCircle className="h-4 w-4" />
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[10px] uppercase tracking-wider text-white/30">Got questions?</span>
+                    <span className="text-white/60 transition-colors group-hover:text-accent">Read our FAQs</span>
+                  </span>
+                </Link>
+              </li>
               <li>
                 <Link to="/support/new" className="group flex items-center gap-3 font-body text-sm">
                   <span className="grid h-9 w-9 shrink-0 place-items-center border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">

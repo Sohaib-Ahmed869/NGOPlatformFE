@@ -91,6 +91,11 @@ class ProfileService {
           "Content-Type": "multipart/form-data",
         },
       });
+      // Keep the cache in step, like updateProfile does. Without this the
+      // cached profile kept the OLD avatar after an upload, which is why the
+      // screen had to force a refetch on every single mount.
+      const url = response.data?.imageUrl || response.data?.profileImage;
+      if (_profileCache && url) _profileCache = { ..._profileCache, profileImage: url };
       return response.data;
     } catch (error) {
       console.error("Error uploading profile image:", error);

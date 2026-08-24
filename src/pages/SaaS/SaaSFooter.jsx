@@ -10,6 +10,7 @@ const productLinks = [
   { label: "Get started", to: "/register" },
 ];
 const supportLinks = [
+  { label: "FAQs", to: "/faq" },
   { label: "Contact us", to: "/contact" },
   { label: "Sign in", to: "/login" },
 ];

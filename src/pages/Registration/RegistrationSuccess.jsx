@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, CheckCircle, ExternalLink, AlertCircle, Loader2 } from "lucide-react";
 import tenantService from "../../services/tenant.service";
+import { tenantOrigin } from "../../utils/rootDomain";
 
 /* Brand-consistent with the registration flow (emerald + Outfit). */
 const FONT = '"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -23,37 +24,95 @@ export default function RegistrationSuccess() {
   const slug = searchParams.get("slug");
   const [status, setStatus] = useState("polling"); // polling | active | error
   const [orgName, setOrgName] = useState("");
+  const [detail, setDetail] = useState("");
+  // The 60s give-up timer must read the CURRENT status, not the value captured
+  // when the effect ran — reading the state variable there always saw "polling"
+  // and flipped an already-successful page to the error screen.
+  const statusRef = useRef("polling");
+  const settle = (next) => {
+    statusRef.current = next;
+    setStatus(next);
+  };
 
   useEffect(() => {
     if (!slug) {
-      setStatus("error");
+      settle("error");
+      setDetail("No organisation was referenced in this link.");
       return;
     }
 
-    const interval = setInterval(async () => {
+    let stopped = false;
+    let interval;
+    let redirect;
+
+    const goLive = (name) => {
+      // confirm() and poll() can both succeed — only the first one counts, or we
+      // would stack a second redirect timer.
+      if (stopped || statusRef.current !== "polling") return;
+      setOrgName(name || "");
+      settle("active");
+      clearInterval(interval);
+      redirect = setTimeout(() => {
+        window.location.href = `${tenantOrigin(slug)}/admin/login`;
+      }, 5000);
+    };
+
+    // Ask the server to finish the job rather than waiting for Stripe's webhook
+    // to arrive: it re-checks the subscription against Stripe and activates the
+    // org if the first invoice really is paid. Idempotent, and the webhook stays
+    // as the backstop — whichever lands first wins.
+    const confirm = async () => {
+      if (stopped) return false;
+      try {
+        const res = await tenantService.confirmRegistration(slug);
+        if (res.data?.isActive) {
+          goLive(res.data.name);
+          return true;
+        }
+      } catch (e) {
+        // 402 = payment genuinely not through yet; keep polling. Anything else is
+        // surfaced only if we eventually time out.
+        const msg = e?.response?.data?.error;
+        if (msg) setDetail(msg);
+      }
+      return false;
+    };
+
+    const poll = async () => {
+      if (stopped) return;
       try {
         const res = await tenantService.getOrgStatus(slug);
-        if (res.data.isActive) {
-          setOrgName(res.data.name);
-          setStatus("active");
-          clearInterval(interval);
-          setTimeout(() => {
-            window.location.href = `http://${slug}.${import.meta.env.VITE_ROOT_DOMAIN}/admin/login`;
-          }, 5000);
-        }
+        if (res.data.isActive) goLive(res.data.name);
       } catch {
         // Keep polling
       }
+    };
+
+    // Run both immediately — no reason to make the user wait 2s for the first check.
+    (async () => {
+      if (await confirm()) return;
+      await poll();
+    })();
+
+    let ticks = 0;
+    interval = setInterval(() => {
+      ticks += 1;
+      poll();
+      // Retry the confirm every ~10s too: the PaymentIntent can still be
+      // "processing" on the first attempt and settle a moment later.
+      if (ticks % 5 === 0) confirm();
     }, 2000);
 
     const timeout = setTimeout(() => {
       clearInterval(interval);
-      if (status === "polling") setStatus("error");
+      if (statusRef.current === "polling") settle("error");
     }, 60000);
 
     return () => {
+      stopped = true;
       clearInterval(interval);
       clearTimeout(timeout);
+      clearTimeout(redirect);
     };
   }, [slug]);
 
@@ -77,19 +136,33 @@ export default function RegistrationSuccess() {
           <h1 className="text-2xl font-bold text-[#102A23] mb-3">
             Something went wrong
           </h1>
-          <p className="text-[#46685C] mb-8">
+          <p className="text-[#46685C] mb-3">
             We couldn't verify your registration. Please contact support if the
             issue persists.
           </p>
-          <a
-            href="/plans"
+          {detail && <p className="text-[13px] text-[#8AA89C] mb-3">{detail}</p>}
+          {/* If the card went through, the money is already taken — never send
+              this person back to /plans to buy a second subscription. Retrying
+              means re-running the verification. */}
+          <p className="text-[13px] text-[#8AA89C] mb-8">
+            If your card was charged, your subscription is safe — nothing needs
+            paying again.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
             className="inline-block px-8 py-3 text-white rounded-full font-semibold transition-colors"
             style={{ backgroundColor: EMERALD }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = EMERALD_DARK)}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = EMERALD)}
           >
             Try Again
-          </a>
+          </button>
+          <p className="mt-5 text-[13px]">
+            <a href="/contact" className="underline" style={{ color: EMERALD }}>
+              Contact support
+            </a>
+          </p>
         </motion.div>
       </div>
     );
@@ -170,7 +243,7 @@ export default function RegistrationSuccess() {
   }
 
   // status === "active"
-  const portalUrl = `http://${slug}.${import.meta.env.VITE_ROOT_DOMAIN}`;
+  const portalUrl = tenantOrigin(slug);
 
   return (
     <div className="bg-[#F3F8F5] min-h-screen flex items-center justify-center px-4" style={{ fontFamily: FONT }}>

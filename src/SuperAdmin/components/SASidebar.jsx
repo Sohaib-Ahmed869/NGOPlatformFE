@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal, Target, Users } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
@@ -8,47 +8,57 @@ import { cn } from "../../utils/cn";
 import useLogoFit from "../../hooks/useLogoFit";
 import platformService from "../../services/platform.service";
 import { useSARealtime } from "../context/SARealtimeContext";
+import { hasCapability } from "../utils/platformRoles";
 
 // Logically grouped nav. The first group is `flat` (no header) for the overview;
 // the rest are collapsible sections (collapsedGroups/toggleGroup from useAdminUi).
+// `capability` on an item gates it by the signed-in operator's platformRole
+// (see utils/platformRoles.js) — an item with no `capability` is always shown
+// (Dashboard, and the operator's own Settings). A group with zero visible items
+// after filtering is hidden entirely — see the render below.
 const NAV_GROUPS = [
   { flat: true, items: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }] },
   {
+    label: "Sales",
+    items: [{ label: "Leads", path: "/leads", icon: Target, capability: "tenants" }],
+  },
+  {
     label: "Tenants",
     items: [
-      { label: "Organisations", path: "/organisations", icon: Building2 },
-      { label: "Branding Requests", path: "/branding-requests", icon: Paintbrush },
+      { label: "Organisations", path: "/organisations", icon: Building2, capability: "tenants" },
+      { label: "Branding Requests", path: "/branding-requests", icon: Paintbrush, capability: "tenants" },
     ],
   },
   {
     label: "Billing",
     items: [
-      { label: "Plans", path: "/plans", icon: Layers },
-      { label: "Features", path: "/features", icon: SlidersHorizontal },
-      { label: "Coupons", path: "/coupons", icon: Ticket },
-      { label: "Billing", path: "/billing", icon: CreditCard },
-      { label: "Invoices", path: "/invoices", icon: Receipt },
+      { label: "Plans", path: "/plans", icon: Layers, capability: "billing" },
+      { label: "Features", path: "/features", icon: SlidersHorizontal, capability: "billing" },
+      { label: "Coupons", path: "/coupons", icon: Ticket, capability: "billing" },
+      { label: "Billing", path: "/billing", icon: CreditCard, capability: "billing" },
+      { label: "Invoices", path: "/invoices", icon: Receipt, capability: "billing" },
     ],
   },
   {
     label: "Support",
     items: [
-      { label: "Support Tickets", path: "/tickets", icon: LifeBuoy },
-      { label: "Kanban", path: "/kanban", icon: KanbanSquare },
-      { label: "Contact Queries", path: "/contact-queries", icon: MessageSquare },
+      { label: "Support Tickets", path: "/tickets", icon: LifeBuoy, capability: "support" },
+      { label: "Kanban", path: "/kanban", icon: KanbanSquare, capability: "support" },
+      { label: "Contact Queries", path: "/contact-queries", icon: MessageSquare, capability: "support" },
     ],
   },
   {
     label: "Security",
     items: [
-      { label: "Support Sessions", path: "/support-sessions", icon: ShieldCheck },
-      { label: "Audit Log", path: "/audit", icon: ScrollText },
+      { label: "Support Sessions", path: "/support-sessions", icon: ShieldCheck, capability: "support" },
+      { label: "Audit Log", path: "/audit", icon: ScrollText, capability: "ops" },
     ],
   },
   {
     label: "Configuration",
     items: [
-      { label: "Platform", path: "/platform", icon: Globe },
+      { label: "Team", path: "/team", icon: Users, capability: "ops" },
+      { label: "Platform", path: "/platform", icon: Globe, capability: "ops" },
       { label: "Settings", path: "/settings", icon: Settings },
     ],
   },
@@ -61,9 +71,17 @@ const activeItemStyle = {
 };
 
 export default function SASidebar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar, collapsedGroups, toggleGroup } = useAdminUi();
-  const { unreadContactQueries, pendingBrandingRequests } = useSARealtime();
+  const { unreadContactQueries, pendingBrandingRequests, newLeadsCount } = useSARealtime();
+
+  // Nav-hiding only — the backend capability guard is the real boundary. A
+  // group with nothing left after filtering (e.g. Billing for a Support Agent)
+  // isn't rendered at all rather than shown empty.
+  const visibleGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((it) => !it.capability || hasCapability(user?.platformRole, it.capability)),
+  })).filter((g) => g.items.length > 0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -150,7 +168,7 @@ export default function SASidebar() {
 
         {/* Nav (grouped) */}
         <nav className="scrollbar-none flex-1 space-y-4 overflow-y-auto px-3 py-4">
-          {NAV_GROUPS.map((group, gi) => {
+          {visibleGroups.map((group, gi) => {
             const groupOpen = group.flat || sidebarCollapsed || !collapsedGroups[group.label];
             return (
               <div key={group.label || `g${gi}`}>
@@ -184,7 +202,9 @@ export default function SASidebar() {
                           ? unreadContactQueries
                           : item.path === "/branding-requests"
                             ? pendingBrandingRequests
-                            : 0;
+                            : item.path === "/leads"
+                              ? newLeadsCount
+                              : 0;
                       return (
                         <li key={item.path}>
                           <NavLink

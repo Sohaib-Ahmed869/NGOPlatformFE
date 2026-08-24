@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   Search,
   LayoutGrid,
@@ -17,12 +18,15 @@ import {
   Settings,
   RefreshCw,
   Ban,
+  Power,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { useSARealtime } from "../context/SARealtimeContext";
 import SASelect from "../components/SASelect";
 import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
+import AnimatedNumber from "../components/AnimatedNumber";
 const planColors = { basic: "#06b6d4", professional: "#10b981", enterprise: "#f59e0b" };
 const statusStyles = {
   active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
@@ -59,101 +63,211 @@ const orgLogo = (org) =>
 const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
 
 /* Stat cell in the attached strip under the hero banner (dashboard look). */
-function HeaderStat({ icon: Icon, label, value, color }) {
+function HeaderStat({ icon: Icon, label, value, color, prefix }) {
   return (
     <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
         <Icon className="h-[18px] w-[18px]" />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-lg font-bold leading-none text-gray-900">{value}</p>
+        <p className="truncate text-lg font-bold leading-none text-gray-900">
+          <AnimatedNumber value={value} prefix={prefix} />
+        </p>
         <p className="mt-1 text-xs text-gray-400">{label}</p>
       </div>
     </div>
   );
 }
 
+/* Entrance choreography — the grid staggers its cards in, each card rising
+   with the house cubic-bezier. Late-mounted cards (live updates) animate solo. */
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04, delayChildren: 0.05 } },
+};
+const cardVariants = {
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.2, 0.7, 0.2, 1] } },
+};
+
 export default function Organisations() {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [planFilter, setPlanFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
+  const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState("grid"); // "grid" | "table"
   const [planModal, setPlanModal] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState("");
-  const [suspendModal, setSuspendModal] = useState(null);
+  const [statusModal, setStatusModal] = useState(null); // { org, action: "suspend" | "reactivate" }
+  const [acting, setActing] = useState(false); // a mutation is in flight — blocks double submits
+  const [revalidating, setRevalidating] = useState(false); // background refresh of the current view
   const [plans, setPlans] = useState([]);
   const [stats, setStats] = useState(null);
   const navigate = useNavigate();
+  // Realtime nudge: bumps when any organisation changes anywhere (another
+  // operator, a Stripe webhook, an activation) — caches are already invalidated.
+  const { orgsVersion } = useSARealtime();
 
-  const fetchOrgs = async () => {
-    setLoading(true);
-    try {
-      const params = { page, limit: 20 };
-      if (search) params.search = search;
-      if (planFilter) params.plan = planFilter;
-      if (statusFilter) params.status = statusFilter;
-      const res = await superadminService.getOrganisations(params);
-      setOrgs(res.data.organisations);
-      setPagination(res.data.pagination);
-    } catch (err) {
-      console.error("Failed to fetch organisations:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Debounce the search box into `debouncedSearch` and snap back to page 1.
+  // Both setters run in the same tick (batched → one render → one fetch), and
+  // on mount `search === debouncedSearch` so no duplicate initial request.
   useEffect(() => {
-    fetchOrgs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, planFilter, statusFilter]);
-  useEffect(() => {
-    const t = setTimeout(fetchOrgs, 300);
+    const next = search.trim();
+    if (next === debouncedSearch) return undefined;
+    const t = setTimeout(() => {
+      setDebouncedSearch(next);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, debouncedSearch]);
+
+  // Single fetch pipeline for the list, cache-first: a page/filter combo
+  // already seen this session renders instantly with NO request (org mutations
+  // and realtime events clear the cache in the service, so a re-run after a
+  // change refetches). When we're refreshing the SAME view we're already
+  // showing (mutation, socket nudge, manual refresh) the data updates silently
+  // in place — the loader only shows for a view we haven't rendered yet.
+  // Superseded live requests are aborted so a slow stale response can never
+  // overwrite a newer one.
+  const lastParamsKeyRef = useRef(null);
+  useEffect(() => {
+    const params = { page, limit: 20 };
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (planFilter) params.plan = planFilter;
+    if (statusFilter) params.status = statusFilter;
+    const paramsKey = JSON.stringify(params);
+
+    const cached = superadminService.getOrganisationsCached(params);
+    if (cached) {
+      setOrgs(cached.organisations || []);
+      setPagination(cached.pagination || {});
+      setError(null);
+      setLoading(false);
+      lastParamsKeyRef.current = paramsKey;
+      return undefined;
+    }
+
+    const sameView = lastParamsKeyRef.current === paramsKey;
+    const controller = new AbortController();
+    let alive = true;
+    (async () => {
+      if (sameView) setRevalidating(true);
+      else setLoading(true);
+      try {
+        const data = await superadminService.loadOrganisations(params, { signal: controller.signal });
+        if (!alive) return;
+        const { organisations = [], pagination: pg = {} } = data || {};
+        // A mutation or filter change can strand us past the last page — snap back.
+        if (page > 1 && page > (pg.pages || 0)) {
+          setPage(Math.max(1, pg.pages || 1));
+          return;
+        }
+        setOrgs(organisations);
+        setPagination(pg);
+        setError(null);
+        lastParamsKeyRef.current = paramsKey;
+      } catch (err) {
+        if (!alive || axios.isCancel(err)) return;
+        console.error("Failed to fetch organisations:", err);
+        const msg = err.response?.data?.error || "Couldn't load organisations. Please try again.";
+        if (sameView) toast.error(msg); // background refresh failed — keep the grid up
+        else setError(msg);
+      } finally {
+        if (alive) {
+          setLoading(false);
+          setRevalidating(false);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [page, planFilter, statusFilter, debouncedSearch, refreshKey, orgsVersion]);
 
   // Platform-wide totals for the summary band (same source as the dashboard).
-  useEffect(() => {
+  // Session-cached in the service; org mutations and realtime events clear the
+  // cache, and the orgsVersion dep re-runs this — a warm cache resolves
+  // instantly with no request, a cleared one costs exactly one.
+  const loadStats = useCallback(() => {
     superadminService
       .getBillingStats()
       .then((res) => setStats(res.data))
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    loadStats();
+  }, [loadStats, orgsVersion]);
 
-  // Dynamic plans for the Change-Plan modal (falls back to the legacy tiers
-  // if the Plan collection hasn't been seeded yet).
+  // Dynamic plans for the plan filter + Change-Plan modal (falls back to the
+  // legacy tiers if the Plan collection hasn't been seeded yet). Session-cached
+  // in the service — shared with the detail screen, one request per session.
   useEffect(() => {
     superadminService
-      .getPlans()
+      .getPlansCached()
       .then((res) => setPlans((res.data.plans || []).filter((p) => !p.archivedAt && p.isActive !== false)))
       .catch(() => {});
   }, []);
 
-  const handleSuspend = async () => {
-    if (!suspendModal) return;
+  const refresh = () => {
+    setRefreshKey((k) => k + 1);
+    loadStats();
+  };
+
+  // Manual refresh — drop every org cache and revalidate the current view
+  // silently (the spinner on the button is the only visual cue).
+  const hardRefresh = () => {
+    superadminService.invalidateOrgCaches();
+    refresh();
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setPlanFilter("");
+    setStatusFilter("");
+    setPage(1);
+  };
+  const hasFilters = Boolean(search.trim() || debouncedSearch || planFilter || statusFilter);
+
+  const handleStatusChange = async () => {
+    if (!statusModal || acting) return;
+    const { org, action } = statusModal;
+    setActing(true);
     try {
-      await superadminService.suspendOrg(suspendModal._id);
-      toast.success("Organisation suspended");
-      setSuspendModal(null);
-      fetchOrgs();
-    } catch {
-      toast.error("Failed to suspend");
+      await superadminService.updateOrgStatus(org._id, action);
+      toast.success(action === "suspend" ? "Organisation suspended" : "Organisation reactivated");
+      setStatusModal(null);
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || `Failed to ${action}`);
+    } finally {
+      setActing(false);
     }
   };
 
   const handleChangePlan = async () => {
-    if (!planModal || !selectedPlan) return;
+    if (!planModal || !selectedPlan || acting) return;
+    if (selectedPlan === planModal.plan) {
+      setPlanModal(null); // no-op — don't touch the API/Stripe
+      return;
+    }
+    setActing(true);
     try {
       await superadminService.updateOrgPlan(planModal._id, selectedPlan);
       toast.success("Plan updated");
       setPlanModal(null);
-      fetchOrgs();
-    } catch {
-      toast.error("Failed to update plan");
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update plan");
+    } finally {
+      setActing(false);
     }
   };
 
@@ -185,12 +299,22 @@ export default function Organisations() {
       >
         <RefreshCw className="h-4 w-4" />
       </button>
-      {org.subscriptionStatus !== "cancelled" && (
+      {org.subscriptionStatus === "cancelled" ? (
+        <button
+          type="button"
+          title="Reactivate"
+          aria-label="Reactivate"
+          onClick={() => setStatusModal({ org, action: "reactivate" })}
+          className="grid h-8 w-8 place-items-center bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100"
+        >
+          <Power className="h-4 w-4" />
+        </button>
+      ) : (
         <button
           type="button"
           title="Suspend"
           aria-label="Suspend"
-          onClick={() => setSuspendModal(org)}
+          onClick={() => setStatusModal({ org, action: "suspend" })}
           className="grid h-8 w-8 place-items-center bg-red-50 text-red-600 transition-colors hover:bg-red-100"
         >
           <Ban className="h-4 w-4" />
@@ -202,24 +326,42 @@ export default function Organisations() {
   const totalOrgs = stats?.totalOrganisations ?? pagination.total;
   const statTiles = stats
     ? [
-        { label: "Total tenants", value: (totalOrgs ?? 0).toLocaleString(), icon: Building2, color: "#6366f1" },
-        { label: "Active", value: (stats.activeSubscriptions || 0).toLocaleString(), icon: Activity, color: "#10b981" },
+        { label: "Total tenants", value: totalOrgs ?? 0, icon: Building2, color: "#6366f1" },
+        { label: "Active", value: stats.activeSubscriptions || 0, icon: Activity, color: "#10b981" },
         {
           label: "Needs attention",
-          value: (stats.failedPayments || 0).toLocaleString(),
+          value: stats.failedPayments || 0,
           icon: AlertTriangle,
           color: stats.failedPayments > 0 ? "#ef4444" : "#10b981",
         },
-        { label: "Monthly revenue", value: `$${Number(stats.mrr || 0).toLocaleString()}`, icon: DollarSign, color: "#f59e0b" },
+        { label: "Monthly revenue", value: Number(stats.mrr || 0), prefix: "$", icon: DollarSign, color: "#f59e0b" },
       ]
     : [];
 
-  // Match each org's plan code to its priced plan (for the card's price line).
-  const planByCode = plans.reduce((m, p) => ((m[p.code] = p), m), {});
+  // Match each org's plan code to its priced plan (price line + pill colour).
+  const planByCode = useMemo(() => plans.reduce((m, p) => ((m[p.code] = p), m), {}), [plans]);
+
+  // Plan filter follows the dynamic Plan collection (orgs can sit on custom
+  // codes beyond the 3 legacy tiers); falls back to the legacy tiers pre-seed.
+  const planFilterOpts = useMemo(
+    () => [
+      ["", "All Plans"],
+      ...(plans.length > 0
+        ? plans.map((p) => [p.code, p.name])
+        : [["basic", "Basic"], ["professional", "Professional"], ["enterprise", "Enterprise"]]),
+    ],
+    [plans],
+  );
+
+  // Pill/avatar colour for a plan — dynamic plan colour first, legacy map second.
+  const planColor = (code) => planByCode[code]?.color || planColors[code] || "#10b981";
 
   return (
     // Sharp-corner variant of this screen: square every descendant's corners
     // (cards, pills, buttons, inputs, avatars, modals) for an angular look.
+    // MotionConfig honours the OS "reduce motion" preference for every
+    // animation inside.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       {/* Hero — gradient banner + attached stat strip (mirrors the dashboard) */}
       <motion.div
@@ -249,15 +391,27 @@ export default function Organisations() {
         </div>
         {statTiles.length > 0 && (
           <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4 sm:divide-y-0">
-            {statTiles.map((t) => (
-              <HeaderStat key={t.label} {...t} />
+            {statTiles.map((t, i) => (
+              <motion.div
+                key={t.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+              >
+                <HeaderStat {...t} />
+              </motion.div>
             ))}
           </div>
         )}
       </motion.div>
 
-      {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-3">
+      {/* Filters — slides in just after the hero */}
+      <motion.div
+        className="mb-6 flex flex-wrap gap-3"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08, duration: 0.35, ease: "easeOut" }}
+      >
         <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -269,12 +423,31 @@ export default function Organisations() {
           />
         </div>
         {[
-          { val: planFilter, set: setPlanFilter, opts: [["", "All Plans"], ["basic", "Basic"], ["professional", "Professional"], ["enterprise", "Enterprise"]] },
+          { val: planFilter, set: setPlanFilter, opts: planFilterOpts },
           { val: statusFilter, set: setStatusFilter, opts: [["", "All Status"], ["active", "Active"], ["pending", "Pending"], ["past_due", "Past Due"], ["cancelled", "Cancelled"]] },
         ].map((f, i) => (
-          <SASelect key={i} value={f.val} onChange={(v) => f.set(v)} options={f.opts} />
+          <SASelect
+            key={i}
+            value={f.val}
+            onChange={(v) => {
+              f.set(v);
+              setPage(1); // filter change always restarts from the first page
+            }}
+            options={f.opts}
+          />
         ))}
-        {/* View toggle — moved out of the hero into the filter row */}
+        {/* Manual refresh — bypasses the session cache for the current view */}
+        <button
+          type="button"
+          title="Refresh"
+          aria-label="Refresh"
+          onClick={hardRefresh}
+          disabled={loading || revalidating}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${revalidating ? "animate-spin" : ""}`} />
+        </button>
+        {/* View toggle — the active pill slides between the two buttons */}
         <div className="flex shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
           {[["grid", LayoutGrid], ["table", List]].map(([v, Icon]) => (
             <button
@@ -282,44 +455,95 @@ export default function Organisations() {
               type="button"
               onClick={() => setView(v)}
               aria-label={`${v} view`}
-              className={`grid h-10 w-10 place-items-center transition-colors ${
-                view === v ? "bg-accent text-white" : "text-gray-500 hover:bg-gray-50"
+              className={`relative grid h-10 w-10 place-items-center transition-colors ${
+                view === v ? "text-white" : "text-gray-500 hover:bg-gray-50"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              {view === v && (
+                <motion.span
+                  layoutId="saOrgViewPill"
+                  className="absolute inset-0 bg-accent"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <Icon className="relative z-[1] h-4 w-4" />
             </button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
+      <AnimatePresence mode="wait">
       {loading ? (
-        <SALoader />
+        <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+          <SALoader />
+        </motion.div>
+      ) : error ? (
+        <motion.div
+          key="error"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className={`${card} py-20 text-center`}
+        >
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-300" />
+          <p className="text-gray-600">{error}</p>
+          <button
+            type="button"
+            onClick={refresh}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Try again
+          </button>
+        </motion.div>
       ) : orgs.length === 0 ? (
-        <div className={`${card} py-20 text-center`}>
-          <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">No organisations found</p>
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
-          {view === "grid" ? (
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className={`${card} py-20 text-center`}
+        >
+          {/* the icon pops in with a little spring after the card lands */}
+          <motion.span
+            className="inline-block"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
+          >
+            <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          </motion.span>
+          <p className="text-gray-500">{hasFilters ? "No organisations match your filters" : "No organisations found"}</p>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Clear filters
+            </button>
+          )}
+        </motion.div>
+      ) : view === "grid" ? (
             <motion.div
               key="grid"
               className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              variants={gridVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
             >
-              {orgs.map((org, i) => {
-                const pc = planColors[org.plan] || "#10b981";
+              {orgs.map((org) => {
+                const pc = planColor(org.plan);
                 const planPrice = planByCode[org.plan]?.price?.monthly;
                 return (
                   <motion.div
                     key={org._id}
-                    className={`${card} group relative flex cursor-pointer flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5`}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: i * 0.04, ease: [0.2, 0.7, 0.2, 1] }}
+                    layout
+                    variants={cardVariants}
+                    className={`${card} group relative flex cursor-pointer flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg hover:shadow-black/5`}
+                    whileHover={{ y: -4 }}
                     onClick={() => navigate(`/organisations/${org._id}`)}
                   >
                     <div className="flex flex-1 flex-col p-5">
@@ -428,10 +652,18 @@ export default function Organisations() {
                       >
                         <RefreshCw className="h-3.5 w-3.5" /> Plan
                       </button>
-                      {org.subscriptionStatus !== "cancelled" && (
+                      {org.subscriptionStatus === "cancelled" ? (
                         <button
                           type="button"
-                          onClick={() => setSuspendModal(org)}
+                          onClick={() => setStatusModal({ org, action: "reactivate" })}
+                          className="flex flex-1 items-center justify-center gap-1.5 border-l border-gray-100 py-3 text-emerald-600 transition-colors hover:bg-emerald-50"
+                        >
+                          <Power className="h-3.5 w-3.5" /> Reactivate
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setStatusModal({ org, action: "suspend" })}
                           className="flex flex-1 items-center justify-center gap-1.5 border-l border-gray-100 py-3 text-red-600 transition-colors hover:bg-red-50"
                         >
                           <Ban className="h-3.5 w-3.5" /> Suspend
@@ -446,10 +678,10 @@ export default function Organisations() {
             <motion.div
               key="table"
               className={`${card} overflow-hidden`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -464,10 +696,16 @@ export default function Organisations() {
                     </tr>
                   </thead>
                   <tbody>
-                    {orgs.map((org) => {
-                      const pc = planColors[org.plan] || "#10b981";
+                    {orgs.map((org, i) => {
+                      const pc = planColor(org.plan);
                       return (
-                        <tr key={org._id} className="border-t border-gray-100 transition-colors hover:bg-gray-50/70">
+                        <motion.tr
+                          key={org._id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: Math.min(i * 0.03, 0.45), duration: 0.3, ease: "easeOut" }}
+                          className="border-t border-gray-100 transition-colors hover:bg-gray-50/70"
+                        >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5">
                               {orgLogo(org) ? (
@@ -516,7 +754,7 @@ export default function Organisations() {
                           <td className="px-4 py-3">
                             <ActionButtons org={org} />
                           </td>
-                        </tr>
+                        </motion.tr>
                       );
                     })}
                   </tbody>
@@ -524,12 +762,16 @@ export default function Organisations() {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
-      )}
+      </AnimatePresence>
 
       {/* Pagination */}
       {pagination.pages > 1 && (
-        <div className="mt-6 flex items-center justify-between px-1">
+        <motion.div
+          className="mt-6 flex items-center justify-between px-1"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15, duration: 0.3 }}
+        >
           <span className="font-mono text-xs text-gray-400">
             Page {pagination.page} of {pagination.pages} · {pagination.total} total
           </span>
@@ -551,19 +793,20 @@ export default function Organisations() {
               Next
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Change Plan Modal */}
       <AnimatePresence>
         {planModal && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPlanModal(null)} />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !acting && setPlanModal(null)} />
             <motion.div
               className={`${card} relative w-full max-w-sm p-6 shadow-xl`}
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
+              initial={{ scale: 0.92, y: 24, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
             >
               <h3 className="mb-1 text-lg font-semibold text-gray-900">Change Plan</h3>
               <p className="mb-4 text-xs text-gray-400">{planModal.name}</p>
@@ -578,11 +821,21 @@ export default function Organisations() {
                 />
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setPlanModal(null)} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">
+                <button
+                  type="button"
+                  disabled={acting}
+                  onClick={() => setPlanModal(null)}
+                  className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10"
+                >
                   Cancel
                 </button>
-                <button type="button" onClick={handleChangePlan} className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">
-                  Update
+                <button
+                  type="button"
+                  disabled={acting || selectedPlan === planModal.plan}
+                  onClick={handleChangePlan}
+                  className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {acting ? "Updating…" : "Update"}
                 </button>
               </div>
             </motion.div>
@@ -590,30 +843,72 @@ export default function Organisations() {
         )}
       </AnimatePresence>
 
-      {/* Suspend Confirmation Modal */}
+      {/* Suspend / Reactivate Confirmation Modal */}
       <AnimatePresence>
-        {suspendModal && (
+        {statusModal && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSuspendModal(null)} />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !acting && setStatusModal(null)} />
             <motion.div
               className={`${card} relative w-full max-w-sm p-6 shadow-xl`}
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
+              initial={{ scale: 0.92, y: 24, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
             >
-              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-red-50 ring-1 ring-red-100">
-                <AlertTriangle className="h-6 w-6 text-red-500" />
-              </div>
-              <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">Suspend Organisation</h3>
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.08 }}
+                className={`mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl ${
+                  statusModal.action === "suspend" ? "bg-red-50 ring-1 ring-red-100" : "bg-emerald-50 ring-1 ring-emerald-100"
+                }`}
+              >
+                {statusModal.action === "suspend" ? (
+                  <AlertTriangle className="h-6 w-6 text-red-500" />
+                ) : (
+                  <Power className="h-6 w-6 text-emerald-600" />
+                )}
+              </motion.div>
+              <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">
+                {statusModal.action === "suspend" ? "Suspend Organisation" : "Reactivate Organisation"}
+              </h3>
               <p className="mb-6 text-center text-sm text-gray-500">
-                Are you sure you want to suspend <strong className="text-gray-800">{suspendModal.name}</strong>? Their portal will be deactivated.
+                {statusModal.action === "suspend" ? (
+                  <>
+                    Are you sure you want to suspend <strong className="text-gray-800">{statusModal.org.name}</strong>? Their Stripe
+                    subscription will be cancelled and their portal deactivated.
+                  </>
+                ) : (
+                  <>
+                    Reactivate <strong className="text-gray-800">{statusModal.org.name}</strong>? Their portal will be switched back on
+                    and their subscription marked active.
+                  </>
+                )}
               </p>
               <div className="flex gap-3">
-                <button type="button" onClick={() => setSuspendModal(null)} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">
+                <button
+                  type="button"
+                  disabled={acting}
+                  onClick={() => setStatusModal(null)}
+                  className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10"
+                >
                   Cancel
                 </button>
-                <button type="button" onClick={handleSuspend} className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700">
-                  Suspend
+                <button
+                  type="button"
+                  disabled={acting}
+                  onClick={handleStatusChange}
+                  className={`flex-1 rounded-lg py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-60 ${
+                    statusModal.action === "suspend" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {acting
+                    ? statusModal.action === "suspend"
+                      ? "Suspending…"
+                      : "Reactivating…"
+                    : statusModal.action === "suspend"
+                      ? "Suspend"
+                      : "Reactivate"}
                 </button>
               </div>
             </motion.div>
@@ -621,5 +916,6 @@ export default function Organisations() {
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

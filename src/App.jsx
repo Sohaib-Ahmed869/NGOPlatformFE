@@ -1,4 +1,4 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
@@ -27,122 +27,131 @@ import PageTransition from "./components/PageTransition";
 import Home from "./pages/Home/Home";
 import Hope from "./pages/Hope/page";
 import Contact from "./pages/Contact/page";
-import Login from "./pages/Login/page";
-import SignUp from "./pages/Signup/page";
-import ChangePassword from "./pages/Login/change-password";
+const Login = lazy(() => import("./pages/Login/page"));
+const SignUp = lazy(() => import("./pages/Signup/page"));
+const ChangePassword = lazy(() => import("./pages/Login/change-password"));
 import InitiativesSection from "./pages/Initiatives/page";
 import GetInvolved from "./pages/GetInvolved/page";
+import FAQPage from "./pages/FAQ/page";
 import Events from "./pages/Events/page";
-import EventDetailPage from "./pages/Events/EventDetail";
-import EventRegisterPage from "./pages/Events/EventRegister";
+const EventDetailPage = lazy(() => import("./pages/Events/EventDetail"));
+const EventRegisterPage = lazy(() => import("./pages/Events/EventRegister"));
 import IslamicGiving from "./pages/IslamicGivings/page";
 import ZakatCalculator from "./pages/ZakatCalculator/page";
 import RamadanDonations from "./pages/Home/RamdanDonations/page";
 import AboutSection from "./pages/About/page";
 import PartnersSection from "./pages/OurPartners/page";
-import BecomePartner from "./pages/OurPartners/BecomePartner";
+const BecomePartner = lazy(() => import("./pages/OurPartners/BecomePartner"));
 import AboutUsPage from "./pages/About/page2";
 import EducationInitiatives from "./pages/EducationInitiatives/page";
 import EmergenciesInitiatives from "./pages/Emergencies/page";
 import WaterInitiatives from "./pages/Water/page";
 import FoodInitiatives from "./pages/Food/page";
-import UnifiedCheckout from "./pages/Components/checkout";
-import OrderConfirmation from "./pages/Components/OrderConfirmation";
+const UnifiedCheckout = lazy(() => import("./pages/Components/checkout"));
+const OrderConfirmation = lazy(() => import("./pages/Components/OrderConfirmation"));
 import DonatePage from "./pages/Donate/page";
-import ForgotPassword from "./pages/Login/forgot-password";
-import ResetPassword from "./pages/Login/reset-password";
+const ForgotPassword = lazy(() => import("./pages/Login/forgot-password"));
+const ResetPassword = lazy(() => import("./pages/Login/reset-password"));
 
 // Admin
-import AdminLayout from "./Admin/Layout";
-import AdminDashboard from "./Admin/Screens/dashboard";
-import DonationsPage from "./Admin/Screens/donations";
-import DonationDetail from "./Admin/Screens/DonationDetail";
-import DonorsPage from "./Admin/Screens/donors";
-import DonorDetail from "./Admin/Screens/DonorDetail";
-import SubscriptionsPage from "./Admin/Screens/subscriptions";
-import SubscriptionDetail from "./Admin/Screens/SubscriptionDetail";
-import EventsManagement from "./Admin/Screens/Events";
-import EventPaymentsPage from "./Admin/Screens/EventPayments";
-import CampaignPaymentsPage from "./Admin/Screens/CampaignPayments";
-import ProgramPaymentsPage from "./Admin/Screens/ProgramPayments";
-import AdminLogin from "./pages/AdminLogin/login";
+const AdminLayout = lazy(() => import("./Admin/Layout"));
+const AdminDashboard = lazy(() => import("./Admin/Screens/dashboard"));
+const DonationsPage = lazy(() => import("./Admin/Screens/donations"));
+const DonationDetail = lazy(() => import("./Admin/Screens/DonationDetail"));
+const DonorsPage = lazy(() => import("./Admin/Screens/donors"));
+const DonorDetail = lazy(() => import("./Admin/Screens/DonorDetail"));
+const SubscriptionsPage = lazy(() => import("./Admin/Screens/subscriptions"));
+const SubscriptionDetail = lazy(() => import("./Admin/Screens/SubscriptionDetail"));
+const EventsManagement = lazy(() => import("./Admin/Screens/Events"));
+const EventPaymentsPage = lazy(() => import("./Admin/Screens/EventPayments"));
+const CampaignPaymentsPage = lazy(() => import("./Admin/Screens/CampaignPayments"));
+const ProgramPaymentsPage = lazy(() => import("./Admin/Screens/ProgramPayments"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin/login"));
 import SupportHandoff from "./pages/SupportHandoff";
-import SupportForm from "./pages/SupportForm";
-import SupportFeedback from "./pages/SupportFeedback";
-import Unsubscribe from "./pages/Unsubscribe";
-import JoinTeamAdmin from "./Admin/Screens/joinTeam";
-import PartnersAdmin from "./Admin/Screens/Partners";
-import VolunteerProfile from "./Admin/Screens/VolunteerProfile";
-import ContactRequestsAdmin from "./Admin/Screens/contacts";
-import ProductsManagement from "./Admin/Screens/Products";
-import NewsletterScreen from "./Admin/Screens/newsletter";
-import CancellationRequests from "./Admin/Screens/CancellationRequests";
-import ProfileSetting from "./Admin/Screens/AdminProfile";
-import AdminInstallments from "./Admin/Screens/installments";
-import InstallmentDetail from "./Admin/Screens/InstallmentDetail";
-import DonationTypes from "./Admin/Screens/DonationTypes";
-import BrandingScreen from "./Admin/Screens/Branding";
-import AdminDesign from "./Admin/Screens/Design";
-import OrganisationSettings from "./Admin/Screens/OrganisationSettings";
-import AdminPages from "./Admin/Screens/Pages";
-import SupportTickets from "./Admin/Screens/SupportTickets";
+const SupportForm = lazy(() => import("./pages/SupportForm"));
+const SupportFeedback = lazy(() => import("./pages/SupportFeedback"));
+const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
+const JoinTeamAdmin = lazy(() => import("./Admin/Screens/joinTeam"));
+const PartnersAdmin = lazy(() => import("./Admin/Screens/Partners"));
+const VolunteerProfile = lazy(() => import("./Admin/Screens/VolunteerProfile"));
+const ContactRequestsAdmin = lazy(() => import("./Admin/Screens/contacts"));
+const ProductsManagement = lazy(() => import("./Admin/Screens/Products"));
+const NewsletterScreen = lazy(() => import("./Admin/Screens/newsletter"));
+const CancellationRequests = lazy(() => import("./Admin/Screens/CancellationRequests"));
+const ProfileSetting = lazy(() => import("./Admin/Screens/AdminProfile"));
+const AdminInstallments = lazy(() => import("./Admin/Screens/installments"));
+const InstallmentDetail = lazy(() => import("./Admin/Screens/InstallmentDetail"));
+const DonationTypes = lazy(() => import("./Admin/Screens/DonationTypes"));
+const BrandingScreen = lazy(() => import("./Admin/Screens/Branding"));
+const AdminDesign = lazy(() => import("./Admin/Screens/Design"));
+const OrganisationSettings = lazy(() => import("./Admin/Screens/OrganisationSettings"));
+const AdminPages = lazy(() => import("./Admin/Screens/Pages"));
+const SupportTickets = lazy(() => import("./Admin/Screens/SupportTickets"));
 
 // User
-import UserLayout from "./User/UserLayout";
-import UserDonations from "./User/Screens/donations";
-import UserPayments from "./User/Screens/UserPayments";
-import MyFundraisers from "./User/Screens/MyFundraisers";
-import Subscriptions from "./User/Screens/Subscriptions";
-import PaymentMethods from "./User/Screens/payments";
-import ProfileSettings from "./User/Screens/profile";
-import UserDashboard from "./User/Screens/dashboard";
-import MyPrograms from "./User/Screens/MyPrograms";
-import UserSupport from "./User/Screens/Support";
+const UserLayout = lazy(() => import("./User/UserLayout"));
+const UserDonations = lazy(() => import("./User/Screens/donations"));
+const UserPayments = lazy(() => import("./User/Screens/UserPayments"));
+const MyFundraisers = lazy(() => import("./User/Screens/MyFundraisers"));
+const Subscriptions = lazy(() => import("./User/Screens/Subscriptions"));
+const PaymentMethods = lazy(() => import("./User/Screens/payments"));
+const ProfileSettings = lazy(() => import("./User/Screens/profile"));
+const UserDashboard = lazy(() => import("./User/Screens/dashboard"));
+const MyPrograms = lazy(() => import("./User/Screens/MyPrograms"));
+const UserSupport = lazy(() => import("./User/Screens/Support"));
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Program pages
 import ProgramsPage from "./pages/Programs/ProgramsPage";
-import ProgramDetailPage from "./pages/Programs/ProgramDetail";
-import ProgramCheckout from "./pages/Programs/ProgramCheckout";
-import AdminPrograms from "./Admin/Screens/Programs";
+const ProgramDetailPage = lazy(() => import("./pages/Programs/ProgramDetail"));
+const ProgramCheckout = lazy(() => import("./pages/Programs/ProgramCheckout"));
+const AdminPrograms = lazy(() => import("./Admin/Screens/Programs"));
 import CampaignsPage from "./pages/P2PCampaigns/CampaignsPage";
-import CampaignDetail from "./pages/P2PCampaigns/CampaignDetail";
-import GoFundMeDonate from "./pages/P2PCampaigns/GoFundMeDonate";
+const CampaignDetail = lazy(() => import("./pages/P2PCampaigns/CampaignDetail"));
+const GoFundMeDonate = lazy(() => import("./pages/P2PCampaigns/GoFundMeDonate"));
 import StartFundraiser from "./pages/P2PCampaigns/StartFundraiser";
-import GoFundMeAdmin from "./Admin/Screens/GoFundMe";
+const GoFundMeAdmin = lazy(() => import("./Admin/Screens/GoFundMe"));
 
 // SaaS pages
-import SaaSHome from "./pages/SaaS/SaaSHome";
-import PlansPage from "./pages/SaaS/PlansPage";
+const SaaSHome = lazy(() => import("./pages/SaaS/SaaSHome"));
+const PlansPage = lazy(() => import("./pages/SaaS/PlansPage"));
 import SaaSNavbar from "./pages/SaaS/SaaSNavbar";
 import SaaSFooter from "./pages/SaaS/SaaSFooter";
-import CtaSection from "./pages/SaaS/CtaSection";
-import RegistrationFlow from "./pages/Registration/RegistrationFlow";
-import RegistrationSuccess from "./pages/Registration/RegistrationSuccess";
-import ContactPage from "./pages/SaaS/ContactPage";
-import { PrivacyPage, TermsPage } from "./pages/SaaS/LegalPage";
+const RegistrationFlow = lazy(() => import("./pages/Registration/RegistrationFlow"));
+const RegistrationSuccess = lazy(() => import("./pages/Registration/RegistrationSuccess"));
+const ContactPage = lazy(() => import("./pages/SaaS/ContactPage"));
+const SaaSFAQPage = lazy(() => import("./pages/SaaS/FAQPage"));
+const GetStarted = lazy(() => import("./pages/SaaS/GetStarted"));
+const PrivacyPage = lazy(() => import("./pages/SaaS/LegalPage").then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import("./pages/SaaS/LegalPage").then((m) => ({ default: m.TermsPage })));
 
 // Super Admin
-import SuperAdminLayout from "./SuperAdmin/Layout";
-import SADashboard from "./SuperAdmin/Screens/Dashboard";
-import Organisations from "./SuperAdmin/Screens/Organisations";
-import OrganisationDetail from "./SuperAdmin/Screens/OrganisationDetail";
-import Plans from "./SuperAdmin/Screens/Plans";
-import PlanEditor from "./SuperAdmin/Screens/PlanEditor";
-import Features from "./SuperAdmin/Screens/Features";
-import Tickets from "./SuperAdmin/Screens/Tickets";
-import TicketDetail from "./SuperAdmin/Screens/TicketDetail";
-import KanbanBoard from "./SuperAdmin/Screens/KanbanBoard";
-import Billing from "./SuperAdmin/Screens/Billing";
-import Invoices from "./SuperAdmin/Screens/Invoices";
-import Coupons from "./SuperAdmin/Screens/Coupons";
-import BrandingRequests from "./SuperAdmin/Screens/BrandingRequests";
-import ContactQueries from "./SuperAdmin/Screens/ContactQueries";
-import SASettings from "./SuperAdmin/Screens/Settings";
-import PlatformSettings from "./SuperAdmin/Screens/PlatformSettings";
-import SupportSessions from "./SuperAdmin/Screens/SupportSessions";
-import SupportSessionDetail from "./SuperAdmin/Screens/SupportSessionDetail";
-import AuditLog from "./SuperAdmin/Screens/AuditLog";
+const SuperAdminLayout = lazy(() => import("./SuperAdmin/Layout"));
+const SADashboard = lazy(() => import("./SuperAdmin/Screens/Dashboard"));
+const Organisations = lazy(() => import("./SuperAdmin/Screens/Organisations"));
+const OrganisationDetail = lazy(() => import("./SuperAdmin/Screens/OrganisationDetail"));
+const Plans = lazy(() => import("./SuperAdmin/Screens/Plans"));
+const PlanEditor = lazy(() => import("./SuperAdmin/Screens/PlanEditor"));
+const Features = lazy(() => import("./SuperAdmin/Screens/Features"));
+const Tickets = lazy(() => import("./SuperAdmin/Screens/Tickets"));
+const TicketDetail = lazy(() => import("./SuperAdmin/Screens/TicketDetail"));
+const KanbanBoard = lazy(() => import("./SuperAdmin/Screens/KanbanBoard"));
+const Billing = lazy(() => import("./SuperAdmin/Screens/Billing"));
+const Invoices = lazy(() => import("./SuperAdmin/Screens/Invoices"));
+const Coupons = lazy(() => import("./SuperAdmin/Screens/Coupons"));
+const BrandingRequests = lazy(() => import("./SuperAdmin/Screens/BrandingRequests"));
+const ContactQueries = lazy(() => import("./SuperAdmin/Screens/ContactQueries"));
+const Leads = lazy(() => import("./SuperAdmin/Screens/Leads"));
+const LeadDetail = lazy(() => import("./SuperAdmin/Screens/LeadDetail"));
+const LeadConvert = lazy(() => import("./SuperAdmin/Screens/LeadConvert"));
+const SASettings = lazy(() => import("./SuperAdmin/Screens/Settings"));
+const PlatformSettings = lazy(() => import("./SuperAdmin/Screens/PlatformSettings"));
+const SupportSessions = lazy(() => import("./SuperAdmin/Screens/SupportSessions"));
+const SupportSessionDetail = lazy(() => import("./SuperAdmin/Screens/SupportSessionDetail"));
+const AuditLog = lazy(() => import("./SuperAdmin/Screens/AuditLog"));
+const TeamUsers = lazy(() => import("./SuperAdmin/Screens/TeamUsers"));
+const MfaSetupRequired = lazy(() => import("./SuperAdmin/Screens/MfaSetupRequired"));
+const AcceptInvite = lazy(() => import("./pages/AdminLogin/AcceptInvite"));
 import SupportSessionBanner from "./Admin/components/SupportSessionBanner";
 import ProtectedSuperAdminRoute from "./components/ProtectedSuperAdminRoute";
 import TenantLoader from "./components/TenantLoader";
@@ -150,6 +159,19 @@ import { onColor, gradientStop } from "./utils/contrast";
 
 import { Toaster } from "react-hot-toast";
 
+
+// Shown while a lazily-loaded route chunk is downloading. Deliberately plain
+// (no framer/lucide) so it can't pull anything extra into the entry chunk.
+const RouteFallback = () => (
+  <div className="flex min-h-[60vh] items-center justify-center">
+    <span
+      className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-transparent"
+      style={{ borderTopColor: "var(--tenant-accent, #047857)" }}
+      role="status"
+      aria-label="Loading"
+    />
+  </div>
+);
 
 // Redirect to Home if a CMS-managed page has been disabled by the tenant.
 // Paths not managed by the CMS always render (isPathEnabled returns true).
@@ -194,6 +216,7 @@ const TenantRoutes = () => (
     <Route path="/events/:id" element={<EventDetailPage />} />
     <Route path="/events/:id/register" element={<EventRegisterPage />} />
     <Route path="/contact-us" element={<PageGate path="/contact-us"><Contact /></PageGate>} />
+    <Route path="/faq" element={<PageGate path="/faq"><FAQPage /></PageGate>} />
     <Route path="/p2p-campaigns" element={<PageGate path="/p2p-campaigns"><CampaignsPage /></PageGate>} />
     <Route path="/p2p-campaigns/start" element={<ProtectedRoute><StartFundraiser /></ProtectedRoute>} />
     <Route path="/p2p-campaigns/:slug" element={<CampaignDetail />} />
@@ -285,7 +308,9 @@ const PublicSaaSRoutes = () => (
     <Route path="/plans" element={<PlansPage />} />
     <Route path="/register" element={<RegistrationFlow />} />
     <Route path="/register/success" element={<RegistrationSuccess />} />
+    <Route path="/get-started" element={<GetStarted />} />
     <Route path="/contact" element={<ContactPage />} />
+    <Route path="/faq" element={<SaaSFAQPage />} />
     <Route path="/privacy" element={<PrivacyPage />} />
     <Route path="/terms" element={<TermsPage />} />
     <Route path="/login" element={<Login />} />
@@ -301,6 +326,17 @@ const PublicSaaSRoutes = () => (
 const SuperAdminRoutes = () => (
   <Routes>
     <Route path="/login" element={<AdminLogin />} />
+    <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+    {/* Full-bleed, no sidebar/topbar — same escape-the-chrome treatment as
+        /register, since converting a lead is a focused, register-like task. */}
+    <Route
+      path="/leads/:id/convert"
+      element={
+        <ProtectedSuperAdminRoute>
+          <LeadConvert />
+        </ProtectedSuperAdminRoute>
+      }
+    />
     <Route
       path="/"
       element={
@@ -309,6 +345,8 @@ const SuperAdminRoutes = () => (
         </ProtectedSuperAdminRoute>
       }
     >
+      <Route path="mfa-setup" element={<MfaSetupRequired />} />
+      <Route path="team" element={<TeamUsers />} />
       <Route path="dashboard" element={<SADashboard />} />
       <Route path="organisations" element={<Organisations />} />
       <Route path="organisations/:id" element={<OrganisationDetail />} />
@@ -324,6 +362,8 @@ const SuperAdminRoutes = () => (
       <Route path="coupons" element={<Coupons />} />
       <Route path="branding-requests" element={<BrandingRequests />} />
       <Route path="contact-queries" element={<ContactQueries />} />
+      <Route path="leads" element={<Leads />} />
+      <Route path="leads/:id" element={<LeadDetail />} />
       <Route path="support-sessions" element={<SupportSessions />} />
       <Route path="support-sessions/:sessionId" element={<SupportSessionDetail />} />
       <Route path="audit" element={<AuditLog />} />
@@ -448,7 +488,10 @@ const AppLayout = ({ children }) => {
     return children;
   }
 
-  const isRegister = location.pathname.startsWith("/register");
+  // /get-started (the "express interest" lead form) shares the same standalone
+  // brand-panel shell as /register — same treatment, same layout family.
+  const isRegister =
+    location.pathname.startsWith("/register") || location.pathname.startsWith("/get-started");
   const isAuth =
     [
       "/login",
@@ -463,22 +506,13 @@ const AppLayout = ({ children }) => {
   // under the transparent navbar and the bar collapses on scroll.
   const needsSpacer = ["/order-confirmation"].includes(location.pathname);
 
-  // Register: the signup flow gets the platform theme tokens (so it's dynamic)
-  // + the shared footer, but keeps its own brand-panel layout (no marketing nav).
+  // Register / Get started: both flows get the platform theme tokens (so
+  // they're dynamic) but keep their own brand-panel layout (no marketing
+  // nav, no footer/CTA — meant to stand alone with nothing pulling focus away).
   if (isRegister) {
     return (
       <div data-public-site style={buildPlatformVars(platform)}>
         {children}
-        {/* Closing CTA between the signup flow and the footer, with a gap above it. */}
-        <CtaSection
-          title="Questions before you set up your charity?"
-          primaryLabel="Talk to our team"
-          primaryTo="/contact"
-          secondaryLabel="Compare plans"
-          secondaryTo="/plans"
-          className="px-6 pt-20 pb-24 sm:pt-24 [&_*]:!rounded-none"
-        />
-        <SaaSFooter />
       </div>
     );
   }
@@ -619,7 +653,12 @@ function AppInner() {
         <div className="">
           <div className="mx-auto">
             <PageTransition>
-              <RouteSelector loaderDone={loaderDone} setLoaderDone={setLoaderDone} />
+              {/* Route components are code-split (React.lazy) — this boundary
+                  covers every tree, so the entry chunk no longer carries the
+                  operator console, the tenant admin and the donor portal. */}
+              <Suspense fallback={<RouteFallback />}>
+                <RouteSelector loaderDone={loaderDone} setLoaderDone={setLoaderDone} />
+              </Suspense>
             </PageTransition>
           </div>
         </div>

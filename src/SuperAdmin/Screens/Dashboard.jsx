@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback } from "react";
+import { motion, MotionConfig } from "framer-motion";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import {
   Building2, CreditCard, TrendingUp, DollarSign, Users, Layers, Calendar,
   Megaphone, HeartHandshake, ArrowUpRight, ArrowDownRight, Wallet,
+  RefreshCw, Loader2,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { useSARealtime } from "../context/SARealtimeContext";
 import SALoader from "../SALoader";
+import SAErrorState from "../components/SAErrorState";
+import AnimatedNumber from "../components/AnimatedNumber";
 import { cn } from "../../utils/cn";
 
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
@@ -14,15 +18,18 @@ const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23),
 const planColors = { basic: "#06b6d4", professional: "#10b981", enterprise: "#f59e0b" };
 
 const orgLogo = (org) => org?.branding?.iconLogoDark || org?.branding?.iconLogo || org?.branding?.logoDark || org?.branding?.logo || "";
-const money = (n) => `$${Number(n || 0).toLocaleString()}`;
+// These double as count-up formatters, so they're handed the interpolated
+// (fractional) value mid-animation — round before rendering or a tile flickers
+// through "$3,999.4" and "8.7 accounts" on its way to the real figure.
+const money = (n) => `$${Math.round(Number(n) || 0).toLocaleString()}`;
 const moneyShort = (n) => {
-  const v = Number(n || 0);
+  const v = Math.round(Number(n) || 0);
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(v % 1_000_000 ? 1 : 0)}M`;
   if (v >= 1_000) return `$${(v / 1_000).toFixed(v % 1_000 ? 1 : 0)}k`;
   return `$${v.toLocaleString()}`;
 };
 const compact = (n) => {
-  const v = Number(n || 0);
+  const v = Math.round(Number(n) || 0);
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
   return v.toLocaleString();
@@ -66,27 +73,65 @@ function Footprint({ icon: Icon, value, label, sub, color }) {
 }
 
 export default function SADashboard() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Paint from the session cache so a revisit is instant — the full-screen
+  // loader now only appears on the very first, uncached open.
+  const cached = superadminService.getDashboardCached();
+  const [stats, setStats] = useState(cached?.data || null);
+  const [loading, setLoading] = useState(!cached);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  // Every figure here is derived from organisations, plans or invoices, so all
+  // three have to trigger a revalidation. It watched only `orgsVersion`, which
+  // meant a plan reprice or an incoming Stripe invoice webhook left a mounted
+  // dashboard showing stale MRR and lifetime-collected totals.
+  const { orgsVersion, plansVersion, invoicesVersion } = useSARealtime();
 
   useEffect(() => {
+    let alive = true;
+    // The version bumps arrive AFTER the service has already dropped the cache,
+    // so an ordinary (non-forced) call refetches; the manual button forces it.
+    const isRefresh = !!superadminService.getDashboardCached() || refreshKey > 0;
+    if (isRefresh) setRefreshing(true);
     (async () => {
       try {
-        const res = await superadminService.getDashboardStats();
+        const res = await superadminService.getDashboardStats({ force: refreshKey > 0 });
+        if (!alive) return;
         setStats(res.data);
+        setError(null);
       } catch (err) {
+        if (!alive) return;
         console.error("Failed to fetch dashboard stats:", err);
+        // Without this the screen rendered a dashboard of ZEROS, which reads
+        // as "the platform has no tenants" rather than "the request failed".
+        setError(err?.response?.data?.error || "Couldn't load the dashboard.");
       } finally {
-        setLoading(false);
+        if (alive) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     })();
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [refreshKey, orgsVersion, plansVersion, invoicesVersion]);
+
+  const refresh = useCallback(() => {
+    if (refreshing) return; // double-click would fire a second identical request
+    setRefreshKey((k) => k + 1);
+  }, [refreshing]);
 
   if (loading) return <SALoader label="Dashboard" />;
+  // Keep showing the last good figures if a background refresh fails — only a
+  // cold failure (nothing to show) takes over the screen.
+  if (error && !stats) {
+    return <SAErrorState message={error} onRetry={() => { setError(null); setLoading(true); setRefreshKey((k) => k + 1); }} />;
+  }
+  if (!stats) return <SAErrorState message="No dashboard data available." onRetry={refresh} />;
 
   const totalOrgs = stats?.totalOrganisations || 0;
   const activeSubs = stats?.activeSubscriptions || 0;
-  const failed = stats?.failedPayments || 0;
   const mrr = stats?.mrr || 0;
   const collected = stats?.collected || 0;
   const growthPct = stats?.growthPct || 0;
@@ -107,27 +152,37 @@ export default function SADashboard() {
   const revenuePlans = [...plans].sort((a, b) => b.revenue - a.revenue);
   const maxRevenue = Math.max(1, ...revenuePlans.map((p) => p.revenue));
 
+  // Count-ups rather than static text — this is the most number-dense screen in
+  // the console and was the only one without them.
   const statTiles = [
-    { label: "Tenants", value: totalOrgs.toLocaleString(), icon: Building2, color: "#6366f1" },
-    { label: "Active subscriptions", value: activeSubs.toLocaleString(), icon: CreditCard, color: "#0ea5e9" },
-    { label: "Monthly recurring", value: money(mrr), icon: TrendingUp, color: "#10b981" },
-    { label: "Lifetime collected", value: moneyShort(collected), icon: Wallet, color: "#f59e0b" },
+    { label: "Tenants", value: <AnimatedNumber value={totalOrgs} />, icon: Building2, color: "#6366f1" },
+    { label: "Active subscriptions", value: <AnimatedNumber value={activeSubs} />, icon: CreditCard, color: "#0ea5e9" },
+    { label: "Monthly recurring", value: <AnimatedNumber value={mrr} format={money} />, icon: TrendingUp, color: "#10b981" },
+    { label: "Lifetime collected", value: <AnimatedNumber value={collected} format={moneyShort} />, icon: Wallet, color: "#f59e0b" },
   ];
 
   const footprint = [
-    { label: "Donations processed", value: moneyShort(stats?.donationsTotal), sub: `${compact(stats?.donationsCount)} payments`, icon: HeartHandshake, color: "#10b981" },
-    { label: "Accounts", value: compact(stats?.totalUsers), icon: Users, color: "#6366f1" },
-    { label: "Programs", value: compact(stats?.totalPrograms), icon: Layers, color: "#0ea5e9" },
-    { label: "Events", value: compact(stats?.totalEvents), icon: Calendar, color: "#8b5cf6" },
-    { label: "Campaigns", value: compact(stats?.totalCampaigns), icon: Megaphone, color: "#f59e0b" },
+    { label: "Donations processed", value: <AnimatedNumber value={stats?.donationsTotal} format={moneyShort} />, sub: `${compact(stats?.donationsCount)} payments`, icon: HeartHandshake, color: "#10b981" },
+    { label: "Accounts", value: <AnimatedNumber value={stats?.totalUsers} format={compact} />, icon: Users, color: "#6366f1" },
+    { label: "Programs", value: <AnimatedNumber value={stats?.totalPrograms} format={compact} />, icon: Layers, color: "#0ea5e9" },
+    { label: "Events", value: <AnimatedNumber value={stats?.totalEvents} format={compact} />, icon: Calendar, color: "#8b5cf6" },
+    { label: "Campaigns", value: <AnimatedNumber value={stats?.totalCampaigns} format={compact} />, icon: Megaphone, color: "#f59e0b" },
   ];
 
   const up = growthPct >= 0;
 
+  // One stagger container instead of hand-tuned per-card delays, so the cards
+  // cascade in order however many there are.
+  const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } } };
+  const rise = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } } };
+
   return (
-    <div className="[&_*]:!rounded-none">
+    // MotionConfig honours the OS "reduce motion" preference for everything
+    // inside — this screen was the last one in the console without it.
+    <MotionConfig reducedMotion="user">
+    <motion.div variants={stagger} initial="hidden" animate="show" className="[&_*]:!rounded-none">
       {/* Hero + KPI strip */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }} className={`${card} mb-6 overflow-hidden`}>
+      <motion.div variants={rise} className={`${card} mb-6 overflow-hidden`}>
         <div className="relative flex flex-wrap items-start justify-between gap-4 overflow-hidden px-6 py-7 sm:px-8" style={{ background: HEADER_GRADIENT }}>
           <svg aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 text-white" viewBox="0 0 128 128" fill="none">
             <circle cx="64" cy="64" r="46" fill="currentColor" fillOpacity="0.06" />
@@ -139,9 +194,28 @@ export default function SADashboard() {
             <h1 className="mt-1 text-2xl font-bold text-white">Platform dashboard</h1>
             <p className="mt-1 text-sm text-white/80">Subscription health and activity across every organisation.</p>
           </div>
-          <span className="relative z-10 inline-flex items-center gap-2 bg-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-white ring-1 ring-white/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" style={{ boxShadow: "0 0 0 3px rgba(110,231,183,.3)" }} /> Live
-          </span>
+          <div className="relative z-10 flex shrink-0 items-center gap-2">
+            {/* A failed background refresh keeps the last good figures on
+                screen, so say so here rather than silently showing stale data. */}
+            {error ? (
+              <span className="inline-flex items-center gap-1.5 bg-amber-400/20 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-100 ring-1 ring-amber-300/30" title={error}>
+                Refresh failed
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={refreshing}
+              title="Refresh"
+              className="inline-flex items-center gap-1.5 bg-white/15 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white ring-1 ring-white/20 transition hover:bg-white/25 disabled:opacity-60"
+            >
+              {refreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              {refreshing ? "Syncing" : "Refresh"}
+            </button>
+            <span className="inline-flex items-center gap-2 bg-white/15 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-white ring-1 ring-white/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" style={{ boxShadow: "0 0 0 3px rgba(110,231,183,.3)" }} /> Live
+            </span>
+          </div>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
           {statTiles.map((t) => <HeaderStat key={t.label} {...t} />)}
@@ -149,7 +223,7 @@ export default function SADashboard() {
       </motion.div>
 
       {/* Cross-tenant footprint */}
-      <motion.div className={`${card} mb-6`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+      <motion.div variants={rise} className={`${card} mb-6`}>
         <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3 dark:border-white/10">
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">Platform footprint · across all tenants</span>
         </div>
@@ -159,8 +233,8 @@ export default function SADashboard() {
       </motion.div>
 
       {/* Tenant growth + plan mix */}
-      <div className="mb-6 grid items-start gap-5 lg:grid-cols-5">
-        <motion.div className={`${card} p-6 lg:col-span-3`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      <motion.div variants={stagger} className="mb-6 grid items-start gap-5 lg:grid-cols-5">
+        <motion.div variants={rise} className={`${card} p-6 lg:col-span-3`}>
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><TrendingUp className="h-4 w-4 text-gray-400" /> Tenant growth</h2>
@@ -194,7 +268,7 @@ export default function SADashboard() {
           </div>
         </motion.div>
 
-        <motion.div className={`${card} p-6 lg:col-span-2`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <motion.div variants={rise} className={`${card} p-6 lg:col-span-2`}>
           <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Layers className="h-4 w-4 text-gray-400" /> Plan mix</h2>
           <p className="mb-4 text-xs text-gray-400">Active subscribers by plan</p>
           {donutTotal === 0 ? (
@@ -226,11 +300,11 @@ export default function SADashboard() {
             </>
           )}
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* Revenue by plan + recent signups */}
-      <div className="grid items-start gap-5 lg:grid-cols-5">
-        <motion.div className={`${card} p-6 lg:col-span-2`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+      <motion.div variants={stagger} className="grid items-start gap-5 lg:grid-cols-5">
+        <motion.div variants={rise} className={`${card} p-6 lg:col-span-2`}>
           <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><DollarSign className="h-4 w-4 text-gray-400" /> Revenue by plan</h2>
           <p className="mb-5 text-xs text-gray-400">Contribution to MRR ({money(mrr)})</p>
           <div className="space-y-4">
@@ -251,7 +325,7 @@ export default function SADashboard() {
           </div>
         </motion.div>
 
-        <motion.div className={`${card} p-6 lg:col-span-3`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+        <motion.div variants={rise} className={`${card} p-6 lg:col-span-3`}>
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><Calendar className="h-4 w-4 text-gray-400" /> Recent signups</h2>
           {stats?.recentSignups?.length > 0 ? (
             <div className="-mx-2 divide-y divide-gray-100 dark:divide-white/10">
@@ -283,7 +357,8 @@ export default function SADashboard() {
             <p className="py-8 text-center text-sm text-gray-400">No signups yet</p>
           )}
         </motion.div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    </MotionConfig>
   );
 }

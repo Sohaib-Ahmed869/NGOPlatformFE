@@ -27,6 +27,7 @@ import brandingService from "../../services/branding.service";
 import DesignTab from "./DesignTab";
 import themeCategories, { getThemeById } from "../../config/themePresets";
 import { cn } from "../../utils/cn";
+import { rootDomain } from "../../utils/rootDomain";
 import { withMinDelay } from "../../utils/minDelay";
 import toast from "react-hot-toast";
 
@@ -242,7 +243,7 @@ function SitePreview({ branding, tabTitle, favicon, orgSlug, orgName, logo, clas
           <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
         </div>
         <div className="ml-2 flex h-5 flex-1 items-center rounded-full bg-white px-3">
-          <span className="text-[9px] text-gray-400">{orgSlug}.{import.meta.env.VITE_ROOT_DOMAIN}</span>
+          <span className="text-[9px] text-gray-400">{orgSlug}.{rootDomain()}</span>
         </div>
       </div>
       {/* Site content */}

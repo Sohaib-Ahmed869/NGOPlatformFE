@@ -1,4 +1,5 @@
 import axiosInstance from "./axios";
+import superadminService from "./superadmin.service";
 
 /**
  * Platform settings + branding for the public SaaS marketing site.
@@ -12,6 +13,17 @@ import axiosInstance from "./axios";
  */
 let _cache = null;
 let _inFlight = null;
+
+// The Stripe config lives behind its own endpoint (it decrypts to build a mask,
+// and must never ride along in the branding payload), so it gets its own cache.
+// Fetched only when the Stripe tab is first opened — editing branding shouldn't
+// cost a Stripe round trip.
+let _stripeCache = null;
+let _stripeInFlight = null;
+// Set by a `platform:updated` socket event (another operator changed the keys).
+// A flag rather than a cache drop, so a mounted screen keeps showing the last
+// known values while it revalidates instead of flashing a loader.
+let _stripeStale = false;
 
 // asset :type → branding field (matches the backend ASSET_FIELDS whitelist).
 const ASSET_FIELDS = {
@@ -44,6 +56,9 @@ const platformService = {
   clearCache: () => {
     _cache = null;
     _inFlight = null;
+    _stripeCache = null;
+    _stripeInFlight = null;
+    _stripeStale = false;
   },
 
   // Resolves to the full settings document. Cached + de-duped; { force: true }
@@ -70,6 +85,7 @@ const platformService = {
   updateSettings: async (data) => {
     const res = await axiosInstance.put("/platform/settings", data);
     if (res?.data) _cache = res.data;
+    superadminService.invalidateAuditCache(); // these changes are audited now
     return res.data;
   },
 
@@ -79,6 +95,7 @@ const platformService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     if (res?.data?.field) patchBranding({ [res.data.field]: res.data.url });
+    superadminService.invalidateAuditCache();
     return res.data;
   },
 
@@ -87,6 +104,77 @@ const platformService = {
     const res = await axiosInstance.delete(`/platform/settings/asset/${type}`);
     const field = res?.data?.field || ASSET_FIELDS[type];
     if (field) patchBranding({ [field]: "" });
+    superadminService.invalidateAuditCache();
+    return res.data;
+  },
+
+  /* ── Platform Stripe (SaaS billing account) ──────────────────────────────
+   * The server returns a MASKED view only — `secretKeyMask`, `hasSecretKey`,
+   * `hasWebhookSecret`. There is no endpoint that returns a key, so nothing
+   * here can cache one. Every mutation returns the fresh masked config, which
+   * we adopt so the screen never re-fetches.
+   */
+  getStripeCached: () => _stripeCache,
+
+  // Called from SARealtimeContext when another console changes the config.
+  markStripeStale: () => {
+    _stripeStale = true;
+  },
+  isStripeStale: () => _stripeStale,
+
+  getStripeConfig: ({ force = false } = {}) => {
+    if (_stripeCache && !force && !_stripeStale) return Promise.resolve(_stripeCache);
+    if (_stripeInFlight) return _stripeInFlight; // de-dupe forced calls too
+    // Cleared up front so an event arriving mid-flight isn't swallowed by the
+    // response that was already on the wire when it fired.
+    _stripeStale = false;
+    _stripeInFlight = axiosInstance
+      .get("/platform/settings/stripe")
+      .then((res) => {
+        _stripeCache = res.data;
+        _stripeInFlight = null;
+        return _stripeCache;
+      })
+      .catch((err) => {
+        _stripeInFlight = null;
+        throw err;
+      });
+    return _stripeInFlight;
+  },
+
+  updateStripeConfig: async (payload) => {
+    const res = await axiosInstance.put("/platform/settings/stripe", payload);
+    if (res?.data?.config) _stripeCache = res.data.config;
+    superadminService.invalidateAuditCache(); // key changes are audited
+    return res.data;
+  },
+
+  // Testing a SAVED key stamps lastVerifiedAt server-side, so adopt the config
+  // it returns. Testing a typed-but-unsaved key returns none — cache untouched.
+  testStripeConnection: async (secretKey) => {
+    const res = await axiosInstance.post("/platform/settings/stripe/test", secretKey ? { secretKey } : {});
+    if (res?.data?.config) _stripeCache = res.data.config;
+    if (!secretKey) superadminService.invalidateAuditCache();
+    return res.data;
+  },
+
+  /**
+   * Create the SaaS billing webhook endpoint in the connected Stripe account and
+   * capture its signing secret. Stripe reveals that secret ONLY on creation, so
+   * replacing an existing endpoint is an explicit choice — the server answers 409
+   * with `canRecreate` rather than silently deleting one.
+   */
+  createStripeWebhook: async ({ recreate = false } = {}) => {
+    const res = await axiosInstance.post("/platform/settings/stripe/webhook", { recreate });
+    if (res?.data?.config) _stripeCache = res.data.config;
+    superadminService.invalidateAuditCache();
+    return res.data;
+  },
+
+  clearStripeConfig: async () => {
+    const res = await axiosInstance.delete("/platform/settings/stripe");
+    if (res?.data?.config) _stripeCache = res.data.config;
+    superadminService.invalidateAuditCache();
     return res.data;
   },
 };

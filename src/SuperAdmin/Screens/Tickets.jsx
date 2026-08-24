@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Search, Inbox, Building2, Star, RefreshCw, CircleDot, AlertCircle, UserRound, ChevronRight, MessageSquare } from "lucide-react";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
+import { Search, Inbox, Building2, Star, RefreshCw, CircleDot, AlertCircle, UserRound, ChevronRight, MessageSquare, X } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import SAErrorState from "../components/SAErrorState";
 import { supportCategoryLabel } from "../../config/supportCategories";
 import { ticketSourceKey, ticketSourceMeta, TICKET_SOURCE_FILTER_OPTIONS } from "../../config/ticketSource";
 import { useSARealtime } from "../context/SARealtimeContext";
@@ -11,6 +12,11 @@ import SALoader from "../SALoader";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.7s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.7} {...props} />;
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
 // Brand hero gradient — the platform palette (same vars as the sidebar),
 // mirroring the Organisations / Audit / Support-session / Kanban hero.
@@ -55,7 +61,7 @@ function SourceBadge({ reporter, className }) {
   );
 }
 /* Stat cell in the attached strip under the hero banner (Organisations look). */
-function HeaderStat({ icon: Icon, label: lbl, value, color }) {
+function HeaderStat({ icon: Icon, label: lbl, value, sub, color }) {
   return (
     <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
@@ -63,7 +69,8 @@ function HeaderStat({ icon: Icon, label: lbl, value, color }) {
       </span>
       <div className="min-w-0">
         <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
-        <p className="mt-1 text-xs text-gray-400">{lbl}</p>
+        <p className="mt-1 truncate text-xs text-gray-400">{lbl}</p>
+        {sub ? <p className="truncate text-[10px] text-gray-300 dark:text-white/30">{sub}</p> : null}
       </div>
     </div>
   );
@@ -71,42 +78,65 @@ function HeaderStat({ icon: Icon, label: lbl, value, color }) {
 
 export default function Tickets() {
   const navigate = useNavigate();
-  const { socket } = useSARealtime();
+  const { ticketsVersion } = useSARealtime();
   // Hydrate from the session cache so revisits are instant (no loader flash) —
   // null cache = first visit (show the loader).
-  const cachedTickets = superadminService.getTicketsCached();
-  const [all, setAll] = useState(cachedTickets || []);
-  const [loading, setLoading] = useState(!cachedTickets);
+  const cached = superadminService.getTicketsCached();
+  const [all, setAll] = useState(cached?.tickets || []);
+  const [meta, setMeta] = useState({ total: cached?.total ?? 0, truncated: !!cached?.truncated, stats: cached?.stats || null });
+  const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState(null);
+  const [revalidating, setRevalidating] = useState(false);
   const [filters, setFilters] = useState({ triage: "all", status: "all", priority: "all", source: "all", search: "" });
   const [, setTick] = useState(0);
+
+  const applyPayload = useCallback((data) => {
+    setAll(data.tickets || []);
+    setMeta({ total: data.total ?? (data.tickets || []).length, truncated: !!data.truncated, stats: data.stats || null });
+    setError(null);
+  }, []);
 
   // Manual refresh / socket refresh / background revalidate — bypasses the cache
   // but never toggles the full-page loader (that's the first-visit path below).
   const fetchAll = useCallback(async () => {
+    setRevalidating(true);
     try {
-      setAll(await superadminService.loadTickets({ force: true }));
-    } catch {
-      toast.error("Failed to load tickets");
+      applyPayload(await superadminService.loadTickets({ force: true }));
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Failed to load tickets");
+    } finally {
+      setRevalidating(false);
     }
-  }, []);
+  }, [applyPayload]);
 
+  // This used to force a network request on EVERY mount, so the cache only
+  // saved the loader flash. Ticket events are now tracked globally in the
+  // realtime context, so an unchanged cache can be trusted: revisiting costs
+  // no request, and `ticketsVersion` refreshes the screen when one lands.
   useEffect(() => {
-    if (superadminService.getTicketsCached()) {
-      // Cached → render instantly, then silently revalidate (real-time list).
-      fetchAll();
-    } else {
-      (async () => {
-        try {
-          setAll(await superadminService.loadTickets());
-        } catch {
-          toast.error("Failed to load tickets");
-        } finally {
-          setLoading(false);
-        }
-      })();
+    const cachedNow = superadminService.getTicketsCached();
+    if (cachedNow && !superadminService.areTicketsStale()) {
+      applyPayload(cachedNow);
+      setLoading(false);
+      return;
     }
+    if (cachedNow) {
+      // Stale → keep showing it and revalidate quietly.
+      fetchAll();
+      return;
+    }
+    (async () => {
+      try {
+        applyPayload(await superadminService.loadTickets());
+      } catch (err) {
+        // An empty grid reads as "no tickets" — say the load failed instead.
+        setError(err?.response?.data?.error || "Couldn't load tickets.");
+      } finally {
+        setLoading(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ticketsVersion]);
 
   // Mirror socket-driven refreshes into the cache for instant, fresh revisits.
   useEffect(() => {
@@ -119,40 +149,36 @@ export default function Tickets() {
     return () => clearInterval(i);
   }, []);
 
-  // Real-time: refresh the list when a ticket is created or changes anywhere.
-  // Also flag the changed ticket's detail so reopening it revalidates.
-  useEffect(() => {
-    if (!socket) return undefined;
-    let timer;
-    const refresh = (p) => {
-      if (p?.id) superadminService.markTicketStale(p.id);
-      clearTimeout(timer);
-      timer = setTimeout(fetchAll, 400);
-    };
-    socket.on("ticket:new", refresh);
-    socket.on("ticket:update", refresh);
-    return () => { clearTimeout(timer); socket.off("ticket:new", refresh); socket.off("ticket:update", refresh); };
-  }, [socket, fetchAll]);
+  // Real-time is handled centrally now: SARealtimeContext listens for
+  // ticket:new / ticket:update, flags the caches stale (including the changed
+  // ticket's detail) and bumps `ticketsVersion`, which the load effect above
+  // depends on. Listening here only worked while this screen was mounted.
 
+  // Headline figures come from the server's aggregate over the WHOLE
+  // collection. They used to be derived from `all`, which is capped at 1000
+  // rows — so every tile quietly under-reported once the platform grew past
+  // the cap. The local fallback keeps the screen working against an older API.
   const stats = useMemo(() => {
+    const s = meta.stats;
+    if (s) return { total: s.total, open: s.open, unassigned: s.unassigned, untriaged: s.untriaged, csat: s.csat, ratedCount: s.csatCount };
     const open = all.filter((t) => ["new", "in_progress", "on_hold"].includes(t.status));
     const rated = all.filter((t) => t.satisfactionRating);
-    const csat = rated.length ? rated.reduce((s, t) => s + t.satisfactionRating, 0) / rated.length : 0;
     return {
       total: all.length,
       open: open.length,
       unassigned: open.filter((t) => !t.assignee?.userId).length,
       untriaged: all.filter((t) => (t.triage || "unclassified") === "unclassified").length,
-      csat,
+      csat: rated.length ? rated.reduce((s2, t) => s2 + t.satisfactionRating, 0) / rated.length : 0,
       ratedCount: rated.length,
     };
-  }, [all]);
+  }, [meta.stats, all]);
 
   const statusCounts = useMemo(() => {
+    if (meta.stats?.byStatus) return { all: meta.stats.total, ...meta.stats.byStatus };
     const c = { all: all.length };
     all.forEach((t) => { c[t.status] = (c[t.status] || 0) + 1; });
     return c;
-  }, [all]);
+  }, [meta.stats, all]);
 
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
@@ -170,14 +196,16 @@ export default function Tickets() {
   }, [all, filters]);
 
   const statTiles = [
-    { label: "Total tickets", value: stats.total, icon: Inbox, color: "#6366f1" },
-    { label: "Open", value: stats.open, icon: CircleDot, color: "#3b82f6" },
-    { label: "Unassigned", value: stats.unassigned, icon: UserRound, color: "#f59e0b" },
-    { label: "Untriaged", value: stats.untriaged, icon: AlertCircle, color: "#8b5cf6" },
+    { label: "Total tickets", value: <AnimatedNumber value={stats.total} />, sub: "across all tenants", icon: Inbox, color: "#6366f1" },
+    { label: "Open", value: <AnimatedNumber value={stats.open} />, sub: stats.total ? `${Math.round((stats.open / stats.total) * 100)}% of all` : "none", icon: CircleDot, color: "#3b82f6" },
+    { label: "Unassigned", value: <AnimatedNumber value={stats.unassigned} />, sub: "open, no owner", icon: UserRound, color: stats.unassigned > 0 ? "#f59e0b" : "#10b981" },
+    { label: "Untriaged", value: <AnimatedNumber value={stats.untriaged} />, sub: "need classifying", icon: AlertCircle, color: stats.untriaged > 0 ? "#8b5cf6" : "#10b981" },
   ];
 
   return (
     // Sharp-corner variant: square every descendant's corners for an angular look.
+    // MotionConfig honours the OS "reduce motion" preference for everything inside.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       {/* Hero — gradient banner + attached stat strip (matches the other screens),
           with the CSAT score featured on the banner. */}
@@ -213,12 +241,28 @@ export default function Tickets() {
         </div>
         {!loading && (
           <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
-            {statTiles.map((t) => (
-              <HeaderStat key={t.label} {...t} />
+            {statTiles.map((t, i) => (
+              <motion.div
+                key={t.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+              >
+                <HeaderStat {...t} />
+              </motion.div>
             ))}
           </div>
         )}
       </motion.div>
+
+      {/* The row list is capped server-side; say so rather than letting the
+          screen imply these are all the tickets there are. */}
+      {meta.truncated && (
+        <div className="mb-4 flex items-center gap-2 border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          Showing the {all.length.toLocaleString()} most recent of {meta.total.toLocaleString()} tickets. Narrow the filters to reach older ones — the counts above cover all of them.
+        </div>
+      )}
 
       {/* Status quick-filter pills */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -245,7 +289,17 @@ export default function Tickets() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} placeholder="Search summary, reporter, tenant…" className={`${inputCls} w-full pl-9`} />
+          <input value={filters.search} onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))} placeholder="Search summary, reporter, tenant…" className={`${inputCls} w-full pl-9 pr-9`} />
+          {filters.search && (
+            <button
+              type="button"
+              onClick={() => setFilters((f) => ({ ...f, search: "" }))}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <SASelect
           value={filters.source}
@@ -267,19 +321,53 @@ export default function Tickets() {
         <button
           type="button"
           onClick={fetchAll}
+          disabled={revalidating}
           title="Refresh tickets"
-          className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5"
+          className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className={`h-4 w-4 ${revalidating ? "animate-spin" : ""}`} />
         </button>
       </div>
 
+      <AnimatePresence mode="wait">
       {loading ? (
-        <SALoader />
+        <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+          <SALoader />
+        </motion.div>
+      ) : error ? (
+        <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <SAErrorState message={error} onRetry={fetchAll} />
+        </motion.div>
       ) : filtered.length === 0 ? (
-        <div className={`${card} py-20 text-center`}><Inbox className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="text-gray-500">No tickets match your filters</p></div>
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className={`${card} py-20 text-center`}
+        >
+          <motion.span
+            className="inline-block"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
+          >
+            <Inbox className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          </motion.span>
+          <p className="text-gray-500">{stats.total === 0 ? "No tickets yet" : "No tickets match your filters"}</p>
+          {stats.total > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilters({ triage: "all", status: "all", priority: "all", source: "all", search: "" })}
+              className="mt-4 border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-transparent dark:text-white/80"
+            >
+              Clear filters
+            </button>
+          )}
+        </motion.div>
       ) : (
-        <div className={`${card} overflow-hidden`}>
+        <motion.div key="list" className={`${card} overflow-hidden`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.3, ease: "easeOut" }}>
           <div className="hidden grid-cols-[1fr_120px_110px_130px_70px_90px] gap-3 border-b border-gray-100 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 lg:grid dark:border-white/10" style={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.10)" }}>
             <span>Ticket</span><span>Category</span><span>Priority</span><span>Status</span><span>CSAT</span><span className="text-right">Age</span>
           </div>
@@ -300,7 +388,7 @@ export default function Tickets() {
                       {t.triage && t.triage !== "unclassified" ? <Badge className={TRIAGE[t.triage]}>{t.triage}</Badge> : null}
                       <span className="font-mono">#{t.ticketNumber}</span>
                       <span className="truncate">{t.reporter?.name || t.reporter?.email}</span>
-                      {t.comments?.length ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.comments.length}</span> : null}
+                      {(t.commentCount ?? t.comments?.length) ? <span className="inline-flex items-center gap-0.5"><MessageSquare className="h-3 w-3" />{t.commentCount ?? t.comments.length}</span> : null}
                     </div>
                   </div>
                 </div>
@@ -319,9 +407,11 @@ export default function Tickets() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }
 

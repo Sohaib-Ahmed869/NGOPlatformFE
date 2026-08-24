@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import Portal from "../../components/Portal";
 import { toast } from "react-hot-toast";
 import {
@@ -26,9 +26,15 @@ import { RichTextEditor, sanitizeRichText } from "../../components/RichTextEdito
 import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
 import superadminService from "../../services/superadmin.service";
+import SAErrorState from "../components/SAErrorState";
 import { useAuth } from "../../context/AuthContext";
 import { useSARealtime } from "../context/SARealtimeContext";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.7s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.7} {...props} />;
 /* ── small utils ─────────────────────────────────────────────────────── */
 
 const STATUSES = [
@@ -99,7 +105,7 @@ const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-
 const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
 
 /* Stat cell in the attached strip under the hero banner (Organisations look). */
-function HeaderStat({ icon: Icon, label, value, color }) {
+function HeaderStat({ icon: Icon, label, value, sub, color }) {
   return (
     <div className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
@@ -107,7 +113,8 @@ function HeaderStat({ icon: Icon, label, value, color }) {
       </span>
       <div className="min-w-0">
         <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
-        <p className="mt-1 text-xs text-gray-400">{label}</p>
+        <p className="mt-1 truncate text-xs text-gray-400">{label}</p>
+        {sub ? <p className="truncate text-[10px] text-gray-300 dark:text-white/30">{sub}</p> : null}
       </div>
     </div>
   );
@@ -117,7 +124,9 @@ function HeaderStat({ icon: Icon, label, value, color }) {
 
 export default function ContactQueries() {
   const { user } = useAuth();
-  const { refreshContactUnread, socket } = useSARealtime();
+  // `contactVersion` bumps whenever a contact event lands anywhere — the load
+  // effect below uses it as its "something changed" signal.
+  const { refreshContactUnread, contactVersion, socket } = useSARealtime();
 
   const myEmail = (user?.email || "").toLowerCase();
   const myId = user?._id || user?.id || null;
@@ -133,6 +142,7 @@ export default function ContactQueries() {
   const [queries, setQueries] = useState(cachedQueries || []);
   const [loading, setLoading] = useState(!cachedQueries);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
   const [staff, setStaff] = useState(cachedStaff || []);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -163,8 +173,9 @@ export default function ContactQueries() {
       if (force) setRefreshing(true);
       try {
         setQueries(await superadminService.loadContactQueries({ force }));
-      } catch {
-        toast.error("Failed to load contact queries");
+        setError(null);
+      } catch (err) {
+        toast.error(err?.response?.data?.error || "Failed to load contact queries");
       } finally {
         setRefreshing(false);
       }
@@ -173,27 +184,45 @@ export default function ContactQueries() {
   );
   useEffect(() => { fetchRef.current = load; }, [load]);
 
+  // One-time bootstrap. `refreshContactUnread` SETS `unreadContactQueries`, so
+  // it must not live in an effect that depends on it — that fed itself a second
+  // unread-count request on every mount. Sockets keep the badge current after
+  // this; the staff list is session-cached in the service.
   useEffect(() => {
-    if (superadminService.getContactQueriesCached()) {
-      // Cached → render instantly, then silently revalidate (the inbox is
-      // real-time and may have moved on while we were on another screen).
-      load({ force: true });
-    } else {
-      // First, uncached visit → show the loader with a graceful minimum on-screen.
-      (async () => {
-        try {
-          setQueries(await withMinDelay(superadminService.loadContactQueries()));
-        } catch {
-          toast.error("Failed to load contact queries");
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }
     superadminService.loadContactStaff().then(setStaff).catch(() => {});
     refreshContactUnread();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The list. This used to force a request on EVERY mount, so the cache only
+  // saved the loader flash. Contact events now flag the cache stale from the
+  // realtime context (wherever you are) and bump `contactVersion`, so an
+  // unchanged revisit costs no request while a mounted inbox still updates.
+  useEffect(() => {
+    const cachedNow = superadminService.getContactQueriesCached();
+    if (cachedNow && !superadminService.areContactQueriesStale()) {
+      setQueries(cachedNow);
+      setLoading(false);
+      return;
+    }
+    if (cachedNow) {
+      load({ force: true }); // stale → keep showing it, revalidate quietly
+      return;
+    }
+    // First, uncached visit → show the loader with a graceful minimum on-screen.
+    (async () => {
+      try {
+        setQueries(await withMinDelay(superadminService.loadContactQueries()));
+        setError(null);
+      } catch (err) {
+        // An empty inbox reads as "no one has written in" — say it failed.
+        setError(err?.response?.data?.error || "Couldn't load the inbox.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactVersion]);
 
   // Mirror the list into the session cache so optimistic edits, sent messages,
   // status/assignment changes and socket refetches all survive to the next visit.
@@ -201,15 +230,16 @@ export default function ContactQueries() {
     superadminService.setContactQueriesCache(queries);
   }, [queries]);
 
-  /* real-time */
+  /* real-time — THREAD-level only. The list refetch is driven by
+     `contactVersion` from the realtime context; doing it here as well fired a
+     second (redundant) request for every event, and could briefly flash the
+     old cached rows back over an in-flight response. */
   useEffect(() => {
     if (!socket) return undefined;
-    const refetch = () => fetchRef.current?.({ force: true });
     // A thread changed: if it's the one on screen, pull the fresh copy in (this
     // also refreshes its cache); otherwise just flag it so the next open knows
     // to revalidate instead of serving a stale cached conversation.
     const onThreadChange = (p) => {
-      fetchRef.current?.({ force: true });
       if (!p?.id) return;
       if (selectedIdRef.current === p.id) {
         superadminService.loadContactQuery(p.id, { force: true }).then(setDetail).catch(() => {});
@@ -218,17 +248,14 @@ export default function ContactQueries() {
       }
     };
     const onDeleted = (p) => {
-      fetchRef.current?.({ force: true });
       if (p?.id) superadminService.removeContactQueryCache(p.id);
       if (p?.id && selectedIdRef.current === p.id) { setDetail(null); setSelectedId(null); }
     };
-    socket.on("contactQuery:new", refetch);
     socket.on("contactQuery:message", onThreadChange);
     socket.on("contactQuery:updated", onThreadChange);
     socket.on("contactQuery:assigned", onThreadChange);
     socket.on("contactQuery:deleted", onDeleted);
     return () => {
-      socket.off("contactQuery:new", refetch);
       socket.off("contactQuery:message", onThreadChange);
       socket.off("contactQuery:updated", onThreadChange);
       socket.off("contactQuery:assigned", onThreadChange);
@@ -403,23 +430,32 @@ export default function ContactQueries() {
       </div>
     );
   }
+  // An empty inbox and a failed load must not look the same — someone waiting
+  // on a reply is exactly what this screen exists to surface.
+  if (error) {
+    return <SAErrorState message={error} onRetry={() => load({ force: true })} />;
+  }
 
   const teamOptions = [{ value: "", label: "Unassigned" }, ...staff.map((t) => ({ value: t._id, label: t.name || t.email }))];
   const sel = detail;
 
   // Stat strip — the inbox loads the whole list client-side, so these counts are
   // exact (not page-scoped).
+  const newCount = queries.filter((c) => (c.status || "new") === "new").length;
+  const inProgressCount = queries.filter((c) => c.status === "in_progress").length;
+  const resolvedCount = queries.length - newCount - inProgressCount;
   const statTiles = [
-    { label: "Total queries", value: queries.length, icon: Inbox, color: "#6366f1" },
-    { label: "Unread", value: unreadTotal, icon: Mail, color: unreadTotal > 0 ? "#ef4444" : "#9ca3af" },
-    { label: "New", value: queries.filter((c) => (c.status || "new") === "new").length, icon: MessageSquare, color: "#f59e0b" },
-    { label: "In progress", value: queries.filter((c) => c.status === "in_progress").length, icon: Clock, color: "#06b6d4" },
+    { label: "Total queries", value: <AnimatedNumber value={queries.length} />, sub: `${resolvedCount} closed out`, icon: Inbox, color: "#6366f1" },
+    { label: "Unread", value: <AnimatedNumber value={unreadTotal} />, sub: unreadTotal > 0 ? "waiting to be opened" : "all read", icon: Mail, color: unreadTotal > 0 ? "#ef4444" : "#9ca3af" },
+    { label: "New", value: <AnimatedNumber value={newCount} />, sub: "not yet triaged", icon: MessageSquare, color: newCount > 0 ? "#f59e0b" : "#9ca3af" },
+    { label: "In progress", value: <AnimatedNumber value={inProgressCount} />, sub: "being handled", icon: Clock, color: "#06b6d4" },
   ];
 
   return (
     // Sharp-corner variant: square every descendant's corners (cards, pills,
     // avatars, bubbles, inputs, modal) for an angular look — matches the
     // Organisations / Audit / Support-session screens — with a gradient hero on top.
+    <MotionConfig reducedMotion="user">
     <div className="flex h-[calc(100vh-7rem)] min-h-[640px] flex-col gap-4 [&_*]:!rounded-none" style={{ "--radius-card": "0.75rem", "--radius-btn": "0.5rem" }}>
       {/* Hero — gradient banner + attached stat strip (mirrors Organisations) */}
       <motion.div
@@ -443,8 +479,15 @@ export default function ContactQueries() {
           </div>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
-          {statTiles.map((t) => (
-            <HeaderStat key={t.label} {...t} />
+          {statTiles.map((t, i) => (
+            <motion.div
+              key={t.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+            >
+              <HeaderStat {...t} />
+            </motion.div>
           ))}
         </div>
       </motion.div>
@@ -679,6 +722,7 @@ export default function ContactQueries() {
         </AnimatePresence>
       </Portal>
     </div>
+    </MotionConfig>
   );
 }
 

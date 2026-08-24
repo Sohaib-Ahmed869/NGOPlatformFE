@@ -472,7 +472,7 @@ export default function PlansPage() {
       </section>
 
       {/* ── CTA ── */}
-      <CtaSection primaryLabel="Start your portal" primaryTo="/register" />
+      <CtaSection primaryLabel="Start your portal" primaryTo="/register" secondaryLabel="Express interest" secondaryTo="/get-started" />
     </div>
   );
 }

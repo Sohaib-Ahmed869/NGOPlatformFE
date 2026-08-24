@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react";
+import axios from "axios";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   ScrollText,
   Building2,
@@ -14,12 +15,20 @@ import {
   Activity,
   Info,
   Globe,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import SASelect from "../components/SASelect";
+import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.8s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.8} {...props} />;
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm";
 const inputCls =
   "w-full border border-gray-200 bg-white py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
@@ -83,7 +92,7 @@ const prettyAction = (a = "") =>
 const detailOf = (a) => a.meta?.label || a.meta?.reason || a.meta?.path || a.targetType || "—";
 
 /* Stat cell in the attached strip under the hero banner (Organisations look). */
-function HeaderStat({ icon: Icon, label, value, color }) {
+function HeaderStat({ icon: Icon, label, value, sub, color }) {
   return (
     <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
@@ -91,7 +100,8 @@ function HeaderStat({ icon: Icon, label, value, color }) {
       </span>
       <div className="min-w-0">
         <p className="truncate text-lg font-bold leading-none text-gray-900">{value}</p>
-        <p className="mt-1 text-xs text-gray-400">{label}</p>
+        <p className="mt-1 truncate text-xs text-gray-400">{label}</p>
+        {sub ? <p className="truncate text-[10px] text-gray-300">{sub}</p> : null}
       </div>
     </div>
   );
@@ -107,52 +117,118 @@ export default function AuditLog() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
-  const fetchEntries = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = { page, limit };
-      if (action !== "all") params.action = action;
-      const res = await superadminService.getAuditLog(params);
-      setEntries(res.data.entries || []);
-      setTotal(res.data.total || 0);
-    } catch {
-      toast.error("Failed to load audit log");
-    } finally {
-      setLoading(false);
-    }
-  }, [action, page]);
+  const [error, setError] = useState(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [summary, setSummary] = useState({ operators: 0, tenants: 0, latestAt: null });
+
+  // Debounce the box into a server param and snap back to page 1 (both setters
+  // batch into one render, so no duplicate request).
+  useEffect(() => {
+    const next = search.trim();
+    if (next === debouncedSearch) return undefined;
+    const t = setTimeout(() => {
+      setDebouncedSearch(next);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search, debouncedSearch]);
+
+  const lastKeyRef = useRef(null);
+
+  const apply = useCallback((data, key) => {
+    setEntries(data.entries || []);
+    setTotal(data.total || 0);
+    setSummary(data.summary || { operators: 0, tenants: 0, latestAt: null });
+    setError(null);
+    lastKeyRef.current = key;
+  }, []);
+
+  // Cache-first + abortable, matching the other list screens. A page/filter
+  // combo already viewed this session renders with NO request; any audited
+  // action clears the cache in the service, so the log can't go stale.
+  const buildParams = useCallback(() => {
+    const params = { page, limit };
+    if (action !== "all") params.action = action;
+    if (debouncedSearch) params.search = debouncedSearch;
+    return params;
+  }, [page, action, debouncedSearch]);
 
   useEffect(() => {
-    fetchEntries();
-  }, [fetchEntries]);
+    const params = buildParams();
+    const key = JSON.stringify(params);
+
+    const cached = superadminService.getAuditLogCached(params);
+    if (cached) {
+      apply(cached, key);
+      setLoading(false);
+      return undefined;
+    }
+
+    const sameView = lastKeyRef.current === key;
+    const controller = new AbortController();
+    let alive = true;
+    (async () => {
+      if (sameView) setRevalidating(true);
+      else setLoading(true);
+      try {
+        const data = await superadminService.loadAuditLog(params, { signal: controller.signal });
+        if (!alive) return;
+        apply(data, key);
+      } catch (err) {
+        if (!alive || axios.isCancel(err)) return;
+        // An audit log that silently shows "No audit entries" on failure is
+        // actively dangerous — it reads as "nobody did anything".
+        const msg = err?.response?.data?.error || "Couldn't load the audit log.";
+        if (sameView) toast.error(msg);
+        else setError(msg);
+      } finally {
+        if (alive) {
+          setLoading(false);
+          setRevalidating(false);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [buildParams, apply, refreshKey]);
+
+  // Manual refresh bypasses the cache for the current view.
+  const fetchEntries = useCallback(() => {
+    superadminService.invalidateAuditCache();
+    lastKeyRef.current = JSON.stringify(buildParams()); // treat as same-view → silent
+    setRefreshKey((k) => k + 1);
+  }, [buildParams]);
 
   const pages = Math.ceil(total / limit) || 1;
+  const hasFilters = Boolean(search.trim() || debouncedSearch || action !== "all");
+  const clearFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setAction("all");
+    setPage(1);
+  };
 
-  // Client-side search across the loaded page (the API filters by action only).
-  const q = search.trim().toLowerCase();
-  const visible = q
-    ? entries.filter((a) =>
-        [a.action, a.actorEmail, a.organisationId?.name, detailOf(a)]
-          .filter(Boolean)
-          .some((s) => String(s).toLowerCase().includes(q)),
-      )
-    : entries;
+  // The server searches now, so the rows ARE the result set.
+  const visible = entries;
 
-  // Stat strip — total is server-wide for the current filter; the rest describe
-  // the loaded page (a 50-row window).
-  const operators = new Set(entries.map((e) => e.actorEmail).filter(Boolean)).size;
-  const tenants = new Set(entries.map((e) => e.organisationId?._id || e.organisationId?.name).filter(Boolean)).size;
+  // Every figure describes the whole filtered set — Operators and Tenants used
+  // to be counted from the 50 rows on screen, beside a server-wide total.
   const statTiles = [
-    { label: "Total events", value: (total || 0).toLocaleString(), icon: ScrollText, color: "#6366f1" },
-    { label: "Operators", value: operators, icon: UserCog, color: "#10b981" },
-    { label: "Tenants touched", value: tenants, icon: Building2, color: "#f59e0b" },
-    { label: "Latest event", value: timeAgo(entries[0]?.createdAt), icon: Clock, color: "#06b6d4" },
+    { label: hasFilters ? "Events (filtered)" : "Total events", value: <AnimatedNumber value={total} />, sub: hasFilters ? "matching your filters" : "all time", icon: ScrollText, color: "#6366f1" },
+    { label: "Operators", value: <AnimatedNumber value={summary.operators} />, sub: "distinct actors", icon: UserCog, color: "#10b981" },
+    { label: "Tenants touched", value: <AnimatedNumber value={summary.tenants} />, sub: "distinct organisations", icon: Building2, color: "#f59e0b" },
+    { label: "Latest event", value: timeAgo(summary.latestAt || entries[0]?.createdAt), sub: "most recent action", icon: Clock, color: "#06b6d4" },
   ];
 
   return (
     // Sharp-corner variant of this screen: square every descendant's corners
     // (cards, pills, buttons, inputs, icon chips) for an angular look — matches
     // the Organisations / Platform / Settings screens.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       {/* Hero — gradient banner + attached stat strip (mirrors Organisations) */}
       <motion.div
@@ -175,10 +251,17 @@ export default function AuditLog() {
             <p className="mt-1 text-sm text-white/80">Every platform-operator action, append-only.</p>
           </div>
         </div>
-        {!loading && entries.length > 0 && (
+        {!loading && (
           <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4 sm:divide-y-0">
-            {statTiles.map((t) => (
-              <HeaderStat key={t.label} {...t} />
+            {statTiles.map((t, i) => (
+              <motion.div
+                key={t.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+              >
+                <HeaderStat {...t} />
+              </motion.div>
             ))}
           </div>
         )}
@@ -192,10 +275,30 @@ export default function AuditLog() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search action, operator, tenant or detail…"
-            className={`${inputCls} rounded-xl pl-10 pr-4`}
+            placeholder="Search action, operator, tenant or target…"
+            className={`${inputCls} rounded-xl pl-10 pr-9`}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
+        <button
+          type="button"
+          title="Refresh"
+          aria-label="Refresh"
+          onClick={fetchEntries}
+          disabled={loading || revalidating}
+          className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10"
+        >
+          <RefreshCw className={`h-4 w-4 ${revalidating ? "animate-spin" : ""}`} />
+        </button>
         <SASelect value={action} onChange={(v) => { setPage(1); setAction(v); }} options={ACTION_OPTIONS} />
         {/* View toggle — timeline / table */}
         <div className="flex shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -215,15 +318,30 @@ export default function AuditLog() {
 
       {loading ? (
         <SALoader />
+      ) : error ? (
+        <SAErrorState message={error} onRetry={fetchEntries} />
       ) : entries.length === 0 ? (
         <div className={`${card} py-20 text-center`}>
           <ScrollText className="mx-auto mb-3 h-10 w-10 text-gray-300" />
           <p className="text-gray-500">No audit entries</p>
         </div>
       ) : visible.length === 0 ? (
+        // The server searches now — an empty result means nothing matched
+        // anywhere, not just "not on this page".
         <div className={`${card} py-20 text-center`}>
           <Search className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">No entries match “{search}” on this page</p>
+          <p className="text-gray-500">
+            {debouncedSearch ? `No entries match “${debouncedSearch}”` : `No ${action === "all" ? "" : `${action} `}entries`}
+          </p>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       ) : (
         <AnimatePresence mode="wait">
@@ -358,5 +476,6 @@ export default function AuditLog() {
         </div>
       )}
     </div>
+    </MotionConfig>
   );
 }

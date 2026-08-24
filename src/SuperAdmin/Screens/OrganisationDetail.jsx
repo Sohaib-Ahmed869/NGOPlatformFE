@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   ArrowLeft,
   Globe,
@@ -33,11 +34,13 @@ import {
   HeartHandshake,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { useSARealtime } from "../context/SARealtimeContext";
 import SALoader from "../SALoader";
 import { useConfirm } from "../components/ConfirmProvider";
 import toast from "react-hot-toast";
 import { cn } from "../../utils/cn";
 
+import AnimatedNumber from "../components/AnimatedNumber";
 const card = "border border-gray-100 bg-white shadow-sm";
 const inputCls =
   "w-full border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
@@ -157,6 +160,17 @@ function UsageBar({ label, used, limit }) {
   );
 }
 
+/* Tab-panel choreography — the active panel rises in while its cards stagger
+   (same house ease as the Organisations list grid). */
+const panelVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut", staggerChildren: 0.07, delayChildren: 0.03 } },
+};
+const panelCardVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.2, 0.7, 0.2, 1] } },
+};
+
 const TABS = [
   { key: "overview", label: "Overview", desc: "Snapshot, branding & links", icon: Building2 },
   { key: "billing", label: "Billing & Plan", desc: "Plan, payments & comp", icon: CreditCard },
@@ -187,28 +201,82 @@ export default function OrganisationDetail() {
   const [supportMode, setSupportMode] = useState("admin"); // "admin" | "website"
   const [supportAccess, setSupportAccess] = useState("full"); // "full" | "view_only"
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await superadminService.getOrganisation(id);
-      setData(res.data);
-      setTrialDate(dateInputValue(res.data.organisation?.trialEndsAt));
-    } catch {
-      toast.error("Failed to load organisation");
-    } finally {
-      setLoading(false);
+  // Fetch pipeline, cache-first: a fresh cached org renders instantly and makes
+  // NO request; a stale one (a mutation happened — the service flags it) renders
+  // the cached copy and revalidates silently in the background. The full-screen
+  // loader only ever shows on the first visit to an org this session. Superseded
+  // requests are aborted, so StrictMode's dev double-mount and rapid navigation
+  // can't land stale responses.
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [revalidating, setRevalidating] = useState(false); // silent background refresh
+  // Realtime nudge: bumps when any organisation changes anywhere (another
+  // operator, a Stripe webhook) — this org revalidates only if it was flagged.
+  const { orgsVersion } = useSARealtime();
+  const lastIdRef = useRef(null);
+  useEffect(() => {
+    const isNewOrg = lastIdRef.current !== id;
+    lastIdRef.current = id;
+
+    const cached = superadminService.getCachedOrganisation(id);
+    if (cached) {
+      if (isNewOrg) {
+        setData(cached);
+        setError(null);
+        setTrialDate(dateInputValue(cached.organisation?.trialEndsAt));
+        setLoading(false);
+      }
+      // Fresh cache — nothing changed since it was stored, so no request.
+      if (!superadminService.isOrganisationStale(id)) return undefined;
+    } else if (isNewOrg) {
+      setLoading(true);
+      setData(null);
+      setError(null);
     }
+
+    const controller = new AbortController();
+    let alive = true;
+    if (cached) setRevalidating(true); // data already on screen — refresh quietly
+    (async () => {
+      try {
+        const fresh = await superadminService.loadOrganisation(id, { signal: controller.signal });
+        if (!alive) return;
+        setData(fresh);
+        setError(null);
+        setTrialDate(dateInputValue(fresh.organisation?.trialEndsAt));
+      } catch (err) {
+        if (!alive || axios.isCancel(err)) return;
+        console.error("Failed to load organisation:", err);
+        const msg = err.response?.data?.error || "Failed to load organisation";
+        setError(msg);
+        if (!isNewOrg || cached) toast.error(msg); // background refresh failed — keep the page up
+      } finally {
+        if (alive) {
+          setLoading(false);
+          setRevalidating(false);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [id, refreshKey, orgsVersion]);
+
+  const refresh = () => setRefreshKey((k) => k + 1);
+
+  // Manual refresh — flag this org stale and revalidate silently (the spinning
+  // icon in the hero is the only visual cue; the page stays up).
+  const hardRefresh = () => {
+    superadminService.markOrganisationStale(id);
+    refresh();
   };
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  // Dynamic plans for the Change-Plan picker.
+  // Dynamic plans for the Change-Plan picker — session-cached in the service
+  // (shared with the Organisations list, one request per session).
   useEffect(() => {
     superadminService
-      .getPlans()
+      .getPlansCached()
       .then((res) => setPlans((res.data.plans || []).filter((p) => !p.archivedAt && p.isActive !== false)))
       .catch(() => {});
   }, []);
@@ -217,10 +285,21 @@ export default function OrganisationDetail() {
   if (!data?.organisation) {
     return (
       <div className={`${card} py-20 text-center`}>
-        <p className="mb-4 text-gray-500">Organisation not found</p>
-        <button onClick={() => navigate("/organisations")} className="bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-light">
-          Back to Organisations
-        </button>
+        {error && <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-300" />}
+        <p className="mb-4 text-gray-500">{error || "Organisation not found"}</p>
+        <div className="flex items-center justify-center gap-3">
+          {error && (
+            <button
+              onClick={refresh}
+              className="inline-flex items-center gap-1.5 border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Try again
+            </button>
+          )}
+          <button onClick={() => navigate("/organisations")} className="bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-light">
+            Back to Organisations
+          </button>
+        </div>
       </div>
     );
   }
@@ -265,7 +344,7 @@ export default function OrganisationDetail() {
     try {
       await superadminService.updateOrgStatus(id, action);
       toast.success(`Organisation ${action}d`);
-      load();
+      refresh();
     } catch {
       toast.error(`Failed to ${action}`);
     } finally {
@@ -293,7 +372,7 @@ export default function OrganisationDetail() {
       await superadminService.updateOrgPlan(id, selectedPlan);
       toast.success("Plan updated");
       setPlanOpen(false);
-      load(); // refreshes plan, price, limits, usage — everything reflects the change
+      refresh(); // refreshes plan, price, limits, usage — everything reflects the change
     } catch {
       toast.error("Failed to update plan");
     } finally {
@@ -309,7 +388,7 @@ export default function OrganisationDetail() {
       toast.success(isComp ? "Marked as comped" : "Comp removed");
       setCompOpen(false);
       setCompReason("");
-      load();
+      refresh();
     } catch {
       toast.error("Failed to update");
     } finally {
@@ -342,7 +421,7 @@ export default function OrganisationDetail() {
       });
       toast.success("Override saved");
       setOverrideOpen(false);
-      load();
+      refresh();
     } catch {
       toast.error("Failed to save override");
     } finally {
@@ -355,7 +434,7 @@ export default function OrganisationDetail() {
     try {
       await superadminService.clearOrgOverride(id);
       toast.success("Override cleared");
-      load();
+      refresh();
     } catch {
       toast.error("Failed to clear override");
     } finally {
@@ -368,7 +447,7 @@ export default function OrganisationDetail() {
     try {
       await superadminService.setOrgTrial(id, trialDate || null);
       toast.success("Trial updated");
-      load();
+      refresh();
     } catch {
       toast.error("Failed to update trial");
     } finally {
@@ -398,13 +477,18 @@ export default function OrganisationDetail() {
   };
 
   return (
+    // MotionConfig honours the OS "reduce motion" preference for everything inside.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
-      <button
+      <motion.button
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         onClick={() => navigate("/organisations")}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
       >
         <ArrowLeft className="h-4 w-4" /> Back to Organisations
-      </button>
+      </motion.button>
 
       {/* Identity hero */}
       <motion.div
@@ -450,6 +534,17 @@ export default function OrganisationDetail() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                title="Refresh"
+                aria-label="Refresh"
+                onClick={hardRefresh}
+                disabled={revalidating}
+                className="grid h-9 w-9 place-items-center text-white ring-1 ring-white/30 transition-colors hover:bg-white/10 disabled:opacity-60"
+                style={{ background: "rgba(255,255,255,.12)" }}
+              >
+                <RefreshCw className={`h-4 w-4 ${revalidating ? "animate-spin" : ""}`} />
+              </button>
               <button onClick={() => { setSupportReason(""); setSupportMode("admin"); setSupportAccess("full"); setSupportOpen(true); }} disabled={busy} className="inline-flex items-center gap-1.5 bg-white px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/90 disabled:opacity-50" style={{ color: ACCENT }}>
                 <LifeBuoy className="h-4 w-4" /> Open as support
               </button>
@@ -461,23 +556,50 @@ export default function OrganisationDetail() {
         </div>
 
         <div className="flex flex-wrap gap-x-6 gap-y-2 px-6 py-4 text-xs sm:px-8">
-          <Fact icon={UserIcon} label="Owner" value={org.adminUserId?.email || "—"} />
-          <Fact icon={CreditCard} label="Billing" value={<span className="capitalize">{cycle}</span>} />
-          <Fact icon={Calendar} label="Created" value={fmtDate(org.createdAt)} />
+          {[
+            { icon: UserIcon, label: "Owner", value: org.adminUserId?.email || "—" },
+            { icon: CreditCard, label: "Billing", value: <span className="capitalize">{cycle}</span> },
+            { icon: Calendar, label: "Created", value: fmtDate(org.createdAt) },
+          ].map((f, i) => (
+            <motion.div
+              key={f.label}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + i * 0.06, duration: 0.35, ease: "easeOut" }}
+            >
+              <Fact icon={f.icon} label={f.label} value={f.value} />
+            </motion.div>
+          ))}
         </div>
       </motion.div>
 
-      {/* KPI stat row (always visible) */}
+      {/* KPI stat row (always visible) — tiles stagger in, numbers count up */}
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile icon={Layers} label="Plan" value={data.plan?.name || org.plan} sub={planPrice != null ? `$${Number(planPrice).toLocaleString()}/${cycleLabel}` : `${cycle} billing`} />
-        <StatTile icon={DollarSign} label="Lifetime paid" value={`$${lifetimePaid.toLocaleString()}`} sub={`${invoices.length} invoice${invoices.length === 1 ? "" : "s"} · ${invoiceCcy}`} />
-        <StatTile icon={Megaphone} label="Campaigns" value={`${usage.campaigns ?? 0} / ${fmtLimit(limits.campaigns)}`} sub={hasOverride ? "custom override" : "active / limit"} />
-        <StatTile icon={Users} label="Volunteers" value={`${usage.volunteers ?? 0} / ${fmtLimit(limits.volunteers)}`} sub={limits.volunteerEnabled ? "module enabled" : "module off"} />
+        {[
+          { icon: Layers, label: "Plan", value: data.plan?.name || org.plan, sub: planPrice != null ? `$${Number(planPrice).toLocaleString()}/${cycleLabel}` : `${cycle} billing` },
+          { icon: DollarSign, label: "Lifetime paid", value: <AnimatedNumber value={lifetimePaid} prefix="$" />, sub: `${invoices.length} invoice${invoices.length === 1 ? "" : "s"} · ${invoiceCcy}` },
+          { icon: Megaphone, label: "Campaigns", value: <><AnimatedNumber value={usage.campaigns ?? 0} /> / {fmtLimit(limits.campaigns)}</>, sub: hasOverride ? "custom override" : "active / limit" },
+          { icon: Users, label: "Volunteers", value: <><AnimatedNumber value={usage.volunteers ?? 0} /> / {fmtLimit(limits.volunteers)}</>, sub: limits.volunteerEnabled ? "module enabled" : "module off" },
+        ].map((t, i) => (
+          <motion.div
+            key={t.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+          >
+            <StatTile icon={t.icon} label={t.label} value={t.value} sub={t.sub} />
+          </motion.div>
+        ))}
       </div>
 
       {/* Left-rail tabs + content (matches the Platform Settings layout) */}
       <div className="grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <nav className={`${card} overflow-hidden lg:sticky lg:top-24`}>
+        <motion.nav
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.35, ease: "easeOut" }}
+          className={`${card} overflow-hidden lg:sticky lg:top-24`}
+        >
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = tab === t.key;
@@ -507,28 +629,39 @@ export default function OrganisationDetail() {
               </button>
             );
           })}
-        </nav>
+        </motion.nav>
 
         <div className="min-w-0">
+        {/* Tab panels crossfade — the outgoing panel eases out before the next
+            one rises in (keyed by tab, mode="wait"), and its cards stagger
+            individually via the panel variants. */}
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          variants={panelVariants}
+          initial="hidden"
+          animate="show"
+          exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+        >
       {/* ───────────── Overview ───────────── */}
       {tab === "overview" && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-4">
             {/* Snapshot */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Building2} title="Tenant snapshot" />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <SnapshotCell icon={Users} color="#6366f1" label="Users" value={(stats.users ?? 0).toLocaleString()} />
-                <SnapshotCell icon={DollarSign} color="#10b981" label="Donations raised" value={`$${Number(stats.donationsRaised || 0).toLocaleString()}`} sub={`${stats.orders ?? 0} orders`} />
-                <SnapshotCell icon={Layers} color="#0ea5e9" label="Programs" value={(stats.programs ?? 0).toLocaleString()} />
-                <SnapshotCell icon={Calendar} color="#f59e0b" label="Events" value={(stats.events ?? 0).toLocaleString()} />
-                <SnapshotCell icon={Megaphone} color="#ec4899" label="Fundraisers" value={(stats.campaigns ?? 0).toLocaleString()} sub="P2P" />
-                <SnapshotCell icon={HeartHandshake} color="#14b8a6" label="Volunteers" value={(stats.volunteers ?? 0).toLocaleString()} />
+                <SnapshotCell icon={Users} color="#6366f1" label="Users" value={<AnimatedNumber value={stats.users ?? 0} />} />
+                <SnapshotCell icon={DollarSign} color="#10b981" label="Donations raised" value={<AnimatedNumber value={Number(stats.donationsRaised || 0)} prefix="$" />} sub={`${stats.orders ?? 0} orders`} />
+                <SnapshotCell icon={Layers} color="#0ea5e9" label="Programs" value={<AnimatedNumber value={stats.programs ?? 0} />} />
+                <SnapshotCell icon={Calendar} color="#f59e0b" label="Events" value={<AnimatedNumber value={stats.events ?? 0} />} />
+                <SnapshotCell icon={Megaphone} color="#ec4899" label="Fundraisers" value={<AnimatedNumber value={stats.campaigns ?? 0} />} sub="P2P" />
+                <SnapshotCell icon={HeartHandshake} color="#14b8a6" label="Volunteers" value={<AnimatedNumber value={stats.volunteers ?? 0} />} />
               </div>
-            </div>
+            </motion.div>
 
             {/* Branding */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Palette} title="Branding" />
               <div className="flex items-center gap-3">
                 {logo ? (
@@ -557,10 +690,10 @@ export default function OrganisationDetail() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
             {/* Branding requests */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead
                 icon={Palette}
                 title={
@@ -597,13 +730,13 @@ export default function OrganisationDetail() {
               ) : (
                 <p className="py-4 text-center text-sm text-gray-400">No branding requests</p>
               )}
-            </div>
+            </motion.div>
           </div>
 
           {/* Right column */}
           <div className="space-y-4">
             {/* Owner */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={UserIcon} title="Owner" />
               <div className="flex items-center gap-3">
                 {org.adminUserId?.profileImage ? (
@@ -624,10 +757,10 @@ export default function OrganisationDetail() {
                 <InfoRow label={<span className="inline-flex items-center gap-1"><Globe className="h-3 w-3" /> Slug</span>} value={<span className="font-mono text-xs">{org.slug}</span>} />
                 <InfoRow label={<span className="inline-flex items-center gap-1"><Calendar className="h-3 w-3" /> Created</span>} value={fmtDate(org.createdAt)} />
               </div>
-            </div>
+            </motion.div>
 
             {/* Quick links */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Link2} title="Quick links" />
               <div className="space-y-2">
                 <a href={tenantOrigin} target="_blank" rel="noreferrer" className="flex items-center justify-between border border-gray-200 px-3 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50">
@@ -648,7 +781,7 @@ export default function OrganisationDetail() {
                   <span className="font-mono text-xs text-gray-400">{org.slug}</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       )}
@@ -658,7 +791,7 @@ export default function OrganisationDetail() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-4">
             {/* Subscription */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead
                 icon={CreditCard}
                 title="Subscription"
@@ -684,10 +817,10 @@ export default function OrganisationDetail() {
                 <InfoRow label="Stripe subscription" value={org.stripeSubscriptionId ? "Connected" : "—"} />
                 <InfoRow label="Comped" value={org.isComp ? `Yes — ${org.compReason || "no reason"}` : "No"} />
               </div>
-            </div>
+            </motion.div>
 
             {/* Recent payments */}
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Receipt} title="Recent payments" />
               {invoices.length ? (
                 <div className="space-y-1">
@@ -707,12 +840,12 @@ export default function OrganisationDetail() {
               ) : (
                 <p className="py-4 text-center text-sm text-gray-400">No payments yet</p>
               )}
-            </div>
+            </motion.div>
           </div>
 
           {/* Right column: comp + trial */}
           <div className="space-y-4">
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Gift} title="Comp" />
               <p className="-mt-2 mb-4 text-xs text-gray-400">Give this tenant a free subscription.</p>
               {org.isComp ? (
@@ -720,15 +853,15 @@ export default function OrganisationDetail() {
               ) : (
                 <button onClick={() => { setCompReason(""); setCompOpen(true); }} className="w-full bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light">Mark as comped</button>
               )}
-            </div>
+            </motion.div>
 
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Clock} title="Trial" />
               <p className="-mt-2 mb-3 text-xs text-gray-400">Set or extend the trial end date.</p>
               <label className={labelCls}>Trial ends</label>
               <input type="date" value={trialDate} onChange={(e) => setTrialDate(e.target.value)} className={`${inputCls} mb-3`} />
               <button onClick={saveTrial} disabled={busy} className="w-full bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">Save trial</button>
-            </div>
+            </motion.div>
           </div>
         </div>
       )}
@@ -737,7 +870,7 @@ export default function OrganisationDetail() {
       {tab === "limits" && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-4">
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead
                 icon={SlidersHorizontal}
                 title="Usage vs limits"
@@ -755,27 +888,27 @@ export default function OrganisationDetail() {
                 <UsageBar label="Active campaigns" used={usage.campaigns ?? 0} limit={limits.campaigns} />
                 <UsageBar label="Volunteer applications" used={usage.volunteers ?? 0} limit={limits.volunteers} />
               </div>
-            </div>
+            </motion.div>
 
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={CheckCircle2} title="Features" />
               <div className="divide-y divide-gray-50">
                 <InfoRow label="Volunteer module" value={limits.volunteerEnabled ? <span className="text-emerald-600">Enabled</span> : <span className="text-gray-400">Disabled</span>} />
                 <InfoRow label="Campaigns limit" value={fmtLimit(limits.campaigns)} />
                 <InfoRow label="Volunteers limit" value={fmtLimit(limits.volunteers)} />
               </div>
-            </div>
+            </motion.div>
           </div>
 
           <div className="space-y-4">
-            <div className={`${card} p-6`}>
+            <motion.div variants={panelCardVariants} className={`${card} p-6`}>
               <CardHead icon={Layers} title="Plan" />
               <p className="text-sm font-semibold capitalize text-gray-900">{data.plan?.name || org.plan}</p>
               {planPrice != null && <p className="text-xs text-gray-400">${Number(planPrice).toLocaleString()} / {cycleLabel}</p>}
               <button onClick={() => { setSelectedPlan(org.plan); setPlanOpen(true); }} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 border py-2 text-sm font-medium transition-opacity hover:opacity-80" style={{ borderColor: accentTint(0.3), backgroundColor: accentTint(0.1), color: ACCENT }}>
                 <RefreshCw className="h-4 w-4" /> Change plan
               </button>
-            </div>
+            </motion.div>
           </div>
         </div>
       )}
@@ -783,7 +916,7 @@ export default function OrganisationDetail() {
       {/* ───────────── Activity ───────────── */}
       {tab === "activity" && (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className={`${card} p-6`}>
+          <motion.div variants={panelCardVariants} className={`${card} p-6`}>
             <CardHead icon={History} title="Operator activity" />
             {data.audit?.length ? (
               <ul className="space-y-3">
@@ -800,9 +933,9 @@ export default function OrganisationDetail() {
             ) : (
               <p className="py-4 text-center text-sm text-gray-400">No activity recorded yet</p>
             )}
-          </div>
+          </motion.div>
 
-          <div className={`${card} p-6`}>
+          <motion.div variants={panelCardVariants} className={`${card} p-6`}>
             <CardHead
               icon={ShieldCheck}
               title="Support sessions"
@@ -825,13 +958,13 @@ export default function OrganisationDetail() {
             ) : (
               <p className="py-4 text-center text-sm text-gray-400">No support sessions yet</p>
             )}
-          </div>
+          </motion.div>
         </div>
       )}
 
       {/* ───────────── Danger Zone ───────────── */}
       {tab === "danger" && (
-        <div className={`${card} max-w-2xl border-red-200 p-6`}>
+        <motion.div variants={panelCardVariants} className={`${card} max-w-2xl border-red-200 p-6`}>
           <h2 className="flex items-center gap-2.5 text-sm font-semibold text-red-700">
             <span className="grid h-8 w-8 shrink-0 place-items-center bg-red-50 text-red-600"><AlertTriangle className="h-4 w-4" /></span>
             Danger zone
@@ -847,8 +980,10 @@ export default function OrganisationDetail() {
               <button onClick={() => setStatus("reactivate")} disabled={busy} className="inline-flex shrink-0 items-center gap-1.5 bg-accent px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Reactivate</button>
             )}
           </div>
-        </div>
+        </motion.div>
       )}
+        </motion.div>
+        </AnimatePresence>
         </div>
       </div>
 
@@ -857,13 +992,18 @@ export default function OrganisationDetail() {
         {planOpen && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPlanOpen(false)} />
-            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
+            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.92, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }} transition={{ type: "spring", stiffness: 380, damping: 30 }}>
               <h3 className="mb-1 text-lg font-semibold text-gray-900">Change plan</h3>
               <p className="mb-4 text-xs text-gray-400">Limits and pricing update immediately.</p>
               <label className={labelCls}>Plan</label>
               <select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)} className={`${inputCls} mb-4`}>
                 {(plans.length
-                  ? plans.map((p) => ({ value: p.code, label: `${p.name} — $${Number(p.price?.monthly || 0).toLocaleString()}/mo` }))
+                  // Name the currency rather than assuming "$" — the platform
+                  // bills in AUD and a bare $ reads as USD.
+                  ? plans.map((p) => ({
+                      value: p.code,
+                      label: `${p.name} — ${Number(p.price?.monthly || 0).toLocaleString()} ${String(p.currency || "").toUpperCase()}/mo`,
+                    }))
                   : [
                       { value: "basic", label: "Basic" },
                       { value: "professional", label: "Professional" },
@@ -887,7 +1027,7 @@ export default function OrganisationDetail() {
         {compOpen && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCompOpen(false)} />
-            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
+            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.92, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }} transition={{ type: "spring", stiffness: 380, damping: 30 }}>
               <h3 className="mb-1 text-lg font-semibold text-gray-900">Comp this tenant</h3>
               <p className="mb-4 text-xs text-gray-400">A reason is required and recorded in the audit log.</p>
               <label className={labelCls}>Reason</label>
@@ -906,7 +1046,7 @@ export default function OrganisationDetail() {
         {supportOpen && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSupportOpen(false)} />
-            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
+            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.92, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }} transition={{ type: "spring", stiffness: 380, damping: 30 }}>
               <div className="mx-auto mb-4 grid h-12 w-12 place-items-center" style={{ background: accentTint(0.12), color: ACCENT }}><LifeBuoy className="h-6 w-6" /></div>
               <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">Open as support</h3>
               <p className="mb-4 text-center text-sm text-gray-500">Enter <strong className="text-gray-800">{org.name}</strong> for 1 hour. Every action is audited.</p>
@@ -942,7 +1082,7 @@ export default function OrganisationDetail() {
         {overrideOpen && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOverrideOpen(false)} />
-            <motion.div className={`${card} relative w-full max-w-md p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
+            <motion.div className={`${card} relative w-full max-w-md p-6 shadow-xl`} initial={{ scale: 0.92, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }} transition={{ type: "spring", stiffness: 380, damping: 30 }}>
               <div className="mb-5 flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Custom limits</h3>
@@ -979,5 +1119,6 @@ export default function OrganisationDetail() {
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

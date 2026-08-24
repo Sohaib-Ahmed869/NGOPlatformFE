@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import {
   Send, Mail, Phone, MapPin, CheckCircle, Clock, CalendarClock, ArrowRight, ChevronDown,
@@ -204,11 +205,11 @@ export default function ContactPage() {
                 {/* Book-a-call */}
                 <div className="mt-7 border-t border-white/10 pt-6">
                   <p className="text-[13px] text-white/55">Prefer to talk it through?</p>
-                  <a href={`mailto:${email}?subject=${encodeURIComponent("Book a 15-minute demo")}`}
+                  <Link to="/get-started"
                     className="group mt-2 inline-flex items-center gap-2 bg-white px-5 py-3 text-[14px] font-semibold" style={{ color: V.primary }}>
                     <CalendarClock className="h-4 w-4" /> Book a 15-min demo
                     <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </a>
+                  </Link>
                 </div>
 
                 {social.length > 0 && (
@@ -321,9 +322,9 @@ export default function ContactPage() {
         <div className="mx-auto max-w-3xl">
           <Reveal className="mb-6 flex items-end justify-between gap-4">
             <h2 className="text-[clamp(20px,2.4vw,26px)] font-semibold" style={{ color: V.ink }}>Common questions</h2>
-            <a href="/#faq" className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold" style={{ color: V.primary }}>
+            <Link to="/faq" className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold" style={{ color: V.primary }}>
               See all FAQs <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </a>
+            </Link>
           </Reveal>
           <Reveal>
             <ContactFaq items={faqs} />

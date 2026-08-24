@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
 import {
   ArrowLeft, Building2, Star, Lock, Tag, Clock, CheckCircle2, Mail, MessageSquare, Inbox, Send, LifeBuoy,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
+import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import TicketAttachments from "../../components/TicketAttachments";
 import { supportCategoryLabel } from "../../config/supportCategories";
@@ -87,6 +88,7 @@ export default function TicketDetail() {
   const cachedTicket = superadminService.getCachedTicket(id);
   const [t, setT] = useState(cachedTicket);
   const [loading, setLoading] = useState(!cachedTicket);
+  const [loadError, setLoadError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notes, setNotes] = useState(cachedTicket?.triageNotes || "");
   const [reply, setReply] = useState("");
@@ -165,7 +167,8 @@ export default function TicketDetail() {
       setLoading(false);
       // Only re-hit the API when this ticket actually changed: a socket flagged
       // it, or the (fresh) list row shows a newer updatedAt than the cached copy.
-      const listRow = (superadminService.getTicketsCached() || []).find((x) => String(x._id) === String(id));
+      // The list cache holds { tickets, total, truncated, stats } — not a bare array.
+      const listRow = (superadminService.getTicketsCached()?.tickets || []).find((x) => String(x._id) === String(id));
       const fresh =
         !superadminService.isTicketStale(id) &&
         listRow &&
@@ -176,7 +179,11 @@ export default function TicketDetail() {
       superadminService
         .loadTicket(id)
         .then(apply)
-        .catch(() => { toast.error("Failed to load ticket"); setT(null); })
+        .catch((err) => {
+          // "Ticket not found" is a different thing from "the request failed".
+          setLoadError(err?.response?.data?.error || "Couldn't load this ticket.");
+          setT(null);
+        })
         .finally(() => setLoading(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,6 +236,22 @@ export default function TicketDetail() {
   };
 
   if (loading) return <SALoader />;
+  if (loadError) {
+    return (
+      <SAErrorState
+        message={loadError}
+        onRetry={() => {
+          setLoadError(null);
+          setLoading(true);
+          superadminService
+            .loadTicket(id, { force: true })
+            .then(apply)
+            .catch((err) => setLoadError(err?.response?.data?.error || "Couldn't load this ticket."))
+            .finally(() => setLoading(false));
+        }}
+      />
+    );
+  }
 
   if (!t) {
     return (
@@ -249,10 +272,18 @@ export default function TicketDetail() {
   return (
     // Sharp-corner variant: square every descendant's corners (incl. the modal,
     // which is rendered inline within this root) — matches the other screens.
+    // MotionConfig honours the OS "reduce motion" preference for everything inside.
+    <MotionConfig reducedMotion="user">
     <div className="pb-6 [&_*]:!rounded-none">
-      <button onClick={() => navigate("/tickets")} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-800 dark:text-white/60 dark:hover:text-white">
+      <motion.button
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        onClick={() => navigate("/tickets")}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-800 dark:text-white/60 dark:hover:text-white"
+      >
         <ArrowLeft className="h-4 w-4" /> Back to tickets
-      </button>
+      </motion.button>
 
       {/* Hero — gradient banner with the ticket identity, status/triage pills and
           the primary action. Light status/priority chips pop on the dark gradient. */}
@@ -563,5 +594,6 @@ export default function TicketDetail() {
         </div>
       )}
     </div>
+    </MotionConfig>
   );
 }

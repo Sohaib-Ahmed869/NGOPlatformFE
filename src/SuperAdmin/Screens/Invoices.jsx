@@ -1,12 +1,20 @@
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Receipt, ExternalLink, FileText, Building2, DollarSign, Search, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import axios from "axios";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
+import { Receipt, ExternalLink, FileText, DollarSign, Search, CheckCircle2, AlertCircle, Calendar, RefreshCw, X } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { useSARealtime } from "../context/SARealtimeContext";
 import SASelect from "../components/SASelect";
+import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import { cn } from "../../utils/cn";
 import toast from "react-hot-toast";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.8s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.8} {...props} />;
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
 const inputCls =
   "w-full border border-gray-200 bg-white py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
@@ -22,7 +30,6 @@ const STATUS = {
   uncollectible: "bg-red-50 text-red-700",
 };
 const STATUS_DOT = { paid: "#10b981", open: "#f59e0b", failed: "#ef4444", void: "#9ca3af", uncollectible: "#ef4444" };
-const OUTSTANDING = ["open", "failed", "uncollectible"];
 
 const money = (v, ccy) => `${(ccy || "usd").toUpperCase() === "USD" ? "$" : ""}${Number(v || 0).toLocaleString()} ${(ccy || "usd").toUpperCase()}`;
 // Best logo for a small tile (prefers the square mark) — empty → initial badge.
@@ -44,7 +51,7 @@ const STATUS_OPTIONS = [
 ];
 
 /* Stat cell in the attached strip under the hero banner (Organisations look). */
-function HeaderStat({ icon: Icon, label, value, color }) {
+function HeaderStat({ icon: Icon, label, value, sub, color }) {
   return (
     <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
@@ -52,7 +59,8 @@ function HeaderStat({ icon: Icon, label, value, color }) {
       </span>
       <div className="min-w-0">
         <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
-        <p className="mt-1 text-xs text-gray-400">{label}</p>
+        <p className="mt-1 truncate text-xs text-gray-400">{label}</p>
+        {sub ? <p className="truncate text-[10px] text-gray-300 dark:text-white/30">{sub}</p> : null}
       </div>
     </div>
   );
@@ -67,49 +75,128 @@ export default function Invoices() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = { page, limit: 30 };
-      if (status !== "all") params.status = status;
-      const res = await superadminService.getInvoices(params);
-      setInvoices(res.data.invoices || []);
-      setCollected(res.data.totalCollected || 0);
-      setPagination(res.data.pagination || {});
-    } catch {
-      toast.error("Failed to load invoices");
-    } finally {
-      setLoading(false);
-    }
-  }, [status, page]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [summary, setSummary] = useState({ paidCount: 0, outstandingAmount: 0, outstandingCount: 0 });
+  const [error, setError] = useState(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  // Stripe mirrors invoices by webhook, so new rows arrive without any action
+  // here — this bumps when one lands.
+  const { invoicesVersion } = useSARealtime();
 
+  // Debounce the search box and snap back to page 1. Both setters run in the
+  // same tick (batched → one fetch), and on mount they already match so there's
+  // no duplicate initial request.
   useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices]);
+    const next = search.trim();
+    if (next === debouncedSearch) return undefined;
+    const t = setTimeout(() => {
+      setDebouncedSearch(next);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search, debouncedSearch]);
 
-  // Client-side search across the loaded page (the API filters by status only).
-  const q = search.trim().toLowerCase();
-  const visible = q
-    ? invoices.filter((inv) =>
-        [inv.organisationId?.name, inv.organisationId?.slug, inv.number, inv.stripeInvoiceId]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q)),
-      )
-    : invoices;
+  // Cache-first, one abortable pipeline. A page/filter/search combo already
+  // seen this session renders with NO request; superseded requests are aborted
+  // so a slow stale response can't overwrite a newer one.
+  const lastKeyRef = useRef(null);
+  useEffect(() => {
+    const params = { page, limit: 30 };
+    if (status !== "all") params.status = status;
+    if (debouncedSearch) params.search = debouncedSearch;
+    const key = JSON.stringify(params);
 
-  // Stat strip — Total collected + invoice count are server-wide; paid/outstanding
-  // describe the loaded page (a 30-row window).
-  const paidCount = invoices.filter((i) => i.status === "paid").length;
-  const outstanding = invoices.filter((i) => OUTSTANDING.includes(i.status)).reduce((s, i) => s + (i.amountDue || 0), 0);
-  const statTiles = [
-    { label: "Total collected", value: `$${Number(collected).toLocaleString()}`, icon: DollarSign, color: "#10b981" },
-    { label: "Invoices", value: (pagination.total ?? invoices.length).toLocaleString(), icon: Receipt, color: "#6366f1" },
-    { label: "Paid", value: paidCount, icon: CheckCircle2, color: "#14b8a6" },
-    { label: "Outstanding", value: `$${outstanding.toLocaleString()}`, icon: AlertCircle, color: outstanding > 0 ? "#f59e0b" : "#9ca3af" },
-  ];
+    const apply = (data) => {
+      const { invoices: rows = [], pagination: pg = {}, summary: sum, totalCollected } = data || {};
+      setInvoices(rows);
+      setCollected(totalCollected || 0);
+      setPagination(pg);
+      setSummary(sum || { paidCount: 0, outstandingAmount: 0, outstandingCount: 0 });
+      setError(null);
+      lastKeyRef.current = key;
+    };
+
+    const cached = superadminService.getInvoicesCached(params);
+    if (cached) {
+      apply(cached);
+      setLoading(false);
+      return undefined;
+    }
+
+    const sameView = lastKeyRef.current === key;
+    const controller = new AbortController();
+    let alive = true;
+    (async () => {
+      if (sameView) setRevalidating(true);
+      else setLoading(true);
+      try {
+        const data = await superadminService.loadInvoices(params, { signal: controller.signal });
+        if (!alive) return;
+        // A filter change can strand us past the last page — snap back.
+        if (page > 1 && page > (data?.pagination?.pages || 0)) {
+          setPage(Math.max(1, data.pagination.pages || 1));
+          return;
+        }
+        apply(data);
+      } catch (err) {
+        if (!alive || axios.isCancel(err)) return;
+        // Don't fall through to "No invoices yet" — that reads as "this tenant
+        // has never been billed" when the request simply failed.
+        const msg = err?.response?.data?.error || "Couldn't load invoices.";
+        if (sameView) toast.error(msg);
+        else setError(msg);
+      } finally {
+        if (alive) {
+          setLoading(false);
+          setRevalidating(false);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+      controller.abort();
+    };
+  }, [page, status, debouncedSearch, refreshKey, invoicesVersion]);
+
+  const hardRefresh = () => {
+    superadminService.invalidateInvoicesCache();
+    setRefreshKey((k) => k + 1);
+  };
+  const clearFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setStatus("all");
+    setPage(1);
+  };
+  const hasFilters = Boolean(search.trim() || debouncedSearch || status !== "all");
+
+  // The server filters and searches now, so the rows ARE the result set.
+  const visible = invoices;
+
+  // Every tile describes the whole filtered set — paid/outstanding used to
+  // count only the 30 rows on screen while sitting beside lifetime figures.
+  const statTiles = useMemo(() => {
+    const { paidCount, outstandingAmount, outstandingCount } = summary;
+    const total = pagination.total ?? invoices.length;
+    return [
+      { label: "Total collected", value: <AnimatedNumber value={Number(collected)} prefix="$" />, sub: "lifetime, all invoices", icon: DollarSign, color: "#10b981" },
+      { label: hasFilters ? "Invoices (filtered)" : "Invoices", value: <AnimatedNumber value={total} />, sub: hasFilters ? "matching your filters" : "all time", icon: Receipt, color: "#6366f1" },
+      { label: "Paid", value: <AnimatedNumber value={paidCount} />, sub: total ? `${Math.round((paidCount / total) * 100)}% of these` : "none yet", icon: CheckCircle2, color: "#14b8a6" },
+      {
+        label: "Outstanding",
+        value: <AnimatedNumber value={outstandingAmount} prefix="$" />,
+        sub: outstandingCount ? `across ${outstandingCount} invoice${outstandingCount === 1 ? "" : "s"}` : "nothing owed",
+        icon: AlertCircle,
+        color: outstandingAmount > 0 ? "#f59e0b" : "#9ca3af",
+      },
+    ];
+  }, [summary, pagination.total, invoices.length, collected, hasFilters]);
 
   return (
     // Sharp-corner variant: square every descendant's corners — matches the rest.
+    // MotionConfig honours the OS "reduce motion" preference for everything inside.
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       {/* Hero — gradient banner + attached stat strip (mirrors Organisations) */}
       <motion.div
@@ -129,11 +216,28 @@ export default function Invoices() {
             <h1 className="mt-1 text-2xl font-bold text-white">Invoices</h1>
             <p className="mt-1 text-sm text-white/80">SaaS subscription invoices mirrored from Stripe.</p>
           </div>
+          <button
+            type="button"
+            title="Refresh"
+            aria-label="Refresh"
+            onClick={hardRefresh}
+            disabled={loading || revalidating}
+            className="relative z-10 grid h-9 w-9 shrink-0 place-items-center bg-white/15 text-white ring-1 ring-white/25 transition-colors hover:bg-white/25 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${revalidating ? "animate-spin" : ""}`} />
+          </button>
         </div>
         {!loading && (
           <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
-            {statTiles.map((t) => (
-              <HeaderStat key={t.label} {...t} />
+            {statTiles.map((t, i) => (
+              <motion.div
+                key={t.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+              >
+                <HeaderStat {...t} />
+              </motion.div>
             ))}
           </div>
         )}
@@ -148,26 +252,69 @@ export default function Invoices() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tenant or invoice number…"
-            className={`${inputCls} rounded-xl pl-10 pr-4`}
+            className={`${inputCls} rounded-xl pl-10 pr-9`}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <SASelect value={status} onChange={(v) => { setPage(1); setStatus(v); }} capitalize options={STATUS_OPTIONS} />
       </div>
 
+      <AnimatePresence mode="wait">
       {loading ? (
-        <SALoader />
-      ) : invoices.length === 0 ? (
-        <div className={`${card} py-20 text-center`}>
-          <Receipt className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">No invoices yet</p>
-        </div>
+        <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+          <SALoader />
+        </motion.div>
+      ) : error ? (
+        <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <SAErrorState message={error} onRetry={hardRefresh} />
+        </motion.div>
       ) : visible.length === 0 ? (
-        <div className={`${card} py-20 text-center`}>
-          <Search className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">No invoices match “{search}” on this page</p>
-        </div>
+        // The server searches now, so an empty result means nothing matched
+        // anywhere — not just "not on this page".
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className={`${card} py-20 text-center`}
+        >
+          <motion.span
+            className="inline-block"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
+          >
+            {hasFilters ? <Search className="mx-auto mb-3 h-10 w-10 text-gray-300" /> : <Receipt className="mx-auto mb-3 h-10 w-10 text-gray-300" />}
+          </motion.span>
+          <p className="text-gray-500">
+            {debouncedSearch
+              ? `No invoices match “${debouncedSearch}”`
+              : hasFilters
+                ? `No ${status} invoices`
+                : "No invoices yet"}
+          </p>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-transparent dark:text-white/80"
+            >
+              Clear filters
+            </button>
+          )}
+        </motion.div>
       ) : (
-        <motion.div className={`${card} overflow-hidden`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+        <motion.div key="table" className={`${card} overflow-hidden`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.3, ease: "easeOut" }}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -178,8 +325,14 @@ export default function Invoices() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((inv) => (
-                  <tr key={inv._id} className="border-t border-gray-100 transition-colors hover:bg-gray-50/70 dark:border-white/10 dark:hover:bg-white/5">
+                {visible.map((inv, i) => (
+                  <motion.tr
+                    key={inv._id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.025, 0.4), duration: 0.3, ease: "easeOut" }}
+                    className="border-t border-gray-100 transition-colors hover:bg-gray-50/70 dark:border-white/10 dark:hover:bg-white/5"
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         {orgLogo(inv.organisationId) ? (
@@ -215,13 +368,14 @@ export default function Invoices() {
                         {!inv.hostedInvoiceUrl && !inv.invoicePdf ? <span className="text-gray-300">—</span> : null}
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
               </tbody>
             </table>
           </div>
         </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Pagination */}
       {pagination.pages > 1 && (
@@ -248,5 +402,6 @@ export default function Invoices() {
         </div>
       )}
     </div>
+    </MotionConfig>
   );
 }

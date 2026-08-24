@@ -9,10 +9,10 @@ import {
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
-  Heart, Users, ArrowRight, Check, Sparkles,
-  Shield, Palette, Target, CreditCard, Calendar, Megaphone,
-  BarChart3, LifeBuoy, Quote, HandHeart, Play, Star, ChevronDown, MessageCircle,
-  Rocket, TrendingUp, Camera, Mail,
+  Heart, Users, ArrowRight, Check,
+  Palette, Target, CreditCard, Calendar, Megaphone,
+  BarChart3, Quote, HandHeart, Play, Star,
+  X as XIcon,
 } from "lucide-react";
 import CtaSection from "./CtaSection";
 // The Donexus mark, used as a MASK (not an <img>) so it takes the live theme
@@ -265,8 +265,6 @@ const css = `
 .saas-btn-primary:hover::before{transform:translateX(120%)}
 .saas-step{transition:transform .4s ease,box-shadow .4s ease}
 .saas-step:hover{transform:translateY(-4px);box-shadow:0 18px 40px -16px rgba(var(--tenant-accent-rgb),.2)}
-.saas-faq2{transition:transform .35s ease,box-shadow .35s ease,border-color .35s ease,background .35s ease}
-.saas-faq2:hover{transform:translateY(-2px)}
 .saas-cta-ghost{transition:background .3s ease,border-color .3s ease,transform .3s ease}
 .saas-cta-ghost:hover{background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.55)!important;transform:translateY(-2px)}
 .saas-ic{transition:transform .35s ease,background .35s ease,color .35s ease,border-color .35s ease}
@@ -433,22 +431,20 @@ const css = `
 @media (prefers-reduced-motion:reduce){
   .saas-rosette-ic,.saas-rosette-label,.saas-rosette-mark{transition:none}
 }
-/* Charity logo wall — two rows scrolling in opposite directions. Each track
-   holds two halves and every half repeats the row twice, so one half always
-   overflows the viewport and the -50% loop never shows a gap (§ same trick as
-   .saas-marquee above, but per-row so the two directions stay independent). */
+/* Charity logo wall — a single row scrolling left. The track holds two
+   halves and every half repeats the row twice, so one half always overflows
+   the viewport and the -50% loop never shows a gap (§ same trick as
+   .saas-marquee above). */
 @keyframes saas-logorow-l{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@keyframes saas-logorow-r{from{transform:translateX(-50%)}to{transform:translateX(0)}}
 .saas-logorow{position:relative;overflow:hidden;
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
   mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .saas-logotrack{display:flex;width:max-content;align-items:center;will-change:transform}
-.saas-logotrack--l{animation:saas-logorow-l 42s linear infinite}
-.saas-logotrack--r{animation:saas-logorow-r 52s linear infinite}
+.saas-logotrack--l{animation:saas-logorow-l 78s linear infinite}
 /* Deliberately NO hover pause. Scrolling with a wheel or trackpad leaves the
    cursor parked mid-viewport, so the row drifting past it would stop dead at
    exactly the moment you scrolled onto the section — which reads as a stuck,
-   broken band rather than a considerate pause. The rows never stop. */
+   broken band rather than a considerate pause. The row never stops. */
 .saas-logoitem{flex:none;display:flex;align-items:center;margin-right:var(--logo-gap)}
 /* Logos ship at their own aspect ratios, so a single row height makes stacked
    marks (WWF, Oxfam) read far smaller than wordmarks. --logo-scale is the
@@ -496,74 +492,6 @@ const SectionHead = ({ id, badge, badgeIcon, title, subtitle, center }) => (
     )}
   </Reveal>
 );
-
-/* ── Animated single-open FAQ accordion ── */
-function FaqItem({ faq, index, isOpen, onToggle }) {
-  return (
-    <Reveal delay={index * 0.05}>
-      <div
-        className="saas-faq2 relative overflow-hidden rounded-2xl"
-        style={{
-          background: isOpen ? `linear-gradient(180deg, rgba(var(--tenant-accent-rgb),.06), ${V.surface})` : V.surface,
-          border: `1px solid ${isOpen ? "rgba(var(--tenant-accent-rgb),.35)" : V.line}`,
-          boxShadow: isOpen ? "0 20px 44px -22px rgba(var(--tenant-accent-rgb),.4)" : "none",
-        }}
-      >
-        {/* accent rail that appears when the item is open */}
-        {isOpen && (
-          <span aria-hidden className="absolute inset-y-0 left-0 w-[3px]"
-            style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.glow})` }} />
-        )}
-        <button onClick={onToggle} aria-expanded={isOpen}
-          className="flex w-full items-center gap-4 px-6 py-5 text-left">
-          <span className="font-mono text-[12px] font-bold tabular-nums transition-colors"
-            style={{ color: isOpen ? V.primary : V.inkFaint }}>
-            {String(index + 1).padStart(2, "0")}
-          </span>
-          <span className="flex-1 text-[16px] font-semibold leading-snug transition-colors"
-            style={{ color: isOpen ? V.primary : V.ink }}>
-            {faq.q}
-          </span>
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full transition-all duration-300"
-            style={{
-              background: isOpen ? V.primary : V.surface2,
-              color: isOpen ? "#fff" : V.primary,
-              border: `1px solid ${isOpen ? "transparent" : V.line}`,
-              transform: isOpen ? "rotate(180deg)" : "none",
-            }}>
-            <ChevronDown className="h-4 w-4" />
-          </span>
-        </button>
-        <AnimatePresence initial={false}>
-          {isOpen && (
-            <motion.div key="content"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
-              style={{ overflow: "hidden" }}>
-              <p className="px-6 pb-6 pl-[3.4rem] text-[14.5px] leading-relaxed" style={{ color: V.inkSoft }}>
-                {faq.a}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </Reveal>
-  );
-}
-
-function FaqList({ faqs }) {
-  const [open, setOpen] = useState(0); // first item open by default
-  return (
-    <div className="space-y-3">
-      {faqs.map((faq, i) => (
-        <FaqItem key={faq.q} faq={faq} index={i} isOpen={open === i}
-          onToggle={() => setOpen((cur) => (cur === i ? -1 : i))} />
-      ))}
-    </div>
-  );
-}
 
 /* ── Testimonial avatar with a graceful initials fallback if the image 404s ── */
 function ReviewAvatar({ t }) {
@@ -687,14 +615,6 @@ const mapHomePlan = (p) => ({
   features: Array.isArray(p.features) ? p.features : [],
 });
 
-const faqs = [
-  { q: "Can I change my plan later?", a: "Yes. You can upgrade or downgrade at any time from your dashboard. Changes take effect on your next billing date." },
-  { q: "How do my donors pay?", a: "Supporters can give by credit or debit card, Apple Pay, Google Pay and PayPal, all handled securely through Stripe." },
-  { q: "Do you take a cut of donations?", a: "No. We never charge a platform fee on donations. You only pay the standard Stripe processing fee, so more of every gift reaches your cause." },
-  { q: "Is my donor data safe?", a: "Absolutely. Each charity's data is fully isolated, encrypted in transit and at rest, with role-based access and audit logs." },
-  { q: "Do I need technical skills?", a: "Not at all. Setting up your portal, branding and campaigns is done through simple forms, and most charities are live within minutes." },
-];
-
 /* ── Charity logo wall ──
    Well-known Australian charities, shown as sector context — NOT as customers.
    See the section's caption: it says so in plain words, and it needs to keep
@@ -706,25 +626,21 @@ const faqs = [
    damped to the 0.62 power — full normalisation would push the stacked marks
    past 2x the row height — then clamped to 1.42 so nothing breaks the band. ── */
 const charityLogos = [
-  [ // row one — scrolls left
-    { name: "Australian Red Cross", file: "red-cross.svg", scale: 1.07 },
-    { name: "UNICEF Australia", file: "unicef.svg", scale: 0.9 },
-    { name: "The Salvation Army", file: "salvation-army.svg", scale: 1.42 },
-    { name: "Cancer Council Australia", file: "cancer-council.svg", scale: 1.08 },
-    { name: "World Vision Australia", file: "world-vision.svg", scale: 0.86 },
-    { name: "Oxfam Australia", file: "oxfam.svg", scale: 1.42 },
-    { name: "Beyond Blue", file: "beyond-blue.png", scale: 1.03 },
-    { name: "Save the Children Australia", file: "save-the-children.png", scale: 0.85 },
-  ],
-  [ // row two — scrolls right
-    { name: "The Smith Family", file: "smith-family.svg", scale: 1.11 },
-    { name: "RSPCA Australia", file: "rspca.svg", scale: 0.98 },
-    { name: "WWF-Australia", file: "wwf.svg", scale: 1.42 },
-    { name: "Lifeline Australia", file: "lifeline.svg", scale: 0.87 },
-    { name: "St Vincent de Paul Society", file: "vinnies.png", scale: 0.8 },
-    { name: "Royal Flying Doctor Service", file: "rfds.png", scale: 0.97 },
-    { name: "The Fred Hollows Foundation", file: "fred-hollows.svg", scale: 0.88 },
-  ],
+  { name: "Australian Red Cross", file: "red-cross.svg", scale: 1.07 },
+  { name: "UNICEF Australia", file: "unicef.svg", scale: 0.9 },
+  { name: "The Salvation Army", file: "salvation-army.svg", scale: 1.42 },
+  { name: "Cancer Council Australia", file: "cancer-council.svg", scale: 1.08 },
+  { name: "World Vision Australia", file: "world-vision.svg", scale: 0.86 },
+  { name: "Oxfam Australia", file: "oxfam.svg", scale: 1.42 },
+  { name: "Beyond Blue", file: "beyond-blue.png", scale: 1.03 },
+  { name: "Save the Children Australia", file: "save-the-children.png", scale: 0.85 },
+  { name: "The Smith Family", file: "smith-family.svg", scale: 1.11 },
+  { name: "RSPCA Australia", file: "rspca.svg", scale: 0.98 },
+  { name: "WWF-Australia", file: "wwf.svg", scale: 1.42 },
+  { name: "Lifeline Australia", file: "lifeline.svg", scale: 0.87 },
+  { name: "St Vincent de Paul Society", file: "vinnies.png", scale: 0.8 },
+  { name: "Royal Flying Doctor Service", file: "rfds.png", scale: 0.97 },
+  { name: "The Fred Hollows Foundation", file: "fred-hollows.svg", scale: 0.88 },
 ];
 const initialsOf = (name) => name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
@@ -929,7 +845,7 @@ function HeroSection() {
             transition={{ duration: REVEAL, delay: 0.62, ease: EASE }}>
             <MagneticBtn as="link" to="/plans"
               className="saas-btn-primary group inline-flex items-center gap-2.5 rounded-xl px-7 py-3.5 text-[15px] font-semibold text-white"
-              style={{ background: "linear-gradient(180deg, var(--tenant-accent, #047857), var(--pf-accent-2, #065F46))", boxShadow: "0 18px 40px -14px rgba(var(--tenant-accent-rgb), .55)" }}>
+              style={{ background: "linear-gradient(90deg, var(--tenant-primary, #102A23) 0%, var(--tenant-primary, #102A23) 22%, var(--tenant-accent, #047857) 100%)", boxShadow: "0 18px 40px -14px rgba(var(--tenant-accent-rgb), .55)" }}>
               Start your charity portal
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </MagneticBtn>
@@ -1789,84 +1705,6 @@ function RibbonStep({ step, i, setRail }) {
   );
 }
 
-/* ── A single campaign told as a scroll-revealed story timeline: current
-   progress up top, then the milestones a supporter would follow. ── */
-const campaignJourney = [
-  { icon: Rocket, title: "Campaign launched", time: "6 weeks ago", desc: "Goal set at $50,000 to bring clean water to four villages." },
-  { icon: TrendingUp, title: "25% funded", time: "5 weeks ago", desc: "124 early supporters got the project moving." },
-  { icon: Camera, title: "Photo update posted", time: "3 weeks ago", desc: "“The first three wells are complete. Thank you!”", photo: true },
-  { icon: Users, title: "78% · 312 donors", time: "Today", desc: "$38,500 raised of $50,000. Almost there.", current: true },
-  { icon: Mail, title: "Impact report", time: "Coming soon", desc: "Every donor gets a closing thank-you with the results.", upcoming: true },
-];
-
-function CampaignStory() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-  return (
-    <div ref={ref} className="rounded-2xl p-6 lg:p-7" style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: "0 24px 50px -24px rgba(6,40,30,.2)" }}>
-      {/* Current state */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold uppercase tracking-[0.14em]" style={{ color: V.primary }}>
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: V.success }} /> Active campaign
-          </span>
-          <h3 className="mt-1.5 text-[19px] font-bold tracking-[-0.01em]" style={{ color: V.ink }}>Clean Water for Every Village</h3>
-        </div>
-        <Counter to={78} suffix="%" className="text-[20px] font-bold" style={{ color: V.primary }} />
-      </div>
-      <div className="mt-3 h-2.5 overflow-hidden rounded-full" style={{ background: V.surface2 }}>
-        <motion.div className="relative h-full overflow-hidden rounded-full" style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }}
-          initial={{ width: 0 }} whileInView={{ width: "78%" }} viewport={{ once: true }} transition={{ duration: 1.3, ease: [0.2, 0.7, 0.2, 1] }}>
-          <span aria-hidden className="saas-prog-shine absolute inset-y-0 w-1/3" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent)" }} />
-        </motion.div>
-      </div>
-      <div className="mt-2 text-[12.5px]" style={{ color: V.inkFaint }}>
-        <Counter to={38500} prefix="$" /> raised of $50,000 · <Counter to={312} /> donors
-      </div>
-
-      {/* Story timeline */}
-      <div className="relative mt-6 pt-6" style={{ borderTop: `1px solid ${V.line}` }}>
-        <motion.div aria-hidden className="absolute left-[15px] w-[2px] origin-top" style={{ top: 40, bottom: 24, background: `linear-gradient(180deg, ${V.primary}, ${V.glow})` }}
-          initial={{ scaleY: 0 }} animate={inView ? { scaleY: 1 } : { scaleY: 0 }} transition={{ duration: 1, ease: [0.2, 0.7, 0.2, 1] }} />
-        <ol className="space-y-4">
-          {campaignJourney.map((m, i) => (
-            <motion.li key={m.title} className="relative pl-11"
-              initial={{ opacity: 0, x: -14 }} animate={inView ? { opacity: 1, x: 0 } : {}} transition={{ duration: 0.5, delay: 0.25 + i * 0.13, ease: [0.2, 0.7, 0.2, 1] }}>
-              <motion.span className="absolute left-0 top-0 z-10 grid h-8 w-8 place-items-center rounded-full"
-                initial={{ scale: 0, rotate: -25 }} animate={inView ? { scale: 1, rotate: 0 } : {}}
-                transition={{ delay: 0.3 + i * 0.13, type: "spring", stiffness: 280, damping: 16 }}
-                style={m.upcoming
-                  ? { background: V.surface, border: "2px dashed rgba(var(--tenant-primary-rgb),.25)", color: V.inkFaint }
-                  : { background: `linear-gradient(150deg, ${V.primary}, ${V.glow})`, color: "#fff" }}>
-                {m.current && <span aria-hidden className="saas-pulse-ring absolute inset-0 rounded-full" style={{ border: `2px solid ${V.accent}` }} />}
-                <m.icon className="relative h-4 w-4" />
-              </motion.span>
-              <div className="flex flex-wrap items-center gap-x-2">
-                <span className="text-[14px] font-bold" style={{ color: V.ink }}>{m.title}</span>
-                <span className="text-[11px]" style={{ color: V.inkFaint }}>· {m.time}</span>
-                {m.current && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: "rgba(var(--tenant-accent-rgb),.12)", color: V.primary }}>Now</span>}
-              </div>
-              <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: V.inkSoft }}>{m.desc}</p>
-              {m.photo && (
-                <motion.div className="relative mt-2.5 overflow-hidden rounded-xl"
-                  initial={{ opacity: 0, scale: 0.96 }} animate={inView ? { opacity: 1, scale: 1 } : {}} transition={{ duration: 0.5, delay: 0.6 }}
-                  style={{ border: `1px solid ${V.line}`, background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})` }}>
-                  <img src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&w=600&q=70"
-                    alt="Supporters celebrating the new village well" className="h-28 w-full object-cover" loading="lazy" />
-                  <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-white"
-                    style={{ background: "rgba(0,0,0,.5)", backdropFilter: "blur(4px)" }}>
-                    <Camera className="h-3 w-3" /> Photo update
-                  </span>
-                </motion.div>
-              )}
-            </motion.li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  );
-}
-
 /* ── A price that rolls (GSAP) from 0 on first view, then from the previous
    amount to the new one whenever the billing cycle flips it. ── */
 function RollingPrice({ value, className = "", style = {} }) {
@@ -1889,12 +1727,39 @@ function RollingPrice({ value, className = "", style = {} }) {
   return <span ref={ref} className={className} style={style}>{"$" + value.toLocaleString("en-US")}</span>;
 }
 
-/* ── Pricing grid with a Monthly/Annual toggle (sliding pill) that re-rolls the
-   prices and reveals the annual saving; the popular plan is spotlit. ── */
+// Builds a Figma-style comparison MATRIX across every tier from the existing
+// "own features + Everything in <cheaper tier>" plan data: every card ends up
+// listing the SAME full feature set, ticked where that tier includes it (its
+// own, or inherited from a cheaper tier) and crossed out where it doesn't —
+// instead of each card only listing its own short slice.
+// Capped to each tier's first `maxPerTier` own features — a full union across
+// real, DB-configured plans ran to 12-14 rows (every plan repeating the SAME
+// long list, just checked/crossed differently), which read as noise, not a
+// comparison. Slicing per tier keeps the matrix meaningful — every card still
+// shows a few of ITS OWN distinguishing features — while bounding the total.
+function buildFeatureMatrix(sortedPlans, maxPerTier = 3) {
+  const ownByTier = sortedPlans.map((p) => (p.features || []).filter((f) => !f.startsWith("Everything in ")).slice(0, maxPerTier));
+  const master = [];
+  const seen = new Set();
+  ownByTier.forEach((list) => list.forEach((f) => { if (!seen.has(f)) { seen.add(f); master.push(f); } }));
+  const cumulative = [];
+  const running = new Set();
+  ownByTier.forEach((list) => {
+    list.forEach((f) => running.add(f));
+    cumulative.push(new Set(running));
+  });
+  return { master, cumulative };
+}
+
+/* ── Pricing grid with a real Monthly/Yearly SWITCH (not a segmented pill) and
+   a hand-drawn "Save 20%" callout doodling back at it; the popular plan is a
+   solid brand-fill card among two plain ones, and every card lists the full
+   feature matrix (check / cross) so the tiers compare at a glance. ── */
 function PricingCards() {
   const [billing, setBilling] = useState("monthly");
   const [dbPlans, setDbPlans] = useState(null); // null = loading
   const annual = billing === "annual";
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     tenantService
@@ -1905,115 +1770,153 @@ function PricingCards() {
 
   // Live plans drive the section; curated defaults show while loading / if none.
   const cards = dbPlans && dbPlans.length ? dbPlans.map(mapHomePlan) : pricingPlans;
+  const sortedCards = [...cards].sort((a, b) => a.priceNum - b.priceNum);
+  const { master, cumulative } = buildFeatureMatrix(sortedCards);
 
   return (
     <>
-      {/* Billing toggle */}
-      <div className="mb-12 flex justify-center">
-        {/* The sliding pill lives INSIDE the active button (shared layoutId), so it
-            matches each button's real width — no more 50% overlap with "Annual". */}
-        <div className="relative inline-flex rounded-full p-1.5" style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.7), 0 2px 6px rgba(6,40,30,.05)" }}>
-          <button type="button" onClick={() => setBilling("monthly")} className="relative rounded-full px-6 py-2 text-[14px] font-semibold transition-colors" style={{ color: annual ? V.inkSoft : "#fff" }}>
-            {!annual && (
-              <motion.span aria-hidden layoutId="saas-billing-pill" className="absolute inset-0 rounded-full"
-                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: "0 6px 16px -6px rgba(var(--tenant-accent-rgb),.5)" }}
-                transition={{ type: "spring", stiffness: 320, damping: 30 }} />
-            )}
-            <span className="relative z-10">Monthly</span>
+      {/* Billing switch */}
+      <div className="mb-10 flex justify-center">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => setBilling("monthly")} className="text-[14.5px] font-semibold transition-colors" style={{ color: annual ? V.inkFaint : V.ink }}>
+            Pay Monthly
           </button>
-          <button type="button" onClick={() => setBilling("annual")} className="relative rounded-full px-6 py-2 text-[14px] font-semibold transition-colors" style={{ color: annual ? "#fff" : V.inkSoft }}>
-            {annual && (
-              <motion.span aria-hidden layoutId="saas-billing-pill" className="absolute inset-0 rounded-full"
-                style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: "0 6px 16px -6px rgba(var(--tenant-accent-rgb),.5)" }}
-                transition={{ type: "spring", stiffness: 320, damping: 30 }} />
-            )}
-            <span className="relative z-10 inline-flex items-center gap-2">
-              Annual
-              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={annual ? { background: "rgba(255,255,255,.22)", color: "#fff" } : { background: "rgba(var(--tenant-accent-rgb),.14)", color: V.primary }}>Save 20%</span>
-            </span>
+          <button type="button" role="switch" aria-checked={annual} aria-label="Toggle yearly billing"
+            onClick={() => setBilling(annual ? "monthly" : "annual")}
+            className="relative h-7 w-[50px] shrink-0 rounded-full transition-colors duration-300"
+            style={{ background: annual ? V.primary : "rgba(var(--tenant-primary-rgb),.2)" }}>
+            <motion.span aria-hidden className="absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-md"
+              animate={{ left: annual ? 25 : 3 }} transition={{ type: "spring", stiffness: 500, damping: 32 }} />
           </button>
+          <button type="button" onClick={() => setBilling("annual")} className="text-[14.5px] font-semibold transition-colors" style={{ color: annual ? V.ink : V.inkFaint }}>
+            Pay Yearly
+          </button>
+          {/* Hand-drawn arrow curling back from "Save 20%" to point at the
+              switch — the shaft draws itself in once scrolled into view, the
+              chevron tip follows a beat later, then a slow, gentle nudge keeps
+              it alive so it reads as a live annotation, not static art. */}
+          <motion.span aria-hidden className="ml-1 hidden -rotate-6 flex-col items-start sm:flex"
+            initial={{ opacity: 0, y: 6 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.6 }}
+            transition={{ duration: reduce ? 0.01 : 0.5, ease: EASE }}>
+            <motion.svg width="48" height="30" viewBox="0 0 48 30" fill="none"
+              animate={reduce ? undefined : { y: [0, -3, 0] }}
+              transition={reduce ? undefined : { duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 1 }}>
+              {/* shaft: a shallow rise from "Save 20%" that levels out into a
+                  near-horizontal run LEFT toward the switch — not a tall arc,
+                  so the ending direction actually reads as "pointing left"
+                  instead of "pointing up". */}
+              <motion.path d="M42 24C30 10 18 6 6 10" stroke={V.primary} strokeWidth="2" strokeLinecap="round" fill="none"
+                initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true, amount: 0.6 }}
+                transition={{ duration: reduce ? 0.01 : 0.9, delay: reduce ? 0 : 0.15, ease: EASE }} />
+              {/* chevron tip: wings splay well away from the shaft's own
+                  (shallow) approach angle, so they read as a distinct
+                  arrowhead instead of the shaft just hooking back on itself. */}
+              <motion.path d="M14 4L6 10L13 16" stroke={V.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"
+                initial={{ pathLength: 0, opacity: 0 }} whileInView={{ pathLength: 1, opacity: 1 }} viewport={{ once: true, amount: 0.6 }}
+                transition={{ duration: reduce ? 0.01 : 0.3, delay: reduce ? 0 : 1, ease: EASE }} />
+            </motion.svg>
+            <span className="-mt-1 whitespace-nowrap text-[13px] font-bold" style={{ color: V.primary }}>Save 20%</span>
+          </motion.span>
         </div>
       </div>
 
-      {/* Cards */}
+      {/* Cards — the popular plan is a solid brand-fill card, matched in height
+          to its two plain neighbours; every card carries the SAME feature
+          matrix, ticked or crossed for that tier. */}
       <motion.div className="grid grid-cols-1 items-stretch gap-5 pt-3 md:grid-cols-3"
         initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger}>
-        {cards.map((plan, i) => {
+        {sortedCards.map((plan, i) => {
           // Show the ACTUAL price for the selected cycle: the yearly total when
           // annual is on, the monthly price otherwise (per-month equiv goes below).
           const bigPrice = annual ? plan.annualTotal : plan.priceNum;
+          const included = cumulative[i];
+          const pop = plan.popular;
           return (
-            <motion.div key={plan.code || plan.tier} variants={fadeUpChild} custom={i} className="h-full">
-              {/* middle wrapper carries the static spotlight transform (kept off the
-                  framer-animated & hover-animated layers to avoid transform clashes) */}
-              <div className={`h-full ${plan.popular ? "md:relative md:z-10 md:-translate-y-2 md:scale-[1.035]" : ""}`}>
-                <div className={`saas-card relative flex h-full flex-col rounded-2xl p-8 ${plan.popular ? "" : "overflow-hidden"}`}
-                  style={{
-                    background: plan.popular ? `radial-gradient(120% 80% at 50% -10%, rgba(var(--tenant-accent-rgb),.12), transparent 60%), ${V.surface}` : V.surface,
-                    border: plan.popular ? `2px solid ${V.primary}` : `1px solid ${V.line}`,
-                    boxShadow: plan.popular ? "0 34px 70px -26px rgba(var(--tenant-accent-rgb),.5)" : "none",
-                  }}>
-                  {!plan.popular && <span aria-hidden className="saas-topline pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }} />}
-                  {plan.popular && (
-                    <span className="absolute -top-3.5 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-[.08em] text-white"
-                      style={{ background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})`, boxShadow: "0 8px 20px -6px rgba(var(--tenant-accent-rgb),.5)" }}>
-                      <Sparkles className="h-3.5 w-3.5" /> Most popular
-                    </span>
+            <motion.div key={plan.code || plan.tier} variants={fadeUpChild} custom={i}
+              className={`relative h-full ${pop ? "md:-translate-y-4 md:z-10" : ""}`}>
+              {/* Ambient halo behind the popular card only — a soft breathing
+                  bloom that bleeds past the card's own edge so the tier reads
+                  as lit, not just dark. Sits OUTSIDE the card's overflow-hidden
+                  box (a sibling, not a child) or it would clip itself away. */}
+              {pop && (
+                <motion.span aria-hidden className="pointer-events-none absolute -inset-5 -z-10 rounded-[30px] blur-2xl"
+                  style={{ background: "radial-gradient(65% 65% at 50% 28%, rgba(var(--tenant-accent-rgb),.55), transparent 72%)" }}
+                  animate={reduce ? undefined : { opacity: [0.55, 0.9, 0.55], scale: [1, 1.06, 1] }}
+                  transition={reduce ? undefined : { duration: 4, repeat: Infinity, ease: "easeInOut" }} />
+              )}
+              {/* Same rounded-2xl + overflow-hidden + border treatment on every
+                  card, popular one included, so the row's corners and edges
+                  read as one consistent shape, not one card cut differently. */}
+              <div className={`relative flex h-full flex-col overflow-hidden rounded-2xl p-6 ${pop ? "" : "saas-card"}`}
+                style={pop
+                  ? { background: `linear-gradient(165deg, ${V.ink}, ${V.primary})`, border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 30px 60px -22px rgba(var(--tenant-accent-rgb),.6), 0 0 60px -12px rgba(var(--tenant-accent-rgb),.45)" }
+                  : { background: V.surface, border: `1px solid ${V.line}` }}>
+                {!pop && <span aria-hidden className="saas-topline pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }} />}
+
+                <div className="text-[18px] font-bold" style={{ color: pop ? "#fff" : V.ink }}>{plan.tier}</div>
+                <div className="mt-1.5 text-[13px] leading-relaxed" style={{ color: pop ? "rgba(255,255,255,.75)" : V.inkSoft }}>{plan.desc}</div>
+
+                <div className="mt-5 flex items-baseline gap-1.5">
+                  <RollingPrice value={bigPrice} className="text-[32px] font-bold tracking-tight" style={{ color: pop ? "#fff" : V.ink }} />
+                  <span className="text-[13.5px]" style={{ color: pop ? "rgba(255,255,255,.65)" : V.inkFaint }}>{annual ? "/ year" : "/ month"}</span>
+                </div>
+                <AnimatePresence initial={false}>
+                  {annual && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
+                      <div className="mt-1 text-[12px]" style={{ color: pop ? "rgba(255,255,255,.7)" : V.inkFaint }}>
+                        ≈ ${plan.annualNum.toLocaleString()}/mo · billed yearly
+                      </div>
+                    </motion.div>
                   )}
-                  <div className="text-[20px] font-bold" style={{ color: V.ink }}>{plan.tier}</div>
-                  <div className="mt-1.5 text-[13.5px] leading-relaxed" style={{ color: V.inkSoft }}>{plan.desc}</div>
-                  <div className="mt-5 pb-6" style={{ borderBottom: `1px solid ${V.line}` }}>
-                    <div className="flex items-baseline gap-1.5">
-                      <RollingPrice value={bigPrice} className="text-[42px] font-bold tracking-tight" style={{ color: V.ink }} />
-                      <span className="text-[14px]" style={{ color: V.inkFaint }}>{annual ? "/ year" : "/ month"}</span>
-                    </div>
-                    <AnimatePresence initial={false}>
-                      {annual && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px]">
-                            <span style={{ color: V.inkFaint }}>≈ ${plan.annualNum.toLocaleString()}/mo · billed yearly</span>
-                            <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "rgba(5,150,105,.12)", color: V.success }}>
-                              Save ${(plan.priceNum * 12 - plan.annualTotal).toLocaleString()}/yr
-                            </span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <ul className="mb-7 mt-6 flex-1 space-y-2.5">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2.5 text-[14px]" style={{ color: V.inkSoft }}>
-                        <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full" style={{ background: plan.popular ? "rgba(var(--tenant-accent-rgb),.14)" : V.surface2 }}>
-                          <Check className="h-3 w-3" strokeWidth={3} style={{ color: V.primary }} />
+                </AnimatePresence>
+
+                <Link to={`/register?plan=${plan.code || plan.tier.toLowerCase()}&billing=${billing}`}
+                  className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[14px] font-semibold transition-all"
+                  style={pop
+                    ? { background: "rgba(255,255,255,.14)", color: "#fff", border: "1.5px solid rgba(255,255,255,.55)" }
+                    : { background: "transparent", color: V.primary, border: `1.5px solid ${V.primary}` }}>
+                  Get Started Now
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+
+                <ul className="mt-4 flex-1 space-y-2 border-t pt-4" style={{ borderColor: pop ? "rgba(255,255,255,.16)" : V.line }}>
+                  {master.map((f) => {
+                    const has = included.has(f);
+                    return (
+                      <li key={f} className="flex items-center gap-2.5 text-[12.5px]"
+                        style={{ color: pop ? (has ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.4)") : (has ? V.inkSoft : V.inkFaint) }}>
+                        <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full"
+                          style={{ background: pop ? "rgba(255,255,255,.18)" : (has ? "rgba(var(--tenant-accent-rgb),.14)" : "rgba(var(--tenant-primary-rgb),.07)") }}>
+                          {has
+                            ? <Check className="h-2.5 w-2.5" strokeWidth={3} style={{ color: pop ? "#fff" : V.primary }} />
+                            : <XIcon className="h-2.5 w-2.5" strokeWidth={3} style={{ color: pop ? "rgba(255,255,255,.55)" : V.inkFaint }} />}
                         </span>
                         {f}
                       </li>
-                    ))}
-                  </ul>
-                  <Link to={`/register?plan=${plan.code || plan.tier.toLowerCase()}&billing=${billing}`}
-                    className={`group flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14.5px] font-semibold transition-all ${plan.popular ? "saas-btn-primary text-white" : ""}`}
-                    style={plan.popular
-                      ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 12px 26px -10px rgba(var(--tenant-accent-rgb),.5)` }
-                      : { background: V.surface2, color: V.ink, border: `1px solid ${V.line}` }}>
-                    Get started
-                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </Link>
-                </div>
+                    );
+                  })}
+                </ul>
               </div>
             </motion.div>
           );
         })}
       </motion.div>
+
+      <div className="mt-10 text-center">
+        <Link to="/plans" className="group inline-flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: V.ink }}>
+          Compare every plan &amp; feature in detail
+          <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
+        </Link>
+      </div>
     </>
   );
 }
 
 /* ── Charity logo wall ──
-   Full-bleed band of two rows drifting in opposite directions, edges dissolved
-   with a mask so logos fade out rather than clip. Hovering a row pauses it and
-   lifts that logo to full opacity, which is what makes the strip feel browsable
-   instead of decorative. Rows share the page's entrance vocabulary (§ Reveal),
-   staggered so the second row follows the first. ── */
+   Full-bleed band of a single row drifting left, edges dissolved with a mask
+   so logos fade out rather than clip. Hovering a logo lifts it to full
+   opacity, which is what makes the strip feel browsable instead of
+   decorative. ── */
 function CharityWall() {
   return (
     <section aria-labelledby="saas-wall-title" className="relative py-[clamp(44px,5vw,76px)]"
@@ -2032,42 +1935,38 @@ function CharityWall() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-[clamp(20px,2.4vw,34px)]">
-        {charityLogos.map((row, r) => (
-          <Reveal key={r} delay={0.12 + r * 0.12}>
-            <div className="saas-logorow">
-              <div className={`saas-logotrack saas-logotrack--${r === 0 ? "l" : "r"}`}>
-                {[0, 1].map((half) => (
-                  <div key={half} className="flex shrink-0 items-center" aria-hidden={half === 1}>
-                    {[...row, ...row].map((c, i) => (
-                      <div key={`${half}-${i}`} className="saas-logoitem" style={{ "--logo-scale": c.scale ?? 1 }}>
-                        <img
-                          className="saas-logoimg"
-                          src={`/logos/charities/${c.file}`}
-                          /* Only the first pass of the first half is announced;
-                             the repeats exist purely to fill the loop. */
-                          alt={half === 0 && i < row.length ? c.name : ""}
-                          loading="lazy"
-                          decoding="async"
-                          draggable="false"
-                        />
-                      </div>
-                    ))}
+      <Reveal delay={0.12}>
+        <div className="saas-logorow">
+          <div className="saas-logotrack saas-logotrack--l">
+            {[0, 1].map((half) => (
+              <div key={half} className="flex shrink-0 items-center" aria-hidden={half === 1}>
+                {[...charityLogos, ...charityLogos].map((c, i) => (
+                  <div key={`${half}-${i}`} className="saas-logoitem" style={{ "--logo-scale": c.scale ?? 1 }}>
+                    <img
+                      className="saas-logoimg"
+                      src={`/logos/charities/${c.file}`}
+                      /* Only the first pass of the first half is announced;
+                         the repeats exist purely to fill the loop. */
+                      alt={half === 0 && i < charityLogos.length ? c.name : ""}
+                      loading="lazy"
+                      decoding="async"
+                      draggable="false"
+                    />
                   </div>
                 ))}
               </div>
-            </div>
-          </Reveal>
-        ))}
-      </div>
+            ))}
+          </div>
+        </div>
+      </Reveal>
     </section>
   );
 }
 
 /* ═══════════════ MAIN ═══════════════ */
 export default function SaaSHome() {
-  // Honour a "/#section" hash arriving from another page (e.g. Contact's
-  // "See all FAQs" → /#faq). The features section is GSAP-pinned, which adds a
+  // Honour a "/#section" hash arriving from another page (e.g. the navbar's
+  // "How it works" → /#how). The features section is GSAP-pinned, which adds a
   // tall pin-spacer to the layout. We:
   //   1. refresh ScrollTrigger so the spacer is settled into the layout,
   //   2. jump INSTANTLY to the element (a smooth scroll would travel through the
@@ -2109,7 +2008,7 @@ export default function SaaSHome() {
       {/* ══ HERO ══ */}
       <HeroSection />
 
-      {/* ══ CHARITY LOGO WALL — two counter-scrolling rows ══ */}
+      {/* ══ CHARITY LOGO WALL — one scrolling row ══ */}
       <CharityWall />
 
       {/* ══ FEATURES ══ */}
@@ -2129,43 +2028,6 @@ export default function SaaSHome() {
             title="Three simple steps to<br/>your own donation portal."
             subtitle="From signing up to your first donation. No developers, no lead times, no waiting on anyone." />
           <StepsRibbon />
-        </div>
-      </section>
-
-      {/* ══ CAMPAIGNS ══ */}
-      {/* Untinted on purpose. The page alternates plain / tinted bands, and the
-          plain section that used to sit between this and "How it works" is gone
-          — leaving both tinted would fuse them into one band tall enough to
-          read as a rendering fault rather than two sections. */}
-      <section aria-labelledby="saas-campaigns-title" className="saas-section">
-        <div className="saas-shell grid grid-cols-1 items-center lg:grid-cols-2" style={{ gap: "var(--gap)" }}>
-          <Reveal className="order-2 lg:order-1">
-            <CampaignStory />
-          </Reveal>
-          <Reveal delay={0.15} className="order-1 lg:order-2">
-            <h2 id="saas-campaigns-title" className="saas-h2 mt-5 font-bold" style={{ color: V.ink }}>
-              Campaigns supporters can <span style={{ color: V.primary }}>follow</span>.
-            </h2>
-            <p className="saas-lede mt-4" style={{ color: V.inkSoft }}>
-              Set a goal, show live progress, and post heartfelt updates. Every donor is kept in the loop,
-              so giving feels like being part of the story.
-            </p>
-            <ul className="mt-7 space-y-3.5">
-              {[
-                "Goals with live progress bars",
-                "Share photo and video updates",
-                "Every donor notified automatically",
-                "Closing impact reports to say thank you",
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-3 text-[15px]" style={{ color: V.ink }}>
-                  <span className="w-6 h-6 rounded-full grid place-items-center shrink-0 mt-0.5" style={{ background: V.surface }}>
-                    <Check className="w-3.5 h-3.5" style={{ color: V.primary }} />
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </Reveal>
         </div>
       </section>
 
@@ -2198,22 +2060,10 @@ export default function SaaSHome() {
         </div>
       </section>
 
-      {/* ══ FAQ ══ */}
-      <section id="faq" aria-labelledby="saas-faq-title" className="saas-section">
-        <div className="mx-auto max-w-[820px]">
-          <SectionHead center id="saas-faq-title"
-            title="Frequently asked questions"
-            subtitle="Everything you need to know about the platform and billing. Can't find what you're after? We're only a message away." />
-
-          {/* Centred accordion */}
-          <FaqList faqs={faqs} />
-        </div>
-      </section>
-
       {/* ══ CTA ══ */}
       {/* CtaSection only takes `className` — the page gutter is passed as an
           arbitrary utility rather than a style prop it would drop. */}
-      <CtaSection className="px-[var(--page-pad)] pb-[clamp(64px,7vw,112px)]" primaryTo="/plans" />
+      <CtaSection className="px-[var(--page-pad)] pb-[clamp(64px,7vw,112px)]" primaryTo="/plans" style={{ background: V.surface2 }} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
@@ -7,15 +7,22 @@ import {
   Loader2, SkipForward, Upload, X as XIcon, ChevronDown, Shield, Sparkles,
   Eye, EyeOff, CreditCard,
 } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import tenantService from "../../services/tenant.service";
 import themeCategories, { getThemeById } from "../../config/themePresets";
 import { useTenant } from "../../context/TenantContext";
+import { rootDomain as getRootDomain } from "../../utils/rootDomain";
+import { getStripePromise } from "../../utils/stripeClient";
 
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  : null;
+// The key comes from the PLATFORM settings the server publishes, not from the
+// build. This is the SaaS-billing account (SuperAdmin → Platform → Stripe) — a
+// different account from any tenant's donation Stripe, and the only one that may
+// charge a subscription. Reading it at runtime is what lets an operator move the
+// platform from test to live, or to another account, without rebuilding the
+// frontend — and stops a stale baked-in key from pairing with a newly saved
+// secret key of a different mode. getStripePromise() (shared with the SuperAdmin
+// Convert modal) caches the loaded instance per key so <Elements> stays stable
+// and js.stripe.com is only ever injected on first actual use.
 
 const STEPS = [
   { label: "Organisation", icon: Building2, hint: "Basic details" },
@@ -187,6 +194,17 @@ function PaymentInner({ slug, onBack, priceLabel }) {
 }
 
 function PaymentStep({ clientSecret, slug, summary, onBack }) {
+  const { platform } = useTenant();
+  // Server-published platform key first; the build-time env key is the fallback
+  // for a platform still running on STRIPE_SECRET_KEY, which is exactly when the
+  // server reports no stored publishable key of its own.
+  const stripeKey =
+    platform?.stripe?.publishableKey || import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
+  // Created on first render of this step — the only place Stripe.js is needed.
+  const stripePromise = useMemo(() => getStripePromise(stripeKey), [stripeKey]);
+  // `platform` arrives from an async fetch. Before it lands there is nothing to
+  // report yet, so don't accuse the operator of a missing key.
+  const platformLoaded = !!platform;
   return (
     <div>
       <h2 className="text-[clamp(21px,2.4vw,27px)] font-semibold" style={{ color: V.ink }}>Payment details</h2>
@@ -199,7 +217,14 @@ function PaymentStep({ clientSecret, slug, summary, onBack }) {
 
       <div className="mt-6">
         {!stripePromise ? (
-          <p className="text-sm text-red-500">Card payments aren't configured (missing VITE_STRIPE_PUBLISHABLE_KEY).</p>
+          !platformLoaded ? (
+            <div className="flex items-center gap-2 text-sm" style={{ color: V.inkFaint }}><Loader2 className="h-4 w-4 animate-spin" /> Preparing secure checkout…</div>
+          ) : (
+            <p className="text-sm text-red-500">
+              Card payments aren&apos;t set up yet. An administrator needs to add the platform&apos;s
+              Stripe keys in the SuperAdmin console under Platform&nbsp;&rarr;&nbsp;Stripe.
+            </p>
+          )
         ) : !clientSecret ? (
           <div className="flex items-center gap-2 text-sm" style={{ color: V.inkFaint }}><Loader2 className="h-4 w-4 animate-spin" /> Preparing secure checkout…</div>
         ) : (
@@ -214,6 +239,11 @@ function PaymentStep({ clientSecret, slug, summary, onBack }) {
 
 export default function RegistrationFlow() {
   const [searchParams] = useSearchParams();
+  // Arrived via a SuperAdmin Leads CRM activation link — prefill from what the
+  // lead already told sales (see GET /saas/lead/prefill/:token) and carry the
+  // token through to /saas/register so the source Lead flips to "won" once this
+  // org actually goes live (services/orgActivation.js).
+  const leadToken = searchParams.get("lead") || "";
   // Platform brand (SuperAdmin → Platform): the panel is dark, so prefer the
   // light logo and fall back to the dark one, exactly like SaaSNavbar does.
   const { platform } = useTenant();
@@ -236,12 +266,17 @@ export default function RegistrationFlow() {
   const [couponBusy, setCouponBusy] = useState(false);
 
   const [form, setForm] = useState({
-    orgName: "", slug: "", revenueRange: "0-500",
+    orgName: "", slug: "",
+    // A SuperAdmin Leads CRM activation link (?lead=) can pre-set these same
+    // Registration fields too — see leadConversion.js's createActivationLink,
+    // which threads them through as query params since Lead has no schema
+    // field of its own for revenue/theme (Organisation/Stripe-only concepts).
+    revenueRange: REVENUE_OPTIONS.some((o) => o.value === searchParams.get("revenue")) ? searchParams.get("revenue") : "0-500",
     plan: searchParams.get("plan") || "basic",
     billingCycle: searchParams.get("billing") || "monthly",
     adminName: "", adminEmail: "", adminPassword: "", confirmPassword: "",
-    theme: "default",
-    isMuslimCharity: false,
+    theme: searchParams.get("theme") || "default",
+    isMuslimCharity: searchParams.get("charity") === "muslim",
   });
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -269,9 +304,54 @@ export default function RegistrationFlow() {
       .catch(() => {});
   }, []);
 
+  // ── Lead prefill (arrived via a Leads CRM activation/payment link) ──
+  useEffect(() => {
+    if (!leadToken) return;
+    tenantService
+      .getLeadPrefill(leadToken)
+      .then((r) => {
+        const d = r.data || {};
+        setForm((f) => ({
+          ...f,
+          orgName: d.orgName || f.orgName,
+          slug: d.resume?.slug || (d.orgName ? d.orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : f.slug),
+          adminName: d.adminName || f.adminName,
+          adminEmail: d.adminEmail || f.adminEmail,
+          plan: d.resume?.plan || d.plan || f.plan,
+          billingCycle: d.resume?.billingCycle || d.billingCycle || f.billingCycle,
+          isMuslimCharity: !!d.isMuslimCharity,
+        }));
+        // The operator already configured this org and created its Stripe
+        // subscription (Convert → "send a payment link") — nothing left to
+        // collect but the card, so skip straight to Payment.
+        if (d.resume?.clientSecret) {
+          setClientSecret(d.resume.clientSecret);
+          setDir(1);
+          setStep(4);
+        }
+      })
+      .catch(() => {
+        // Expired/invalid link — the visitor just fills the form themselves.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadToken]);
+
+  // A lead's activation link can carry a pre-picked discount code too
+  // (leadConversion.js's ?coupon= param) — apply it once on mount rather than
+  // making the visitor retype what the operator already chose for them.
+  useEffect(() => {
+    const code = (searchParams.get("coupon") || "").toUpperCase();
+    if (!code) return;
+    setCouponInput(code);
+    applyCoupon(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Coupon ──
-  const applyCoupon = async () => {
-    const code = couponInput.trim();
+  // Accepts an explicit code (used by the ?coupon= auto-apply below, where
+  // couponInput hasn't settled into state yet) — falls back to the input field.
+  const applyCoupon = async (codeOverride) => {
+    const code = (codeOverride ?? couponInput).trim();
     if (!code) return;
     setCouponBusy(true);
     setCouponMsg(null);
@@ -395,6 +475,7 @@ export default function RegistrationFlow() {
         isMuslimCharity: form.isMuslimCharity,
         logoUrl: logoUrl || undefined,
         couponCode: coupon?.code || undefined,
+        leadToken: leadToken || undefined,
       });
       setClientSecret(r.data.clientSecret);
       setDir(1);
@@ -406,7 +487,7 @@ export default function RegistrationFlow() {
     }
   };
 
-  const rootDomain = import.meta.env.VITE_ROOT_DOMAIN || "yourplatform.org";
+  const rootDomain = getRootDomain();
   const slide = {
     initial: { opacity: 0, x: dir > 0 ? 40 : -40 },
     animate: { opacity: 1, x: 0 },

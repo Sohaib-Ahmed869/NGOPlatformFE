@@ -15,6 +15,7 @@ import {
   Inbox,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 import { useSARealtime } from "../context/SARealtimeContext";
@@ -162,14 +163,22 @@ export default function BrandingRequests() {
   const [reviewNote, setReviewNote] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [error, setError] = useState(null);
+
   // Fetch ALL once and filter client-side → accurate per-status counts for free.
   const fetchRequests = async () => {
     setLoading(true);
     try {
       const res = await superadminService.getBrandingRequests("all");
-      setAllRequests(res.data || []);
+      // The endpoint now reports its total alongside the rows; it used to
+      // return a bare array and discard the count it had already computed.
+      setAllRequests(Array.isArray(res.data) ? res.data : res.data?.requests || []);
+      setError(null);
     } catch (err) {
       console.error("Failed to fetch branding requests:", err);
+      // An empty queue and a failed queue must not look the same — a pending
+      // request left unreviewed is a tenant waiting on us.
+      setError(err?.response?.data?.error || "Couldn't load branding requests.");
     } finally {
       setLoading(false);
     }
@@ -274,6 +283,8 @@ export default function BrandingRequests() {
 
       {loading ? (
         <SALoader />
+      ) : error ? (
+        <SAErrorState message={error} onRetry={fetchRequests} />
       ) : requests.length === 0 ? (
         <div className={`${card} p-16 text-center`}>
           <Inbox className="mx-auto mb-3 h-10 w-10 text-gray-300" />

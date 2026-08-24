@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
   Save,
   Lock,
@@ -25,11 +25,19 @@ import {
   Moon,
   Plug,
   SlidersHorizontal,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
+import { useSARealtime } from "../context/SARealtimeContext";
 import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
+import AnimatedNumberBase from "../components/AnimatedNumber";
+
+// Kept this screen's original 0.45s pacing — deduplicating the
+// implementation shouldn't silently restyle it.
+const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.45} {...props} />;
 const card = "border border-gray-100 bg-white shadow-sm";
 const ACCENT = "var(--tenant-accent, #047857)";
 const accentTint = (a) => `rgba(var(--tenant-accent-rgb, 4, 120, 87), ${a})`;
@@ -61,6 +69,9 @@ const GROUP_META = {
   quotas: { icon: Gauge, tint: "#14b8a6" },
 };
 
+// Whole-number percentage, guarding the empty-matrix divide-by-zero.
+const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0);
+
 // Initial cell value for a flag — mirrors the backend resolver: a plan with no
 // featureFlags configured yet means "everything available", core is always on.
 function initFlag(plan, f) {
@@ -82,22 +93,55 @@ export default function Features() {
   const [matrix, setMatrix] = useState({}); // { code: { features:{}, limits:{} } }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [baseline, setBaseline] = useState({}); // snapshot for discard / change count
+
+  const [loadError, setLoadError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { plansVersion } = useSARealtime();
+
+  // `dirty` used to be its own boolean flipped true by every mutator and false
+  // only on save/discard, so it drifted out of step with the real diff: toggling
+  // a flag on and back off left dirty=true with changeCount=0, and the save bar
+  // rendered "  unsaved changes" with no number and a Save button that POSTed
+  // nothing. Deriving it from the diff makes the two impossible to disagree —
+  // and it keeps the bar up if you edit while a save is in flight.
+  const changeCount = useMemo(() => {
+    let n = 0;
+    for (const code of Object.keys(matrix)) {
+      const b = baseline[code];
+      if (!b) continue;
+      const cur = matrix[code];
+      for (const k of Object.keys(cur.features || {}))
+        if (!!cur.features[k] !== !!b.features?.[k]) n++;
+      for (const k of Object.keys(cur.limits || {}))
+        if (String(cur.limits[k] ?? "") !== String(b.limits?.[k] ?? "")) n++;
+    }
+    return n;
+  }, [matrix, baseline]);
+  const dirty = changeCount > 0;
 
   const [collapsed, setCollapsed] = useState(() => new Set());
   const [expanded, setExpanded] = useState(() => new Set()); // feature keys with "unlocks" shown
   const [query, setQuery] = useState("");
-  const [menu, setMenu] = useState(null); // { code, top, left }
+  const [menu, setMenu] = useState(null); // { code, el } — el is the anchor button
+  const [menuPos, setMenuPos] = useState({ top: -9999, left: -9999 });
+  const menuRef = useRef(null);
 
+  // Both sources are session-cached in the service (the catalog is static
+  // server config; plans clear on any plan mutation or realtime event), so a
+  // revisit costs no requests. Unsaved matrix edits are NOT clobbered — a
+  // realtime refresh is skipped while `dirty`.
   useEffect(() => {
+    if (dirty) return undefined;
+    let alive = true;
     (async () => {
       setLoading(true);
       try {
         const [catRes, planRes] = await Promise.all([
-          superadminService.getFeatureCatalog(),
-          superadminService.getPlans(),
+          superadminService.getFeatureCatalogCached(),
+          superadminService.getPlansCached(),
         ]);
+        if (!alive) return;
         setGroups(catRes.data.groups || []);
         setFeatures(catRes.data.features || []);
         const activePlans = (planRes.data.plans || [])
@@ -116,16 +160,25 @@ export default function Features() {
         }
         setMatrix(m);
         setBaseline(JSON.parse(JSON.stringify(m)));
+        setLoadError(null);
       } catch (err) {
+        if (!alive) return;
         console.error("Failed to load features:", err);
-        toast.error("Failed to load feature matrix");
+        // Without this the screen said "No active plans yet — create one
+        // first", which on a failed load invites creating a duplicate plan.
+        setLoadError(err?.response?.data?.error || "Couldn't load the feature matrix.");
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
-  }, []);
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey, plansVersion]);
 
   const flagDefs = useMemo(() => features.filter((f) => f.type === "flag"), [features]);
+  const meterDefs = useMemo(() => features.filter((f) => f.type === "meter"), [features]);
   const featuresByGroup = useMemo(() => {
     const map = {};
     for (const f of features) (map[f.group] ||= []).push(f);
@@ -133,65 +186,88 @@ export default function Features() {
   }, [features]);
 
   // ── Counters ──────────────────────────────────────────────────────────────
-  const planOnCount = (code) =>
-    flagDefs.filter((f) => f.core || matrix[code]?.features?.[f.key]).length;
-
-  const groupOnCount = (code, groupRows) => {
-    const flags = groupRows.filter((f) => f.type === "flag");
-    return {
-      on: flags.filter((f) => f.core || matrix[code]?.features?.[f.key]).length,
-      total: flags.length,
-    };
-  };
-
-  const stats = useMemo(() => {
-    const flags = features.filter((f) => f.type === "flag");
-    const meters = features.filter((f) => f.type === "meter");
-    return {
-      plans: plans.length,
-      capabilities: flags.length,
-      quotas: meters.length,
-      muslim: flags.filter((f) => f.vertical === "muslim").length,
-    };
-  }, [features, plans]);
-
-  // How many cells differ from the saved baseline (drives the floating save bar).
-  const changeCount = useMemo(() => {
-    let n = 0;
-    for (const code of Object.keys(matrix)) {
-      const b = baseline[code];
-      if (!b) continue;
-      const cur = matrix[code];
-      for (const k of Object.keys(cur.features || {}))
-        if (!!cur.features[k] !== !!b.features?.[k]) n++;
-      for (const k of Object.keys(cur.limits || {}))
-        if (String(cur.limits[k] ?? "") !== String(b.limits?.[k] ?? "")) n++;
+  // These used to be plain functions called during render: one per plan column
+  // plus one per (plan × group) cell, each re-filtering the catalog — so the
+  // whole matrix was recounted on every keystroke in the search box. Now it's a
+  // single pass, memoised on the data it actually depends on.
+  const counts = useMemo(() => {
+    const groupFlags = {};
+    for (const key of Object.keys(featuresByGroup)) {
+      groupFlags[key] = featuresByGroup[key].filter((f) => f.type === "flag");
     }
-    return n;
-  }, [matrix, baseline]);
+    const byPlan = {};
+    const byPlanGroup = {};
+    for (const p of plans) {
+      const on = matrix[p.code]?.features || {};
+      const isOn = (f) => (f.core ? true : !!on[f.key]);
+      byPlan[p.code] = flagDefs.reduce((n, f) => n + (isOn(f) ? 1 : 0), 0);
+      const perGroup = {};
+      for (const key of Object.keys(groupFlags)) {
+        const flags = groupFlags[key];
+        perGroup[key] = { on: flags.reduce((n, f) => n + (isOn(f) ? 1 : 0), 0), total: flags.length };
+      }
+      byPlanGroup[p.code] = perGroup;
+    }
+    return { byPlan, byPlanGroup };
+  }, [plans, matrix, flagDefs, featuresByGroup]);
 
-  const discard = () => {
-    setMatrix(JSON.parse(JSON.stringify(baseline)));
-    setDirty(false);
-  };
+  const planOnCount = (code) => counts.byPlan[code] || 0;
+
+  // Header stats. These used to be four CATALOG counts — capabilities, quotas
+  // and Muslim-only never changed, so three of the four tiles were frozen on a
+  // screen whose whole job is editing entitlements. They now describe the
+  // matrix in front of you and move as you toggle.
+  const stats = useMemo(() => {
+    const planCount = plans.length;
+    const enabledCells = plans.reduce((n, p) => n + (counts.byPlan[p.code] || 0), 0);
+    // A limit cell holds a numeric string, or "" meaning Unlimited.
+    let cappedCells = 0;
+    for (const p of plans) {
+      const limits = matrix[p.code]?.limits || {};
+      for (const m of meterDefs) {
+        const v = limits[m.key];
+        if (v !== "" && v != null && Number.isFinite(Number(v))) cappedCells++;
+      }
+    }
+    const muslimFlags = flagDefs.filter((f) => f.vertical === "muslim");
+    const muslimPlans = plans.filter((p) =>
+      muslimFlags.some((f) => (f.core ? true : !!matrix[p.code]?.features?.[f.key])),
+    ).length;
+    return {
+      plans: planCount,
+      enabledCells,
+      totalFlagCells: planCount * flagDefs.length,
+      cappedCells,
+      totalMeterCells: planCount * meterDefs.length,
+      muslimPlans,
+      muslimFlags: muslimFlags.length,
+    };
+  }, [plans, matrix, flagDefs, meterDefs, counts]);
+
+  const discard = () => setMatrix(JSON.parse(JSON.stringify(baseline)));
 
   // ── Mutators ──────────────────────────────────────────────────────────────
-  const setFlag = (code, key, value) => {
+  // Reads the PREVIOUS state rather than the render-time matrix, so two clicks
+  // landing in the same tick toggle twice instead of collapsing into one.
+  const toggleFlag = (code, key) =>
     setMatrix((prev) => ({
       ...prev,
-      [code]: { ...prev[code], features: { ...prev[code].features, [key]: value } },
+      [code]: {
+        ...prev[code],
+        features: { ...prev[code]?.features, [key]: !prev[code]?.features?.[key] },
+      },
     }));
-    setDirty(true);
-  };
-  const toggleFlag = (code, key) =>
-    setFlag(code, key, !matrix[code]?.features?.[key]);
 
+  // "" means Unlimited; anything else must be a plain non-negative integer.
+  // Rejecting the keystroke outright (rather than coercing) matters because a
+  // <input type="number"> reports "" for invalid input like "-" or "e" — which
+  // here would silently turn a capped quota into an unlimited one.
   const setLimit = (code, key, value) => {
+    if (value !== "" && !/^\d+$/.test(value)) return;
     setMatrix((prev) => ({
       ...prev,
       [code]: { ...prev[code], limits: { ...prev[code].limits, [key]: value } },
     }));
-    setDirty(true);
   };
 
   // Set every toggleable (non-core) flag for a plan within a set of feature rows.
@@ -203,7 +279,6 @@ export default function Features() {
       for (const k of keys) next[k] = value;
       return { ...prev, [code]: { ...prev[code], features: next } };
     });
-    setDirty(true);
   };
 
   // Set a whole group across ALL plans.
@@ -213,13 +288,13 @@ export default function Features() {
     setMatrix((prev) => {
       const next = { ...prev };
       for (const p of plans) {
+        if (!next[p.code]) continue; // matrix not built for this plan yet
         const f = { ...next[p.code].features };
         for (const k of keys) f[k] = value;
         next[p.code] = { ...next[p.code], features: f };
       }
       return next;
     });
-    setDirty(true);
   };
 
   // Enable/disable every flag for one plan (column).
@@ -227,14 +302,17 @@ export default function Features() {
 
   // Copy one plan's entire entitlement config onto another.
   const copyPlan = (srcCode, dstCode) => {
-    setMatrix((prev) => ({
-      ...prev,
-      [dstCode]: {
-        features: { ...prev[srcCode].features },
-        limits: { ...prev[srcCode].limits },
-      },
-    }));
-    setDirty(true);
+    setMatrix((prev) =>
+      prev[srcCode]
+        ? {
+            ...prev,
+            [dstCode]: {
+              features: { ...prev[srcCode].features },
+              limits: { ...prev[srcCode].limits },
+            },
+          }
+        : prev,
+    );
     setMenu(null);
     const src = plans.find((p) => p.code === srcCode);
     toast.success(`Copied entitlements from ${src?.name || srcCode}`);
@@ -260,11 +338,17 @@ export default function Features() {
   };
 
   const handleSave = async () => {
+    if (saving) return; // a second click would POST the matrix twice
     setSaving(true);
     try {
+      // Snapshot what we're about to send: the new baseline must be exactly the
+      // saved state, so an edit made DURING the request stays flagged unsaved
+      // instead of being silently absorbed.
+      const sent = JSON.parse(JSON.stringify(matrix));
       const payload = {};
       for (const p of plans) {
-        const cell = matrix[p.code];
+        const cell = sent[p.code];
+        if (!cell) continue;
         payload[p.code] = {
           features: cell.features,
           limits: Object.fromEntries(
@@ -274,8 +358,7 @@ export default function Features() {
       }
       await superadminService.saveEntitlements(payload);
       toast.success("Feature matrix saved");
-      setDirty(false);
-      setBaseline(JSON.parse(JSON.stringify(matrix)));
+      setBaseline(sent);
     } catch (err) {
       toast.error(err?.response?.data?.error || "Failed to save");
     } finally {
@@ -290,12 +373,53 @@ export default function Features() {
     f.key.toLowerCase().includes(q) ||
     (f.description || "").toLowerCase().includes(q);
 
-  const openMenu = (e, code) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    setMenu({ code, top: r.bottom + 6, left: Math.max(8, r.right - 208) });
-  };
+  // The popover is position:fixed, so it was pinned to viewport coordinates
+  // captured once at open time — scrolling the page (or the matrix's own
+  // horizontal scroller) left it floating away from its button. It now tracks
+  // the anchor element and re-measures on scroll/resize, flips above the button
+  // when there isn't room below, clamps to the viewport, and closes if the
+  // anchor scrolls out of sight.
+  const openMenu = (e, code) => setMenu({ code, el: e.currentTarget });
+
+  useLayoutEffect(() => {
+    if (!menu?.el) return undefined;
+    const place = () => {
+      const r = menu.el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) {
+        setMenu(null); // anchor scrolled out of view
+        return;
+      }
+      const h = menuRef.current?.offsetHeight || 0;
+      const w = menuRef.current?.offsetWidth || 208;
+      const room = window.innerHeight - r.bottom - 6;
+      const flip = h > room && r.top - 6 - h > 8;
+      setMenuPos({
+        top: flip ? r.top - 6 - h : Math.max(8, Math.min(r.bottom + 6, window.innerHeight - h - 8)),
+        left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)),
+      });
+    };
+    place();
+    // `capture` so scrolls inside the table's own overflow container count too
+    // (scroll events don't bubble).
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [menu]);
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const onKey = (e) => e.key === "Escape" && setMenu(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
 
   return (
+    // MotionConfig honours the OS "reduce motion" preference for everything
+    // inside — the matrix animates a lot (panel stagger, switch springs).
+    <MotionConfig reducedMotion="user">
     <div className="[&_*]:!rounded-none">
       {/* Hero + KPI strip */}
       <motion.div
@@ -324,15 +448,62 @@ export default function Features() {
           </div>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-4 sm:divide-y-0">
-          <HeaderStat icon={Layers} label="Plans" value={stats.plans} color="#6366f1" />
-          <HeaderStat icon={ToggleRight} label="Capabilities" value={stats.capabilities} color="#10b981" />
-          <HeaderStat icon={Gauge} label="Metered quotas" value={stats.quotas} color="#f59e0b" />
-          <HeaderStat icon={Moon} label="Muslim-only" value={stats.muslim} color="#8b5cf6" />
+          {[
+            {
+              icon: Layers,
+              label: "Plans",
+              value: <AnimatedNumber value={stats.plans} />,
+              sub: "active",
+              color: "#6366f1",
+            },
+            {
+              icon: ToggleRight,
+              label: "Capabilities on",
+              value: <AnimatedNumber value={stats.enabledCells} suffix={` / ${stats.totalFlagCells}`} />,
+              sub: `${pct(stats.enabledCells, stats.totalFlagCells)}% of all cells`,
+              color: "#10b981",
+            },
+            {
+              icon: Gauge,
+              label: "Quotas capped",
+              value: <AnimatedNumber value={stats.cappedCells} suffix={` / ${stats.totalMeterCells}`} />,
+              sub: `${Math.max(stats.totalMeterCells - stats.cappedCells, 0)} unlimited`,
+              color: "#f59e0b",
+            },
+            {
+              icon: Moon,
+              label: "Islamic features",
+              value: <AnimatedNumber value={stats.muslimPlans} suffix={` / ${stats.plans}`} />,
+              sub: stats.muslimFlags ? `plans with any of ${stats.muslimFlags}` : "none in catalog",
+              color: "#8b5cf6",
+            },
+          ].map((t, i) => (
+            <motion.div
+              key={t.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12 + i * 0.06, duration: 0.4, ease: "easeOut" }}
+            >
+              <HeaderStat icon={t.icon} label={t.label} value={t.value} sub={t.sub} color={t.color} />
+            </motion.div>
+          ))}
         </div>
       </motion.div>
 
       {loading ? (
         <SALoader />
+      ) : loadError ? (
+        <div className={`${card} py-20 text-center`}>
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-300" />
+          <p className="text-gray-600">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => setRefreshKey((k) => k + 1)}
+            className="mt-4 inline-flex items-center gap-1.5 border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Try again
+          </button>
+        </div>
       ) : plans.length === 0 ? (
         <div className={`${card} py-20 text-center`}>
           <SlidersHorizontal className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -376,6 +547,10 @@ export default function Features() {
               </span>
               <span className="inline-flex items-center gap-1">
                 <Lock className="h-3 w-3 text-gray-400" /> Always on
+              </span>
+              {/* The quota cells show this when empty — say what it means. */}
+              <span className="inline-flex items-center gap-1">
+                <InfinityIcon className="h-3.5 w-3.5 text-gray-300" /> Unlimited
               </span>
             </div>
             <button
@@ -481,7 +656,7 @@ export default function Features() {
                       onLimit={setLimit}
                       onGroupAllPlans={setGroupAllPlans}
                       onPlanGroup={setRowsForPlan}
-                      groupOnCount={groupOnCount}
+                      groupCounts={counts.byPlanGroup}
                     />
                   );
                 })}
@@ -503,8 +678,10 @@ export default function Features() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
           <div
+            ref={menuRef}
+            role="menu"
             className="fixed z-50 w-52 border border-gray-100 bg-white py-1.5 shadow-lg"
-            style={{ top: menu.top, left: menu.left }}
+            style={{ top: menuPos.top, left: menuPos.left }}
           >
             <button
               type="button"
@@ -571,7 +748,7 @@ export default function Features() {
                 </span>
                 <span className="whitespace-nowrap text-sm">
                   <span className="font-semibold text-gray-900">
-                    {changeCount || ""} unsaved change{changeCount === 1 ? "" : "s"}
+                    {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
                   </span>
                   <span className="ml-1.5 hidden text-gray-400 sm:inline">— not yet applied</span>
                 </span>
@@ -600,10 +777,11 @@ export default function Features() {
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }
 
-function HeaderStat({ icon: Icon, label, value, color }) {
+function HeaderStat({ icon: Icon, label, value, sub, color }) {
   return (
     <div className="flex items-center gap-3 px-5 py-4 sm:px-6">
       <span
@@ -614,7 +792,8 @@ function HeaderStat({ icon: Icon, label, value, color }) {
       </span>
       <div className="min-w-0">
         <p className="truncate text-lg font-bold leading-none text-gray-900">{value}</p>
-        <p className="mt-1 text-xs text-gray-400">{label}</p>
+        <p className="mt-1 truncate text-xs text-gray-400">{label}</p>
+        {sub ? <p className="truncate text-[10px] text-gray-300">{sub}</p> : null}
       </div>
     </div>
   );
@@ -640,7 +819,7 @@ function FeatureGroupRows({
   onLimit,
   onGroupAllPlans,
   onPlanGroup,
-  groupOnCount,
+  groupCounts,
 }) {
   const isQuota = flagRows.length === 0; // quotas group has only meters
   return (
@@ -704,7 +883,7 @@ function FeatureGroupRows({
               </td>
             );
           }
-          const { on, total } = groupOnCount(p.code, rows);
+          const { on, total } = groupCounts?.[p.code]?.[group.key] || { on: 0, total: 0 };
           const allOn = total > 0 && on === total;
           const toggleable = flagRows.some((f) => !f.core);
           return (
@@ -794,17 +973,28 @@ function FeatureRow({ f, plans, matrix, hasUnlocks, isOpen, onToggleExpand, onTo
                 className={`px-3 py-2 text-center ${planCellClass(p.isPopular)}`}
                 style={planCellStyle(p.isPopular)}
               >
+                {/* Empty = unlimited. The ∞ is drawn ONCE, as an icon — this
+                    used to render a "∞" text placeholder AND the icon stacked
+                    on top of each other, which read as a smudge. It's `peer`-
+                    hidden on focus so the caret never sits over the glyph, and
+                    the number spinners are suppressed: they crowded a 72px
+                    cell and stole clicks meant for the field. */}
                 <div className="relative inline-flex items-center">
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={val}
                     onChange={(e) => onLimit(p.code, f.key, e.target.value)}
-                    placeholder="∞"
-                    className="w-[72px] border border-gray-200 bg-white px-2 py-1 text-center text-sm text-gray-800 outline-none transition-colors focus:border-accent"
+                    aria-label={`${f.label} limit for ${p.name} — leave empty for unlimited`}
+                    title={val === "" ? "Unlimited — type a number to cap it" : undefined}
+                    className="peer w-[72px] border border-gray-200 bg-white px-2 py-1 text-center text-sm text-gray-800 outline-none transition-colors focus:border-accent"
                   />
                   {val === "" && (
-                    <InfinityIcon className="pointer-events-none absolute left-1/2 h-3.5 w-3.5 -translate-x-1/2 text-gray-300" />
+                    <InfinityIcon
+                      aria-hidden
+                      className="pointer-events-none absolute left-1/2 h-4 w-4 -translate-x-1/2 text-gray-300 transition-opacity peer-focus:opacity-0"
+                    />
                   )}
                 </div>
               </td>
