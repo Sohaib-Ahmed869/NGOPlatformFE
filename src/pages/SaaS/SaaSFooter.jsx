@@ -1,7 +1,10 @@
-import React from "react";
 import { Link } from "react-router-dom";
-import { HeartHandshake, ArrowRight, Mail, MapPin, Phone, Facebook, Instagram, Twitter, Linkedin } from "lucide-react";
+import { ArrowRight, Mail, MapPin, Phone, Facebook, Instagram, Twitter, Linkedin } from "lucide-react";
 import { useTenant } from "../../context/TenantContext";
+// The white cut of the Donexus wordmark — the footer is always dark green.
+// Same lockup as the navbar (see SaaSNavbar), so the page opens and closes on
+// the same mark.
+import donexusWordmarkLight from "../../assets/Donexus Logo/Donexus-265.png";
 
 const productLinks = [
   { label: "Features", to: "/#features" },
@@ -22,7 +25,9 @@ const supportLinks = [
 export default function SaaSFooter() {
   const { platform } = useTenant();
   const name = platform?.name || "Donexus";
-  const logo = platform?.logo || platform?.logoDark || ""; // light logo for the dark footer
+  // Light logo for the dark footer; falls back to the Donexus wordmark rather
+  // than to an icon-plus-text placeholder.
+  const logo = platform?.logo || platform?.logoDark || donexusWordmarkLight;
   const description =
     platform?.description ||
     "The warm, all-in-one platform that helps charities raise funds, welcome donors and run campaigns, with their own branded portal.";
@@ -54,19 +59,7 @@ export default function SaaSFooter() {
         <div className="grid grid-cols-1 gap-10 pb-10 sm:grid-cols-2 lg:grid-cols-[1.6fr_repeat(3,1fr)]">
           {/* Brand */}
           <div>
-            {logo ? (
-              <img src={logo} alt={name} className="h-10 w-auto max-w-[200px] object-contain" />
-            ) : (
-              <div className="flex items-center gap-2.5">
-                <span
-                  className="grid h-10 w-10 place-items-center rounded-none text-white"
-                  style={{ background: "linear-gradient(135deg, var(--tenant-accent), var(--pf-accent-2, #065F46))" }}
-                >
-                  <HeartHandshake className="h-5 w-5" />
-                </span>
-                <span className="text-[17px] font-extrabold tracking-tight text-white">{name}</span>
-              </div>
-            )}
+            <img src={logo} alt={name} className="h-9 w-auto max-w-[200px] object-contain" />
             <p className="mt-4 max-w-[300px] text-sm leading-relaxed text-white/55">{description}</p>
             <Link
               to="/register"

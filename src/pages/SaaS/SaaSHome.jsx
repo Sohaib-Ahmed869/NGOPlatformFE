@@ -1,71 +1,28 @@
-import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import tenantService from "../../services/tenant.service";
 import platformService from "../../services/platform.service";
 import {
   motion, AnimatePresence, useInView, useMotionValue, useSpring,
-  useReducedMotion, useScroll, useTransform,
+  useReducedMotion,
 } from "framer-motion";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
-  Heart, Users, ArrowRight, Check,
-  Palette, Target, CreditCard, Calendar, Megaphone,
-  BarChart3, Quote, HandHeart, Play, Star,
+  Users, ArrowRight, Check,
+  Palette, Target, CreditCard, Calendar,
+  BarChart3, Quote, Star,
   X as XIcon,
 } from "lucide-react";
+import HeroScene, { StepSetup, StepBrand, StepReceive } from "./scenes";
 import CtaSection from "./CtaSection";
-// The Donexus mark, used as a MASK (not an <img>) so it takes the live theme
-// colour instead of the baked-in green — see <DonexusMark/>.
-import donexusMark from "../../assets/Donexus Logo/Donexus-268.png";
+import {
+  V, font, pageCss as css, EASE, REVEAL, RISE, Reveal, stagger, fadeUpChild,
+  Btn, Chip, SectionHead,
+} from "./ui";
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* ── Brand palette, driven by the platform design tokens (set in App.jsx
-   PLATFORM_VARS). Neutrals stay literal; brand hues resolve to the shared
-   --tenant-* vars so the whole page themes consistently. ── */
-const V = {
-  // surface2 = a faint wash of the brand accent (was a hardcoded mint), so the
-  // alternating section bands + light fills follow the theme instead of staying green.
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .10)", line2: "rgba(var(--tenant-primary-rgb), .05)",
-  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)",
-  // `glow` = lighter shade of the brand accent, used as the SECOND stop of the
-  // theme gradient (keeps gradients single-hue / on-theme instead of accent→gold).
-  glow: "var(--tenant-accent-light, #059669)",
-  accent: "var(--pf-gold, #F59E0B)", accentSoft: "var(--pf-gold-soft, #FEF3C7)", accentGlow: "rgba(245,158,11,.22)",
-  success: "#059669",
-};
-const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
-
-/* ── Animation helpers ──
-   ONE motion vocabulary for the whole page (§7.1): entrances rise 24px and fade
-   in over 0.7s on the expo-out curve, lists stagger at 0.1s. Nothing scales on
-   entrance. Deviating per-section is what makes a page feel assembled rather
-   than designed, so these three constants are the only source of truth. ── */
-const EASE = [0.22, 1, 0.36, 1]; // expo-out — mirrors --ease in the CSS
-const REVEAL = 0.7;              // seconds
-const RISE = 24;                 // px
-
-const Reveal = ({ children, delay = 0, className = "", style = {} }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.12 });
-  return (
-    <motion.div ref={ref} className={className} style={style}
-      initial={{ opacity: 0, y: RISE }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: RISE }}
-      transition={{ duration: REVEAL, delay, ease: EASE }}>
-      {children}
-    </motion.div>
-  );
-};
-
-const stagger = { visible: { transition: { staggerChildren: 0.1 } } };
-const fadeUpChild = {
-  hidden: { opacity: 0, y: RISE },
-  visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: REVEAL, delay: i * 0.1, ease: EASE } }),
-};
 
 const MotionLink = motion(Link);
 const MagneticBtn = ({ children, className = "", style = {}, as: Tag = "a", ...props }) => {
@@ -90,408 +47,6 @@ const MagneticBtn = ({ children, className = "", style = {}, as: Tag = "a", ...p
   );
 };
 
-/* ── Injected CSS ──
-   The page follows DESIGN_GUIDELINES.md: a fluid clamp() system with three
-   scale-up tiers, the asymmetric corner signature, and one shared motion
-   vocabulary. The brand hues stay on the --tenant-* tokens (see `V`), so this
-   layer is shape + scale + motion only, never colour. */
-const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
-
-/* ---------- Design tokens (§4.1) ----------
-   Almost nothing here is a fixed pixel value. Sections read these instead of
-   hardcoding padding/width, so one edit re-proportions the whole page. */
-.saas-page{
-  --page-pad: clamp(24px, 5vw, 80px);   /* shared page gutter */
-  --shell: 1200px;                      /* max content measure */
-  --section-y: clamp(64px, 7.6vw, 104px);
-  --gap: clamp(24px, 3.4vw, 64px);
-  --ease: cubic-bezier(.22,1,.36,1);    /* expo-out — every entrance uses it */
-  --reveal: .7s;                        /* entrance duration */
-}
-/* Tier 2 + 3 (§4.2). Each tier's min equals the previous tier's max so there is
-   no visual jump at the boundary — clamp() alone would strand content in the
-   middle of a 2560px screen. */
-@media (min-width:1440px){
-  .saas-page{ --page-pad: clamp(80px, 5vw, 120px); --shell:1320px; --section-y: clamp(104px, 7.6vw, 132px) }
-}
-@media (min-width:2000px){
-  .saas-page{ --page-pad: clamp(120px, 5vw, 180px); --shell:1520px; --section-y: clamp(132px, 6.6vw, 168px) }
-}
-.saas-section{ padding-block: var(--section-y); padding-inline: var(--page-pad) }
-.saas-shell{ width:100%; max-width: var(--shell); margin-inline:auto }
-/* Full-bleed children re-pad themselves; the negative margin MUST use the same
-   expression as the padding or the two drift apart at different widths. */
-.saas-bleed{ margin-inline: calc(-1 * var(--page-pad)); padding-inline: var(--page-pad) }
-
-/* ---------- Type roles (§3.2) ----------
-   Large type carries negative tracking; small type never does. Measure is
-   constrained in ch, not px, so it holds across the whole fluid ladder. */
-.saas-h1{ font-size: clamp(36px, 5vw, 64px); line-height:1.03; letter-spacing:-0.03em }
-.saas-h2{ font-size: clamp(26px, 3.2vw, 40px); line-height:1.08; letter-spacing:-0.02em }
-.saas-h3{ font-size: clamp(18px, 1.5vw, 23px); line-height:1.2; letter-spacing:-0.01em }
-.saas-lede{ font-size: clamp(15px, 1.2vw, 18px); line-height:1.6; max-width:52ch }
-.saas-measure{ max-width:46ch }
-/* Off-screen clipping, never display:none, so an icon-only control keeps an
-   accessible name (§10). */
-.saas-sr{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
-  overflow:hidden; clip-path:inset(50%); white-space:nowrap }
-@media (min-width:1440px){
-  .saas-h1{ font-size: clamp(64px, 5vw, 78px) }
-  .saas-h2{ font-size: clamp(40px, 3.2vw, 50px) }
-  .saas-h3{ font-size: clamp(23px, 1.5vw, 27px) }
-  .saas-lede{ font-size: clamp(18px, 1.2vw, 20px) }
-}
-@media (min-width:2000px){
-  .saas-h1{ font-size: clamp(78px, 4.4vw, 96px) }
-  .saas-h2{ font-size: clamp(50px, 2.8vw, 62px) }
-  .saas-h3{ font-size: clamp(27px, 1.4vw, 31px) }
-  .saas-lede{ font-size: clamp(20px, 1.1vw, 22px) }
-}
-
-/* Distinct, editorial display serif for headings (not the generic geometric
-   sans every generated landing page ships). Body text stays as-is. */
-.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{
-  font-family:'Fraunces','Outfit',Georgia,serif !important;
-  letter-spacing:-0.015em;
-}
-/* Display headings run at 500, NOT Tailwind's font-bold: Fraunces is already a
-   high-contrast serif, so 700 at 40–80px reads as a slab. Small headings
-   (h3–h6, card + list titles) keep their own weights — they need the density. */
-.saas-page h1,.saas-page h2{font-weight:500 !important}
-
-/* ---------- The corner signature (§2.3) ----------
-   Three round corners and one tight corner at the BOTTOM-RIGHT. Applied by
-   mapping Tailwind's radius utilities, so the shape lands everywhere without
-   editing every element. Specificity (0,2,0) beats Tailwind's (0,1,0) — no
-   !important needed.
-   rounded-full is deliberately exempt: avatars, status dots, progress bars and
-   the billing toggle are genuinely circular and the asymmetry would read as a
-   rendering bug. */
-.saas-page [class*="rounded-2xl"],
-.saas-page [class*="rounded-3xl"]{ border-radius:16px 16px 4px 16px }
-.saas-page [class*="rounded-xl"]{ border-radius:12px 12px 3px 12px }
-.saas-page [class*="rounded-lg"],
-.saas-page [class*="rounded-md"]{ border-radius:8px 8px 2px 8px }
-/* Interactive surfaces use the em form so the corner scales with the button's
-   own (fluid) font-size instead of drifting square at large sizes. */
-.saas-page a[class*="rounded-"]:not([class*="rounded-full"]),
-.saas-page button[class*="rounded-"]:not([class*="rounded-full"]),
-.saas-page .saas-chip{ border-radius:.55em .55em .11em .55em }
-
-/* ---------- Hero atmosphere ----------
-   The hero used to sit on a photograph. It now sits on light: the only texture
-   is a dot field masked to a soft ellipse so it dissolves long before it
-   reaches an edge, read over the gradient blooms framer-motion drifts behind
-   it. No keyframes here — that motion is owned by the component (§7.7), so it
-   can stop dead when the visitor prefers reduced motion. */
-.saas-hero-dots{
-  background-image:radial-gradient(rgba(var(--tenant-primary-rgb),.20) 1px,transparent 1px);
-  background-size:28px 28px;
-  -webkit-mask-image:radial-gradient(ellipse 58% 54% at 50% 40%,#000 0%,rgba(0,0,0,.34) 56%,transparent 82%);
-  mask-image:radial-gradient(ellipse 58% 54% at 50% 40%,#000 0%,rgba(0,0,0,.34) 56%,transparent 82%);
-}
-
-/* ---------- The sky glow ----------
-   Ported from the Think Studio hero (.home:before): wide, SHALLOW ellipses
-   NOTE: this whole css block is a JS template literal, so a stray backtick or
-   a dollar-brace in a comment here is a build error, not a typo.
-   anchored ABOVE the top edge, so the section is lit from off-screen and only
-   the lower falloff is ever visible. Three radii stacked — a tight bright core,
-   an off-centre one at 20% to break the symmetry, and a huge soft wash that
-   reaches the corners on wide screens.
-
-   The eight stops per gradient are the entire trick and must not be collapsed
-   to two: at 1350px across, a two-stop radial bands into visible rings, and the
-   hand-stepped alpha ramp is what makes this read as LIGHT rather than as a
-   coloured shape. The reference runs bright teal on near-black; the alphas here
-   are re-tuned roughly 3× down because our ground is off-white — anything near
-   the original strength turns the top of the page into a solid mint slab.
-   Everything resolves through --tenant-*-rgb, so it recolours with the brand. */
-.saas-hero-glow{
-  background:
-    radial-gradient(1350px 520px at 50% -70px,
-      rgba(var(--tenant-accent-rgb),.22) 0%,  rgba(var(--tenant-accent-rgb),.165) 12%,
-      rgba(var(--tenant-accent-rgb),.11) 26%, rgba(var(--tenant-accent-rgb),.07) 40%,
-      rgba(var(--tenant-accent-rgb),.042) 55%,rgba(var(--tenant-accent-rgb),.02) 70%,
-      rgba(var(--tenant-accent-rgb),.008) 85%,rgba(var(--tenant-accent-rgb),0) 100%),
-    radial-gradient(1100px 460px at 20% -60px,
-      rgba(var(--tenant-accent-rgb),.115) 0%, rgba(var(--tenant-accent-rgb),.075) 22%,
-      rgba(var(--tenant-accent-rgb),.046) 44%,rgba(var(--tenant-accent-rgb),.024) 64%,
-      rgba(var(--tenant-accent-rgb),.01) 82%, rgba(var(--tenant-accent-rgb),0) 100%),
-    radial-gradient(2100px 980px at 50% -240px,
-      rgba(var(--tenant-primary-rgb),.085) 0%,rgba(var(--tenant-primary-rgb),.06) 20%,
-      rgba(var(--tenant-primary-rgb),.04) 40%,rgba(var(--tenant-primary-rgb),.022) 60%,
-      rgba(var(--tenant-primary-rgb),.009) 78%,rgba(var(--tenant-primary-rgb),0) 92%),
-    /* the fourth layer rises from BELOW, so the stat band sits on a horizon
-       instead of on a hard edge — the reference does the same at page scale */
-    radial-gradient(1800px 920px at 50% calc(100% + 260px),
-      rgba(var(--tenant-accent-rgb),.10) 0%,  rgba(var(--tenant-accent-rgb),.055) 34%,
-      rgba(var(--tenant-accent-rgb),.02) 62%, rgba(var(--tenant-accent-rgb),0) 88%);
-}
-/* ---------- Descender room for the two masked headline lines ----------
-   saas-h1 runs line-height 1.03, which is TIGHTER than Fraunces' own glyph box,
-   so every descender pokes out below the box it lives in before any of our CSS
-   gets involved. Measured from the shipped font (unitsPerEm 2000): the deepest
-   lowercase is g at yMin -0.246em, win ascent/descent 1.170/0.3045em, giving a
-   baseline 0.948em down and a g bottom at 1.194em — i.e. 0.164em BELOW a 1.03em
-   box. That 0.164em is the number every value here has to clear.
-
-   It gets clipped in two independent places, and both need the room:
-     1. .saas-hero-mask — the roll mask. overflow:hidden clips at the padding box.
-     2. .saas-hero-ink  — background-clip:text. Blink only paints the gradient
-        inside the span's OWN border box; glyph ink below that box receives no
-        paint and, since the text is color:transparent, renders as nothing.
-   Fixing only #1 is why the g stayed shaved while the p and y on line one looked
-   fine — line one is solid-coloured text and never hits #2 at all. If gradient
-   text ever loses its descenders again, this is the one to check.
-
-   --clip is the shared knob; each box hands the space straight back with an
-   equal negative margin, so neither affects layout and generous is free. */
-.saas-hero-mask{
-  --clip:.34em;
-  overflow:hidden;
-  padding-bottom:var(--clip);
-  margin-bottom:calc(-1 * var(--clip));
-}
-.saas-hero-ink{ padding-bottom:var(--clip); margin-bottom:calc(-1 * var(--clip)) }
-@media (max-width:430px){ .saas-hero-rotate{ font-size:.86em } }
-.saas-card{transition:transform .4s ease,border-color .4s ease,box-shadow .4s ease}
-.saas-card:hover{transform:translateY(-4px);border-color:rgba(var(--tenant-accent-rgb),.28);box-shadow:0 18px 40px -16px rgba(var(--tenant-accent-rgb),.22)}
-.saas-btn-primary{position:relative;overflow:hidden}
-.saas-btn-primary::before{content:"";position:absolute;inset:0;
-  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.45) 50%,transparent 65%);
-  transform:translateX(-120%);transition:transform 1s cubic-bezier(.2,.8,.2,1);pointer-events:none}
-.saas-btn-primary:hover::before{transform:translateX(120%)}
-.saas-step{transition:transform .4s ease,box-shadow .4s ease}
-.saas-step:hover{transform:translateY(-4px);box-shadow:0 18px 40px -16px rgba(var(--tenant-accent-rgb),.2)}
-.saas-cta-ghost{transition:background .3s ease,border-color .3s ease,transform .3s ease}
-.saas-cta-ghost:hover{background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.55)!important;transform:translateY(-2px)}
-.saas-ic{transition:transform .35s ease,background .35s ease,color .35s ease,border-color .35s ease}
-.saas-card:hover .saas-ic{transform:rotate(-6deg) scale(1.08);background:linear-gradient(150deg,var(--tenant-accent,#047857),var(--tenant-accent-light,#059669));color:#fff;border-color:transparent}
-.saas-topline{transform:scaleX(0);transform-origin:left;transition:transform .55s cubic-bezier(.2,.8,.2,1)}
-.saas-card:hover .saas-topline,.saas-step:hover .saas-topline{transform:scaleX(1)}
-@keyframes saas-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.saas-marquee{animation:saas-marquee 40s linear infinite}
-.saas-marquee:hover{animation-play-state:paused}
-
-/* ---------- The feature rosette ----------
-   One square stage, everything inside placed from the centre. Two custom
-   properties drive the whole geometry: --ring is the orbit's diameter and
-   --orbit the radius the six labels are parked at. The stage's own height is
-   derived from them, so changing --ring re-proportions the control and nothing
-   needs measuring in JS. */
-/* Sized from its COLUMN, not the viewport. In the two-up layout the left
-   column is ~40% of the shell, so a vw-based clamp overshoots badly at the
-   1024px breakpoint — the ring gets drawn wider than the column it sits in and
-   the 3-and-9-o'clock labels clip off the edge. cqw tracks the column itself.
-   Budget: ring(52) + 2×pad(6.5) + label(25) = 90cqw, leaving 10% slack. */
-/* While pinned the block is glued to the top of the viewport, which leaves a
-   tall dead band underneath it. Filling the viewport and centring the two
-   columns inside puts the composition where the eye already is. Only from
-   1024px up — that is the only width that pins. */
-@media (min-width:1024px){
-  .saas-rosette-stage{ min-height:calc(100svh - 150px); align-content:center }
-}
-/* ---------- How it works — the road ----------
-   Steps alternate sides so the route zigzags across the full measure without
-   ever becoming a horizontal row.
-
-   --lane is where the carriageway runs, measured from the card's own left edge
-   — INSIDE the card, not in a gutter beside it. The card's opaque surface is
-   what hides the road along its length, so the route enters under the numbered
-   marker and re-emerges below the card. The rail is over-extended past both
-   ends of the card (--approach) so a stub of road is visible going in and
-   coming out; without it the road would appear to start and stop at the card
-   edges rather than pass beneath. */
-.saas-ribbon{
-  --lane: 54px;
-  --approach: 30px;
-  position:relative; max-width:1040px; margin-inline:auto;
-  margin-top:clamp(44px,5vw,76px);
-}
-.saas-ribbon__svg{ position:absolute; left:0; top:0; pointer-events:none; overflow:visible }
-.saas-ribbon__rows{
-  position:relative; display:flex; flex-direction:column;
-  gap:clamp(64px,7vw,116px); list-style:none; padding:0; margin:0;
-}
-.saas-ribbon__row{ display:grid; grid-template-columns:minmax(0,1fr) }
-@media (min-width:880px){
-  .saas-ribbon__row{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:clamp(40px,6vw,96px) }
-  .saas-ribbon__row--l .saas-ribbon__cell{ grid-column:1 }
-  .saas-ribbon__row--r .saas-ribbon__cell{ grid-column:2 }
-}
-.saas-ribbon__cell{ position:relative }
-/* Zero-width probe the path is measured from.
-   top:0 is the card's top edge, which is exactly where the numbered marker is
-   centred — the road has to ARRIVE at the marker. Overhanging the top by
-   --approach as well left the path ending 30px short of the last dot, with the
-   marker floating off the end of the road. Only the foot overhangs, so the
-   road re-emerges below the card. */
-.saas-ribbon__rail{
-  position:absolute; width:0; left:var(--lane);
-  top:0; bottom:calc(-1 * var(--approach));
-}
-/* Sits ON the lane, straddling the card's top edge: the marker for where the
-   road goes under. z-index clears the card; the card's top padding is what
-   keeps the title from colliding with it. */
-.saas-ribbon__dot{
-  position:absolute; z-index:1;
-  left:calc(var(--lane) - 23px); top:-23px;
-  display:grid; place-items:center;
-  width:46px; height:46px; border-radius:50%;
-  font-size:15px; font-weight:700; color:#fff;
-  background:linear-gradient(150deg, var(--tenant-accent-light,#059669), var(--pf-accent-2,#065F46));
-  box-shadow:0 0 0 5px rgba(var(--tenant-accent-rgb),.12), 0 10px 22px -10px rgba(6,40,30,.5);
-}
-.saas-ribbon__body{
-  background:#fff;
-  border:1px solid rgba(var(--tenant-primary-rgb),.10);
-  /* radius comes from the rounded-2xl class in the JSX so the card picks up the
-     shared corner signature — declaring it here would lose to that rule anyway
-     (specificity 0,2,0 beats 0,1,0) and only look like it worked. */
-  padding:clamp(30px,3vw,38px) clamp(22px,2.4vw,32px) clamp(22px,2.4vw,30px);
-  box-shadow:0 30px 70px -40px rgba(6,40,30,.34);
-  transition:transform .5s var(--ease), box-shadow .5s var(--ease);
-}
-.saas-ribbon__body:hover{
-  transform:translateY(-3px);
-  box-shadow:0 38px 84px -40px rgba(6,40,30,.4);
-}
-/* Inset panel rather than a hairline rule: it gives the product shot a surface
-   of its own, so a card reads as copy PLUS a screenshot instead of one column
-   of mixed content. */
-.saas-ribbon__visual{
-  display:flex; justify-content:center; align-items:center;
-  margin-top:clamp(18px,2.2vw,26px); padding:clamp(16px,2vw,22px);
-  min-height:104px;
-  border-radius:14px 14px 4px 14px;
-  background:var(--tenant-bg,#F3F8F5);
-  border:1px solid rgba(var(--tenant-primary-rgb),.07);
-}
-
-.saas-rosette-col{ container-type: inline-size }
-.saas-rosette{
-  /* The ring must clear a whole NODE, not just the label: the node box is
-     ~100px tall (44px icon + gap + up to two text lines) and is centred on the
-     orbit, so its inner edge sits ~50px inside --orbit. --pad therefore has to
-     beat 50px minus the 6% slack between the element box and the drawn circle
-     (r=94 of 100). The old 34px floor lost that race below ~1300px and the ring
-     sliced through the 6-o'clock icon and the diagonal labels. */
-  --ring: clamp(176px, 44cqw, 300px);
-  --pad: clamp(50px, 9.5cqw, 64px);
-  --orbit: calc(var(--ring) / 2 + var(--pad));
-  --label-w: clamp(112px, 25cqw, 150px);
-  position:relative; width:100%;
-  /* 150, not 112: the 12- and 6-o'clock labels now sit on the far side of
-     their icons, so the stage has to reach a whole node past the orbit. */
-  height:calc(var(--orbit) * 2 + 150px);
-}
-.saas-rosette-ring{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:var(--ring); height:var(--ring); overflow:visible; pointer-events:none;
-}
-/* .46, down from .52, and the halo behind it is gone. The mark is eight
-   interlocking ribbons — at hub scale it is the single busiest object on the
-   screen, and a bloom behind it only smeared the gaps between the loops. Let it
-   be small and crisp; the ring and labels carry the structure. */
-.saas-rosette-hub{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:calc(var(--ring) * .46); height:calc(var(--ring) * .46);
-  display:grid; place-items:center; pointer-events:none;
-}
-.saas-rosette-mark{position:relative}
-.saas-rosette-node{
-  position:absolute; left:50%; top:50%;
-  width:var(--label-w); display:flex; flex-direction:column; align-items:center; gap:9px;
-  text-align:center; background:none; border:0; padding:0; cursor:pointer;
-}
-.saas-rosette-ic{
-  display:grid; place-items:center; width:44px; height:44px; border-radius:50%;
-  transition:background .4s var(--ease), color .4s var(--ease),
-    box-shadow .4s var(--ease), transform .4s var(--ease);
-}
-/* Hovering an unselected feature previews its chrome — the only hint that the
-   bare glyphs are clickable now that they carry no outline of their own. */
-.saas-rosette-node:hover .saas-rosette-ic{
-  transform:translateY(-2px); background:rgba(var(--tenant-accent-rgb),.10);
-}
-/* The unselected labels are DIMMED, not faint: --inkFaint (#8AA89C) sits at
-   2.40:1 on the page background, and these are interactive tab labels, not
-   decoration. --inkSoft clears AA at 5.76:1 (§10). */
-.saas-rosette-label{
-  font-size:13.5px; line-height:1.3; letter-spacing:-.01em;
-  transition:color .4s var(--ease), font-weight .4s var(--ease);
-}
-/* Keyboard users get the focus ring; the mouse path stays clean (§10). */
-.saas-rosette-node:focus-visible{outline:none}
-.saas-rosette-node:focus-visible .saas-rosette-ic{
-  outline:2px solid var(--tenant-accent,#047857); outline-offset:3px;
-}
-@media (prefers-reduced-motion:reduce){
-  .saas-rosette-ic,.saas-rosette-label,.saas-rosette-mark{transition:none}
-}
-/* Charity logo wall — a single row scrolling left. The track holds two
-   halves and every half repeats the row twice, so one half always overflows
-   the viewport and the -50% loop never shows a gap (§ same trick as
-   .saas-marquee above). */
-@keyframes saas-logorow-l{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.saas-logorow{position:relative;overflow:hidden;
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
-  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
-.saas-logotrack{display:flex;width:max-content;align-items:center;will-change:transform}
-.saas-logotrack--l{animation:saas-logorow-l 78s linear infinite}
-/* Deliberately NO hover pause. Scrolling with a wheel or trackpad leaves the
-   cursor parked mid-viewport, so the row drifting past it would stop dead at
-   exactly the moment you scrolled onto the section — which reads as a stuck,
-   broken band rather than a considerate pause. The row never stops. */
-.saas-logoitem{flex:none;display:flex;align-items:center;margin-right:var(--logo-gap)}
-/* Logos ship at their own aspect ratios, so a single row height makes stacked
-   marks (WWF, Oxfam) read far smaller than wordmarks. --logo-scale is the
-   per-logo correction that keeps optical weight even across the row. */
-.saas-logoimg{height:calc(var(--logo-h) * var(--logo-scale,1));width:auto;max-width:none;
-  object-fit:contain;opacity:.66;transition:opacity .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
-.saas-logoitem:hover .saas-logoimg{opacity:1;transform:scale(1.05)}
-/* No reduced-motion rule here on purpose — the page-wide reset at §7.7 already
-   neutralises every animation with !important, so anything set here is dead. */
-@keyframes saas-prog-shine{0%{transform:translateX(-130%)}55%,100%{transform:translateX(420%)}}
-.saas-prog-shine{animation:saas-prog-shine 2.8s ease-in-out infinite}
-@keyframes saas-pulse-ring{0%{transform:scale(.85);opacity:.55}80%{opacity:0}100%{transform:scale(2);opacity:0}}
-.saas-pulse-ring{animation:saas-pulse-ring 2.1s ease-out infinite}
-@keyframes saas-pop-in{0%{transform:scale(0) rotate(-30deg);opacity:0}60%{transform:scale(1.15) rotate(0)}100%{transform:scale(1);opacity:1}}
-
-
-/* ---------- Reduced motion (§7.7) ----------
-   Two levels now that the scroll-lock is gone: CSS motion is neutralised here,
-   and JS-driven motion checks useReducedMotion() and never subscribes. */
-@media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
-}
-`;
-
-/* ── Friendly section badge — carries the corner signature via .saas-chip ── */
-const Badge = ({ icon: Icon, children, center }) => (
-  <span className={`saas-chip inline-flex items-center gap-2 px-3.5 py-1.5 text-[13px] font-medium ${center ? "mx-auto" : ""}`}
-    style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.primary, boxShadow: "0 1px 2px rgba(6,40,30,.04)" }}>
-    {Icon && <Icon className="w-3.5 h-3.5" />}
-    {children}
-  </span>
-);
-
-/* ── The standard section head: eyebrow → h2 → lede (§5.1).
-   `id` is required rather than optional — every section labels itself with
-   aria-labelledby pointing at this h2, so a screen reader announces the section
-   by its real heading instead of "region". ── */
-const SectionHead = ({ id, badge, badgeIcon, title, subtitle, center }) => (
-  <Reveal className={`mb-[clamp(36px,4.4vw,64px)] max-w-[680px] ${center ? "mx-auto text-center" : ""}`}>
-    {badge && <Badge icon={badgeIcon} center={center}>{badge}</Badge>}
-    <h2 id={id} className="saas-h2 mt-5 font-bold"
-      style={{ color: V.ink }} dangerouslySetInnerHTML={{ __html: title }} />
-    {subtitle && (
-      <p className={`saas-lede mt-4 ${center ? "mx-auto" : ""}`} style={{ color: V.inkSoft }}>{subtitle}</p>
-    )}
-  </Reveal>
-);
 
 /* ── Testimonial avatar with a graceful initials fallback if the image 404s ── */
 function ReviewAvatar({ t }) {
@@ -568,13 +123,16 @@ function formatStat(n, { money, plus }) {
   return { to: n, prefix, suffix: plus && n >= 25 ? "+" : "" };
 }
 
+/* Descriptions are deliberately one tight sentence each and close to the same
+   length: the cards sit in a 3-up grid with no images to absorb the difference,
+   so a stray long line is what makes a row look ragged. */
 const features = [
-  { icon: CreditCard, kind: "donations", title: "Simple donations", desc: "Accept one-time, monthly and instalment gifts. Receipts and thank-you emails are sent automatically. No spreadsheets." },
-  { icon: Users, kind: "donors", title: "Know your donors", desc: "Every supporter in one place: giving history, contact details and the causes closest to their heart." },
-  { icon: Palette, kind: "brand", title: "Your brand, your portal", desc: "Your own web address, your logo and your colours. Donors see your charity, never us." },
-  { icon: Target, kind: "campaigns", title: "Campaigns that inspire", desc: "Set a goal, watch the progress bar fill, and share updates that keep supporters connected to the impact." },
-  { icon: Calendar, kind: "events", title: "Events & volunteers", desc: "Run fundraisers and drives, manage sign-ups and coordinate your volunteer team with ease." },
-  { icon: BarChart3, kind: "insights", title: "Clear insights", desc: "See what's working at a glance: donations over time, recurring supporters and campaign results." },
+  { icon: CreditCard, kind: "donations", title: "Simple donations", desc: "One-time, monthly and instalment gifts, with receipts and thank-yous sent for you." },
+  { icon: Users, kind: "donors", title: "Know your donors", desc: "Every supporter in one place: giving history, contact details, the causes they care about." },
+  { icon: Palette, kind: "brand", title: "Your brand, your portal", desc: "Your own web address, your logo, your colours. Donors see your charity, never us." },
+  { icon: Target, kind: "campaigns", title: "Campaigns that inspire", desc: "Set a goal, watch it fill, and post updates that keep supporters close to the impact." },
+  { icon: Calendar, kind: "events", title: "Events & volunteers", desc: "Run fundraisers and drives, manage sign-ups and coordinate your volunteer team." },
+  { icon: BarChart3, kind: "insights", title: "Clear insights", desc: "Donations over time, recurring supporters and campaign results, all at a glance." },
 ];
 
 const steps = [
@@ -642,7 +200,6 @@ const charityLogos = [
   { name: "Royal Flying Doctor Service", file: "rfds.png", scale: 0.97 },
   { name: "The Fred Hollows Foundation", file: "fred-hollows.svg", scale: 0.88 },
 ];
-const initialsOf = (name) => name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
 /* ── GSAP count-up — rolls a number from 0 → `to` the first time it scrolls
    into view, with thousands separators and an optional prefix/suffix. ── */
@@ -718,153 +275,75 @@ function RotatingPhrase({ phrases }) {
 const heroPhrases = ["do more good.", "raise more funds.", "reach more donors.", "grow with ease."];
 const heroWords = ["Help", "your", "charity"];
 
-// Ambient blooms: position, tint and their own drift. Kept on the accent token
-// (single-hue, per the gradient rule in `V`) at low alpha so text stays legible.
-// These are deliberately WEAKER than the static .saas-hero-glow behind them —
-// the glow is the composition, the blooms only keep it from sitting still. Push
-// these alphas back up and the two layers stack into a muddy green field.
-const heroBlooms = [
-  {
-    box: "left-[-16%] top-[-20%] h-[min(62vw,760px)] w-[min(62vw,760px)]",
-    tint: "rgba(var(--tenant-accent-rgb),.13)", duration: 26,
-    drift: { x: [0, 70, -26, 0], y: [0, 44, -18, 0], scale: [1, 1.1, 0.95, 1] },
-  },
-  {
-    box: "right-[-18%] top-[4%] h-[min(54vw,660px)] w-[min(54vw,660px)]",
-    tint: "rgba(var(--tenant-primary-rgb),.11)", duration: 34,
-    drift: { x: [0, -62, 24, 0], y: [0, 30, -36, 0], scale: [1, 1.14, 0.97, 1] },
-  },
-  {
-    box: "bottom-[-26%] left-[24%] h-[min(46vw,580px)] w-[min(46vw,580px)]",
-    tint: "rgba(var(--tenant-accent-rgb),.10)", duration: 30,
-    drift: { x: [0, 40, -44, 0], y: [0, -26, 16, 0], scale: [1, 1.08, 1.02, 1] },
-  },
-];
-
 function HeroSection() {
-  const ref = useRef(null);
   const reduce = useReducedMotion();
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  // Restrained parallax: the content drifts down a little and dissolves as the
-  // section leaves, the blooms rise against it. Flat under reduced motion.
-  const contentY = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["0%", "16%"]);
-  const contentFade = useTransform(scrollYProgress, [0, 0.82], [1, 0]);
-  const bloomY = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["0%", "-18%"]);
 
   return (
     <section
-      ref={ref}
       data-hero
       aria-labelledby="saas-hero-title"
-      className="relative flex min-h-[100svh] flex-col overflow-hidden"
-      style={{ background: `linear-gradient(180deg, #FFFFFF 0%, ${V.bg} 58%)`, color: V.ink }}
+      className="relative overflow-hidden"
+      style={{ background: V.bg, color: V.ink }}
     >
-      {/* Sky glow — deliberately OUTSIDE the parallax wrapper and unanimated:
-          it's meant to read as light spilling in from above the viewport, and
-          light doesn't drift. Sits behind everything else. */}
-      <div className="saas-hero-glow pointer-events-none absolute inset-0" aria-hidden />
+      <div
+        className="relative z-10 mx-auto w-full max-w-[min(1180px,94vw)] pb-[clamp(24px,4vh,48px)] pt-[clamp(112px,15vh,168px)] text-center"
+        style={{ paddingInline: "var(--page-pad)" }}
+      >
+        <motion.div initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: REVEAL, delay: 0.05, ease: EASE }}>
+          <Chip>The complete platform for charities</Chip>
+        </motion.div>
 
-      {/* Ambient blooms — the scroll parallax lives on the wrapper so each bloom
-          keeps its own x/y drift loop uncontested. */}
-      <motion.div className="pointer-events-none absolute inset-0" style={{ y: bloomY }} aria-hidden>
-        {heroBlooms.map((b) => (
-          <motion.div
-            key={b.box}
-            className={`absolute rounded-full ${b.box}`}
-            style={{ background: `radial-gradient(circle at 50% 50%, ${b.tint} 0%, transparent 68%)` }}
-            animate={reduce ? undefined : b.drift}
-            transition={reduce ? undefined : { duration: b.duration, repeat: Infinity, ease: "easeInOut" }}
-          />
-        ))}
-      </motion.div>
-
-      {/* Dot field, masked to an ellipse so it never meets an edge */}
-      <div className="saas-hero-dots pointer-events-none absolute inset-0 opacity-70" aria-hidden />
-
-      {/* ── Content (centred) ── */}
-      <motion.div className="relative z-10 flex flex-1 items-center justify-center" style={{ y: contentY, opacity: contentFade }}>
-        {/* The measure is wide (px, not ch) because the headline must hold its
-            longest rotating phrase on ONE line all the way up to the 2000px
-            type tier — the lede keeps its own 52ch measure via .saas-lede. */}
-        <div className="mx-auto w-full max-w-[min(1180px,94vw)] pb-[clamp(40px,6vh,72px)] pt-[clamp(112px,16vh,176px)] text-center"
-          style={{ paddingInline: "var(--page-pad)" }}>
-
-          {/* Eyebrow — the pulsing dot is the only thing here that loops on its
-              own, so it reads as "live" rather than as decoration. */}
-          <motion.div initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: REVEAL, delay: 0.05, ease: EASE }}>
-            <span className="saas-chip inline-flex items-center gap-2.5 px-4 py-1.5 text-[13px] font-medium"
-              style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.primary, boxShadow: "0 1px 2px rgba(6,40,30,.05)" }}>
-              <span className="relative grid h-2 w-2 place-items-center">
-                {!reduce && (
-                  <motion.span className="absolute h-2 w-2 rounded-full" style={{ background: V.primary }}
-                    animate={{ scale: [1, 2.6], opacity: [0.5, 0] }}
-                    transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut" }} />
-                )}
-                <span className="h-2 w-2 rounded-full" style={{ background: V.primary }} />
+        {/* Words rise from behind their own clipping mask, then the last line
+            takes over and keeps rotating. */}
+        <h1 id="saas-hero-title" className="saas-h1 mt-7 font-bold" aria-label="Help your charity do more good."
+          style={{ color: V.ink }}>
+          <span className="block">
+            {heroWords.map((w, i) => (
+              <span key={w} className="saas-hero-mask inline-block align-bottom" aria-hidden>
+                <motion.span className="inline-block"
+                  initial={reduce ? { opacity: 0 } : { y: "110%", opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.95, delay: 0.16 + i * 0.09, ease: EASE }}>
+                  {/* NON-BREAKING space on purpose: a plain trailing space at the
+                      end of an inline-block collapses and the words collide. */}
+                  {w}{i < heroWords.length - 1 ? " " : ""}
+                </motion.span>
               </span>
-              The complete platform for charities
-            </span>
-          </motion.div>
+            ))}
+          </span>
+          <motion.span className="mt-[.06em] block" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.44, ease: EASE }}>
+            <RotatingPhrase phrases={heroPhrases} />
+          </motion.span>
+        </h1>
 
-          {/* Headline — words rise from behind their own clipping mask, then the
-              last line takes over and keeps rotating. */}
-          <h1 id="saas-hero-title" className="saas-h1 mt-7 font-bold" aria-label="Help your charity do more good."
-            style={{ color: V.ink }}>
-            <span className="block">
-              {heroWords.map((w, i) => (
-                // .saas-hero-mask = the clip + its descender room (see the css)
-                <span key={w} className="saas-hero-mask inline-block align-bottom" aria-hidden>
-                  <motion.span className="inline-block"
-                    initial={reduce ? { opacity: 0 } : { y: "110%", opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ duration: 0.95, delay: 0.16 + i * 0.09, ease: EASE }}>
-                    {/* NON-BREAKING space on purpose: a plain trailing space at
-                        the end of an inline-block collapses and words collide */}
-                    {w}{i < heroWords.length - 1 ? " " : ""}
-                  </motion.span>
-                </span>
-              ))}
-            </span>
-            <motion.span className="mt-[.06em] block"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.44, ease: EASE }}>
-              <RotatingPhrase phrases={heroPhrases} />
-            </motion.span>
-          </h1>
+        <motion.p className="saas-lede mx-auto mt-6" style={{ color: V.inkSoft }}
+          initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: REVEAL, delay: 0.5, ease: EASE }}>
+          Your own donation website, on your own web address, taking gifts through your own
+          Stripe account. Live in a week.
+        </motion.p>
 
-          <motion.p className="saas-lede mx-auto mt-6" style={{ color: V.inkSoft }}
-            initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: REVEAL, delay: 0.5, ease: EASE }}>
-            Everything your organisation needs to raise funds, welcome donors and run heartfelt
-            campaigns, all in one warm, beautiful platform with your name on it.
-          </motion.p>
+        <motion.div className="mt-9 flex flex-wrap items-center justify-center gap-3"
+          initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: REVEAL, delay: 0.62, ease: EASE }}>
+          <MagneticBtn as="link" to="/plans"
+            className="inline-flex items-center rounded-full px-8 py-3.5 text-[15px] font-semibold text-white"
+            style={{ background: V.primary }}>
+            Start your charity portal
+          </MagneticBtn>
+          <Btn href="#how" tone="ghost">See how it works</Btn>
+        </motion.div>
+      </div>
 
-          <motion.div className="mt-9 flex flex-wrap items-center justify-center gap-3"
-            initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: REVEAL, delay: 0.62, ease: EASE }}>
-            <MagneticBtn as="link" to="/plans"
-              className="saas-btn-primary group inline-flex items-center gap-2.5 rounded-xl px-7 py-3.5 text-[15px] font-semibold text-white"
-              style={{ background: "linear-gradient(90deg, var(--tenant-primary, #102A23) 0%, var(--tenant-primary, #102A23) 22%, var(--tenant-accent, #047857) 100%)", boxShadow: "0 18px 40px -14px rgba(var(--tenant-accent-rgb), .55)" }}>
-              Start your charity portal
-              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-            </MagneticBtn>
-            <a href="#how" className="saas-card group inline-flex items-center gap-2.5 rounded-xl px-6 py-3.5 text-[15px] font-medium"
-              style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.ink, boxShadow: "0 1px 2px rgba(6,40,30,.05)" }}>
-              <span className="grid h-6 w-6 place-items-center rounded-full" style={{ background: V.surface2, color: V.primary }}>
-                <Play className="h-3 w-3 translate-x-px fill-current" />
-              </span>
-              See how it works
-            </a>
-          </motion.div>
-
-          {/* Stats live INSIDE the centred column, not pinned to the section's
-              bottom edge. As a full-bleed bar down there it read as a fixed
-              toolbar — it was the one element that neither drifted nor faded
-              with the rest of the hero on scroll. In here it inherits the
-              parallax and the fade, so it leaves with everything else. */}
-          <HeroStats />
-        </div>
+      {/* The scene's foreground band is the primary colour and runs off the
+          bottom edge, so it continues into <StoryBand/> with no seam. Nothing
+          may be inserted between the two. */}
+      <motion.div className="relative -mb-px"
+        initial={reduce ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1, delay: 0.28, ease: EASE }}>
+        <HeroScene />
       </motion.div>
     </section>
   );
@@ -897,7 +376,8 @@ const statsWrap = {
   visible: { opacity: 1, y: 0, transition: { duration: REVEAL, ease: EASE, delay: 0.86, delayChildren: 0.94 } },
 };
 
-function HeroStats() {
+function HeroStats({ tone = "dark" }) {
+  const light = tone === "light";
   const [stats, setStats] = useState(null); // null = loading / unavailable
   const reduce = useReducedMotion();
 
@@ -926,7 +406,7 @@ function HeroStats() {
           it earns the beat. Its own initial/animate opts it out of the variant
           tree; the tiles below stay on it. */}
       <motion.span aria-hidden className="block h-px w-full origin-center"
-        style={{ background: `linear-gradient(90deg, transparent, ${V.line} 18%, ${V.line} 82%, transparent)` }}
+        style={{ background: `linear-gradient(90deg, transparent, ${light ? "rgba(255,255,255,.18)" : V.line} 18%, ${light ? "rgba(255,255,255,.18)" : V.line} 82%, transparent)` }}
         initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.88, ease: EASE }} />
 
@@ -941,9 +421,9 @@ function HeroStats() {
               className="group w-[42%] cursor-default text-center sm:w-auto sm:min-w-[130px] sm:max-w-[220px] sm:flex-1">
               <motion.span className="block" variants={statFigure}>
                 <Counter to={f.to} prefix={f.prefix} suffix={f.suffix} decimals={f.decimals}
-                  className="text-[clamp(24px,2.2vw,30px)] font-bold tracking-tight" style={{ color: V.ink }} />
+                  className="text-[clamp(26px,2.4vw,34px)] font-bold tracking-tight" style={{ color: light ? "#FFFFFF" : V.ink }} />
               </motion.span>
-              <div className="mt-1 text-[13px]" style={{ color: V.inkSoft }}>{s.label}</div>
+              <div className="mt-1 text-[13px]" style={{ color: light ? "rgba(255,255,255,.55)" : V.inkSoft }}>{s.label}</div>
               {/* accent rule, grown from the centre on hover — CSS, not framer:
                   it only ever reacts to :hover and needs no state of its own */}
               <span aria-hidden className="mx-auto mt-2.5 block h-[2px] w-9 origin-center scale-x-0 rounded-full transition-transform duration-300 ease-out group-hover:scale-x-100"
@@ -956,752 +436,104 @@ function HeroStats() {
   );
 }
 
-/* ── The Donexus mark.
-   Rendered as a CSS mask over a themed gradient rather than as an <img>: the
-   PNG is ~79% transparent, so its alpha channel IS the artwork, and masking
-   lets the mark inherit --tenant-accent like everything else on the page.
-   An <img> would freeze it at the baked-in green and fight every other preset.
+/* ── The band the hero's foreground colour runs into.
+   Filled edge-to-edge in the primary colour so it continues the bottom of
+   <HeroScene/> with no seam. Carries the three things a charity board actually
+   asks about, and the live platform figures underneath — <HeroStats/> renders
+   nothing at all rather than inventing a number, so this block has to read fine
+   with the row absent. ── */
+const proofPoints = [
+  { title: "Your Stripe, your donors", body: "Gifts land in your account, and the donor list is yours to export whenever you like." },
+  { title: "Hosted in Sydney", body: "Australian donor data stays in Australia. Your board will ask; the answer is yes." },
+  { title: "Zakat, Sadaqah, Lillah, Fidya", body: "Islamic giving categories are built in, not bolted on." },
+];
 
-   NOTE ON THE GEOMETRY: the mark is FOUR interlocking ribbon bows at 90°,
-   reading as eight loops — it is 4-fold symmetric (verified: a 90° rotation
-   self-matches at 0.98, a 60° one at 0.58, i.e. noise). It is NOT a six-petal
-   rosette, so nothing here may assume one petal per feature. The mark stays
-   whole and turns as a unit; the six-way split lives on the orbit ring, which
-   we draw ourselves. Because 60° is not a multiple of 90°, each step is a
-   visible turn, and six of them complete exactly one revolution. ── */
-function DonexusMark({ size = 96, className = "", style = {} }) {
-  const mask = {
-    WebkitMaskImage: `url(${donexusMark})`, maskImage: `url(${donexusMark})`,
-    WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat",
-    WebkitMaskPosition: "center", maskPosition: "center",
-    WebkitMaskSize: "contain", maskSize: "contain",
-  };
+function StoryBand() {
   return (
-    <span aria-hidden className={className}
-      style={{ display: "block", width: size, height: size, background: `linear-gradient(145deg, ${V.glow}, ${V.primary2})`, ...mask, ...style }} />
-  );
-}
+    <section className="relative overflow-hidden" style={{ background: V.ink, color: "#fff" }}>
+      <div className="saas-shell relative py-[clamp(48px,6vw,88px)]" style={{ paddingInline: "var(--page-pad)" }}>
+        <Reveal>
+          <h2 className="max-w-[18ch] text-[clamp(26px,3.4vw,44px)] font-bold leading-[1.1] tracking-tight">
+            The whole thing, with your name on it.
+          </h2>
+        </Reveal>
 
-/* ── The bespoke mini-mockup for each feature — a real-looking slice of the
-   product (donation card, donor list, branded portal, campaign, events,
-   insights chart). ── */
-function FeaturePreview({ kind }) {
-  if (kind === "donations") {
-    return (
-      <div>
-        <div className="text-[13px] font-medium" style={{ color: V.inkSoft }}>Make a gift to</div>
-        <div className="text-[18px] font-bold" style={{ color: V.ink }}>Clean Water for Every Village</div>
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {["$25", "$50", "$100"].map((a, idx) => (
-            <div key={a} className="rounded-xl py-2.5 text-center text-[14px] font-semibold"
-              style={idx === 1 ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff" } : { background: V.surface, border: `1px solid ${V.line}`, color: V.ink }}>{a}</div>
-          ))}
-        </div>
-        <div className="mt-3 inline-flex rounded-xl p-1" style={{ background: V.surface2 }}>
-          <span className="rounded-lg px-4 py-1.5 text-[13px] font-semibold" style={{ background: V.surface, color: V.ink, boxShadow: "0 1px 2px rgba(0,0,0,.06)" }}>One-time</span>
-          <span className="rounded-lg px-4 py-1.5 text-[13px] font-medium" style={{ color: V.inkSoft }}>Monthly</span>
-        </div>
-        <button className="mt-5 w-full rounded-xl py-3 text-[14px] font-semibold text-white" style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}>Give $50</button>
-        <div className="mt-3 flex items-center gap-1.5 text-[12.5px]" style={{ color: V.inkSoft }}>
-          <Check className="h-4 w-4" style={{ color: V.success }} /> Receipt &amp; thank-you sent automatically
-        </div>
-      </div>
-    );
-  }
-  if (kind === "donors") {
-    const rows = [
-      { n: "Emily Richardson", t: "Monthly donor", a: "$50" },
-      { n: "Ahmed Khan", t: "One-time gift", a: "$120" },
-      { n: "Sarah Chen", t: "Monthly donor", a: "$25" },
-      { n: "David Okafor", t: "One-time gift", a: "$80" },
-    ];
-    return (
-      <div>
-        <div className="flex items-center justify-between">
-          <div className="text-[15px] font-bold" style={{ color: V.ink }}>Recent supporters</div>
-          <span className="text-[12px]" style={{ color: V.inkSoft }}>312 this month</span>
-        </div>
-        <div className="mt-3 space-y-2">
-          {rows.map((d) => (
-            <div key={d.n} className="flex items-center gap-3 rounded-xl p-2.5" style={{ background: V.surface, border: `1px solid ${V.line}` }}>
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ background: `linear-gradient(140deg, ${V.primary}, ${V.primary2})` }}>{initialsOf(d.n)}</span>
-              <div className="flex-1">
-                <div className="text-[13.5px] font-semibold" style={{ color: V.ink }}>{d.n}</div>
-                <div className="text-[11.5px]" style={{ color: V.inkFaint }}>{d.t}</div>
-              </div>
-              <span className="text-[13px] font-bold" style={{ color: V.primary }}>{d.a}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (kind === "brand") {
-    return (
-      <div>
-        <div className="relative overflow-hidden rounded-2xl p-5 text-white" style={{ background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})` }}>
-          <span className="absolute -right-6 -top-6 h-24 w-24 rounded-full" style={{ background: "rgba(255,255,255,.08)" }} />
-          <div className="relative flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl" style={{ background: "rgba(255,255,255,.18)" }}><HandHeart className="h-5 w-5" /></span>
-            {/* A TENANT's portal, so it carries a charity's name — deliberately
-                not "Donexus". This panel's whole claim is "donors see your
-                charity, never us"; putting the vendor's name on it would
-                contradict the copy three lines below. Hope Bridge is the same
-                fictional charity used in the partner wall and testimonials. */}
-            <div className="text-[15px] font-bold">Hope Bridge</div>
-          </div>
-          <div className="relative mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-semibold" style={{ background: "#fff", color: V.primary }}>
-            <Heart className="h-3.5 w-3.5" /> Donate now
-          </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-[12.5px]" style={{ color: V.inkSoft }}>Your colours &amp; logo</div>
-          <div className="flex gap-1.5">
-            {[V.primary, V.accent, V.primary2, "#0EA5E9"].map((c) => (
-              <span key={c} className="h-6 w-6 rounded-lg" style={{ background: c, border: `1px solid ${V.line}` }} />
-            ))}
-          </div>
-        </div>
-        <div className="mt-3 rounded-lg px-3 py-2.5 text-[12.5px]" style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.inkSoft }}>
-          <span style={{ color: V.primary }}>https://</span>hopebridge.donexus.org
-        </div>
-      </div>
-    );
-  }
-  if (kind === "campaigns") {
-    return (
-      <div>
-        <div className="text-[13px] font-medium" style={{ color: V.inkSoft }}>Active campaign</div>
-        <div className="text-[18px] font-bold" style={{ color: V.ink }}>Clean Water for Every Village</div>
-        <div className="mt-3 flex items-baseline gap-2">
-          <Counter to={38500} prefix="$" className="text-[26px] font-bold" style={{ color: V.ink }} />
-          <span className="text-[13px]" style={{ color: V.inkFaint }}>of $50,000 goal</span>
-        </div>
-        <div className="mt-3 h-2.5 overflow-hidden rounded-full" style={{ background: V.surface2 }}>
-          <motion.div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }}
-            initial={{ width: 0 }} animate={{ width: "78%" }} transition={{ duration: 1.2, ease: [0.2, 0.7, 0.2, 1] }} />
-        </div>
-        <div className="mt-4 rounded-xl p-3.5" style={{ background: V.surface, border: `1px solid ${V.line}` }}>
-          <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: V.primary }}>
-            <Megaphone className="h-3.5 w-3.5" /> Update posted
-          </div>
-          <div className="mt-1 text-[12.5px] leading-relaxed" style={{ color: V.inkSoft }}>“The first three wells are complete. Thank you for making it happen!”</div>
-        </div>
-      </div>
-    );
-  }
-  if (kind === "events") {
-    const evs = [
-      { m: "JUN", d: "18", t: "Charity Gala Dinner", r: "86 going" },
-      { m: "JUL", d: "02", t: "Community Fun Run", r: "142 going" },
-      { m: "JUL", d: "20", t: "Volunteer Orientation", r: "38 going" },
-    ];
-    return (
-      <div>
-        <div className="text-[15px] font-bold" style={{ color: V.ink }}>Upcoming events</div>
-        <div className="mt-3 space-y-2">
-          {evs.map((e) => (
-            <div key={e.t} className="flex items-center gap-3 rounded-xl p-2.5" style={{ background: V.surface, border: `1px solid ${V.line}` }}>
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg" style={{ background: "rgba(var(--tenant-accent-rgb),.10)" }}>
-                <div className="text-[9px] font-bold leading-none" style={{ color: V.primary }}>{e.m}</div>
-                <div className="text-[15px] font-extrabold leading-tight" style={{ color: V.ink }}>{e.d}</div>
-              </div>
-              <div className="flex-1">
-                <div className="text-[13.5px] font-semibold" style={{ color: V.ink }}>{e.t}</div>
-                <div className="text-[11.5px]" style={{ color: V.inkFaint }}>{e.r}</div>
-              </div>
-              <span className="rounded-lg px-2.5 py-1 text-[11.5px] font-semibold" style={{ background: "rgba(var(--tenant-accent-rgb),.10)", color: V.primary }}>RSVP</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  // insights
-  const bars = [40, 62, 48, 80, 58, 92, 74];
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div className="text-[15px] font-bold" style={{ color: V.ink }}>Donations this month</div>
-        <span className="text-[12px] font-semibold" style={{ color: V.success }}>↑ 24%</span>
-      </div>
-      <Counter to={48250} prefix="$" className="mt-1 block text-[24px] font-bold" style={{ color: V.ink }} />
-      <div className="mt-4 flex items-end gap-2" style={{ height: 130 }}>
-        {bars.map((h, idx) => (
-          <motion.div key={idx} className="flex-1 rounded-t-md"
-            style={{ background: idx === 5 ? `linear-gradient(180deg, ${V.glow}, ${V.primary})` : `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, opacity: idx === 5 ? 1 : 0.85 }}
-            initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ duration: 0.7, delay: idx * 0.06, ease: [0.2, 0.7, 0.2, 1] }} />
-        ))}
-      </div>
-      <div className="mt-3 flex justify-between text-[11px]" style={{ color: V.inkFaint }}>
-        {days.map((d) => <span key={d}>{d}</span>)}
-      </div>
-    </div>
-  );
-}
-
-/* ── Orbit-ring geometry, in the SVG's own 200×200 user units.
-   ONE unbroken hairline circle plus ONE short marker arc that travels round it.
-   This replaced six separately-lit segments: at six-way granularity each arc
-   spanned ~51° of its 60° slot, so the gaps read as a ring that had snapped
-   rather than a ring divided, and the lit arc ran so far past its own label
-   that it collided with the neighbouring ones. The count is already carried by
-   the six labels; the ring only has to answer "which one, and how far round". ── */
-const RING_R = 94;
-const RING_C = 2 * Math.PI * RING_R;
-const RING_ARC = RING_C * (34 / 360);   // marker sweep — narrower than a label
-/* Degrees CLOCKWISE FROM 12 O'CLOCK — the convention the node transform needs,
-   because its `translateY(-orbit)` leg already points up. Feeding it a standard
-   atan2 angle (0° = 3 o'clock) lands every label a quarter-turn out of step
-   with the ring segment and spoke meant to point at it. */
-const spinOf = (i) => i * (360 / features.length);
-
-/* ── The feature rosette — the Donexus mark as the hub of a six-way selector.
-   The mark turns 60° per step (a full revolution across the six) and the ring
-   segment for the active feature lights up while the other five sit at a 12%
-   tint. Below it, the live preview renders straight onto the page background:
-   no browser chrome, no card, no frame.
-
-   This deliberately does NOT scroll-pin. The old explorer pinned for
-   (6-1) × 46svh ≈ 3.6 screens of dead scroll, and the pin engaged at `top 88px`
-   which parked the section heading underneath the sticky navbar. A radial
-   control is a "pick one" affordance, not a "scrub through" one, so it is
-   driven by click / arrow keys, with a gentle auto-advance that stops for good
-   the moment the visitor takes over. ── */
-function FeatureRosette() {
-  const [active, setActive] = useState(0);
-  const [touched, setTouched] = useState(false);
-  const [wide, setWide] = useState(false);
-  const rootRef = useRef(null);
-  const stRef = useRef(null);
-  const btnRefs = useRef([]);
-  const reduce = useReducedMotion();
-  const inView = useInView(rootRef, { amount: 0.35 });
-
-  // The radial layout needs room to breathe; below 1024px it becomes a list.
-  useEffect(() => {
-    const m = window.matchMedia("(min-width: 1024px)");
-    const sync = () => setWide(m.matches);
-    sync();
-    m.addEventListener("change", sync);
-    return () => m.removeEventListener("change", sync);
-  }, []);
-
-  // Desktop: pin the two-up block and let vertical scroll walk the ring round
-  // its six positions, so the panel on the right changes as you go.
-  //
-  // Travel is (items - 1) × 42svh (§8.2). Only the HAND-OFFS need scroll — a
-  // full viewport per feature would be 3.6 screens of nothing moving but the
-  // ring. The last feature still lands at the end of the pin.
-  const pinned = wide && !reduce;
-  useEffect(() => {
-    if (!pinned || !rootRef.current) return undefined;
-    const mm = gsap.matchMedia();
-    mm.add("(min-width: 1024px)", () => {
-      const st = ScrollTrigger.create({
-        trigger: rootRef.current,
-        start: "top 104px",
-        end: () => "+=" + Math.round(window.innerHeight * 0.42 * (features.length - 1)),
-        pin: true,
-        pinSpacing: true,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          const n = features.length;
-          const i = Math.min(n - 1, Math.floor(self.progress * n));
-          setActive((prev) => (prev === i ? prev : i));
-          // Feature i owns progress [i/n, (i+1)/n), so its CENTRE is (i+.5)/n.
-          // angle = p·360 − step/2 puts the marker exactly on feature i at that
-          // centre; clamping parks it on the first and last rather than letting
-          // it overshoot past them at either end of the pin.
-          const step = 360 / n;
-          const deg = Math.min(360 - step, Math.max(0, self.progress * 360 - step / 2));
-          turnRef.current = deg;
-          setRot.current?.(deg);
-        },
-      });
-      stRef.current = st;
-      return () => { stRef.current = null; };
-    });
-    return () => mm.revert();
-  }, [pinned]);
-
-  // Auto-advance is the FALLBACK for the un-pinned cases only (narrow screens,
-  // reduced motion). While pinned the scrubber owns `active`, and a timer
-  // fighting it would flick the panel to a feature the ring is not pointing at.
-  useEffect(() => {
-    if (pinned || reduce || touched || !inView) return undefined;
-    const id = setInterval(() => setActive((i) => (i + 1) % features.length), 4200);
-    return () => clearInterval(id);
-  }, [pinned, reduce, touched, inView]);
-
-  /* ── Rotation ──
-     The hub and the marker arc share one angle, applied IMPERATIVELY through a
-     gsap.quickTo. A scrub updates it every scroll frame, and pushing that
-     through React state would re-render the whole rosette ~60×/second.
-
-     While pinned it is a CONTINUOUS function of scroll progress, not an
-     accumulator over `active`. The accumulator it replaced only ever counted
-     forward: scrolling back up computed (active - prev) mod 6, so one step
-     backwards read as FIVE steps forward and the mark spun a whole extra
-     revolution instead of simply reversing. Deriving the angle from progress
-     makes reversal free — scroll up and it unwinds exactly as it wound. */
-  const markRef = useRef(null);
-  const arcRef = useRef(null);
-  const turnRef = useRef(0);
-  const proxy = useRef({ v: 0 });
-  const setRot = useRef(null);
-
-  useEffect(() => {
-    const apply = () => {
-      const t = `rotate(${proxy.current.v}deg)`;
-      if (markRef.current) markRef.current.style.transform = t;
-      if (arcRef.current) arcRef.current.style.transform = t;
-    };
-    // A short eased follow rather than a raw 1:1 write: the scrubber reports on
-    // discrete frames, and writing those straight through reads as a stutter at
-    // speed. quickTo re-targets the same tween instead of spawning one per event.
-    setRot.current = reduce
-      ? (deg) => { proxy.current.v = deg; apply(); }
-      : gsap.quickTo(proxy.current, "v", { duration: 0.35, ease: "power3", onUpdate: apply });
-    setRot.current(turnRef.current);
-    return () => { setRot.current = null; };
-  }, [reduce]);
-
-  // The un-pinned path (clicks on narrow screens, auto-advance) still moves in
-  // whole steps. Take the SHORT way round, so 5 → 0 turns 60° forward rather
-  // than 300° back, and 0 → 5 turns 60° back rather than 300° forward.
-  const prevActive = useRef(0);
-  useEffect(() => {
-    const n = features.length;
-    let d = (active - prevActive.current) % n;
-    if (d > n / 2) d -= n;
-    if (d < -n / 2) d += n;
-    prevActive.current = active;
-    if (!pinned && d) {
-      turnRef.current += d * (360 / n);
-      setRot.current?.(turnRef.current);
-    }
-  }, [active, pinned]);
-
-  // Clicking while pinned has to move the SCROLLBAR, not just the state — the
-  // scrubber recomputes `active` from progress on the very next scroll event
-  // and would otherwise yank the selection straight back.
-  const select = (i) => {
-    setTouched(true);
-    const st = stRef.current;
-    if (st) window.scrollTo({ top: st.start + ((i + 0.5) / features.length) * (st.end - st.start), behavior: "smooth" });
-    else setActive(i);
-  };
-
-  // Roving tabindex: ← / → move between features, Home / End jump to the ends.
-  const onKeyDown = (e) => {
-    const last = features.length - 1;
-    let next = null;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = active === last ? 0 : active + 1;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = active === 0 ? last : active - 1;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = last;
-    if (next === null) return;
-    e.preventDefault();
-    select(next);
-    btnRefs.current[next]?.focus();
-  };
-
-  const f = features[active];
-
-  const tabProps = (i) => ({
-    ref: (el) => { btnRefs.current[i] = el; },
-    type: "button",
-    role: "tab",
-    id: `saas-feat-tab-${i}`,
-    "aria-selected": i === active,
-    "aria-controls": "saas-feat-panel",
-    tabIndex: i === active ? 0 : -1,
-    onClick: () => select(i),
-  });
-
-  return (
-    <div ref={rootRef}
-      className="saas-rosette-stage grid grid-cols-1 items-center gap-10 lg:grid-cols-[minmax(0,.92fr)_minmax(0,1.08fr)] lg:gap-[var(--gap)]">
-      {/* ══ LEFT — the selector ══ */}
-      <div className="saas-rosette-col">
-      {wide ? (
-        /* ── Radial ── */
-        <div className="saas-rosette" role="tablist" aria-label="Platform features" onKeyDown={onKeyDown}>
-          {/* Orbit ring. Sized to --ring and centred on the stage. */}
-          <svg className="saas-rosette-ring" viewBox="0 0 200 200" aria-hidden focusable="false">
-            <circle cx="100" cy="100" r={RING_R} fill="none" strokeWidth="1.5"
-              stroke="rgba(var(--tenant-accent-rgb),.16)" />
-            {/* The marker arc rides the same angle as the hub, written straight
-                to .style.transform by the quickTo above — no CSS transition, or
-                it would fight the tween and lag the scrub.
-                transform-box is spelled out: the initial value only became
-                view-box in the CSS Transforms L2 revision, and a border-box
-                fallback would swing it around the wrong point. */}
-            <g ref={arcRef} style={{ transform: "rotate(0deg)", transformBox: "view-box", transformOrigin: "100px 100px" }}>
-              {/* rotate(-90) starts the dash at 12 o'clock; the half-arc offset
-                  then centres it on the label rather than beginning there. */}
-              <circle cx="100" cy="100" r={RING_R} fill="none" stroke={V.primary}
-                strokeWidth="2.5" strokeLinecap="round"
-                strokeDasharray={`${RING_ARC} ${RING_C - RING_ARC}`}
-                strokeDashoffset={RING_ARC / 2}
-                transform="rotate(-90 100 100)" />
-            </g>
-          </svg>
-
-          {/* Hub — the mark, turning 60° per step. */}
-          {/* The mark is wrapped rather than rotated directly: <DonexusMark/>
-              renders a plain <span> and does not forward a ref, and the wrapper
-              is what the quickTo writes to. */}
-          <div className="saas-rosette-hub">
-            <span ref={markRef} className="saas-rosette-mark"
-              style={{ display: "block", width: "100%", height: "100%", transform: "rotate(0deg)" }}>
-              <DonexusMark style={{ width: "100%", height: "100%" }} />
-            </span>
-          </div>
-
-          {/* Six labels, parked on the orbit. The double-rotate keeps each one
-              upright while placing it by angle — no per-item measurement. */}
-          {features.map((item, i) => {
-            const on = i === active;
-            const a = spinOf(i);
-            const Icon = item.icon;
-            return (
-              // Text always stacks AWAY from the hub. The label sat below its
-              // icon at every position, which for the three upper nodes drove
-              // it back INWARDS — far enough that the ring passed straight
-              // through the words. Flipping the upper half to column-reverse
-              // pushes every label outward instead, and costs no extra radius.
-              <button key={item.title} {...tabProps(i)} className="saas-rosette-node"
-                style={{
-                  transform: `translate(-50%,-50%) rotate(${a}deg) translateY(calc(-1 * var(--orbit))) rotate(${-a}deg)`,
-                  flexDirection: a > 90 && a < 270 ? "column" : "column-reverse",
-                }}>
-                {/* Only the SELECTED icon gets chrome. Six outlined circles
-                    around an already-intricate eight-loop mark was most of the
-                    noise — and with all six ringed, nothing announced which one
-                    was live except a weight change in the label. The box stays
-                    44px either way, so dropping the ring shifts no layout. */}
-                <span className="saas-rosette-ic"
-                  style={on
-                    ? { background: `linear-gradient(150deg, ${V.glow}, ${V.primary2})`, color: "#fff", boxShadow: "0 14px 30px -14px rgba(var(--tenant-accent-rgb),.55)" }
-                    : { background: "transparent", color: "rgba(var(--tenant-accent-rgb),.55)" }}>
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <span className="saas-rosette-label" style={{ color: on ? V.ink : V.inkSoft, fontWeight: on ? 700 : 500 }}>
-                  {item.title}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        /* ── Narrow fallback: a plain, upright list. ── */
-        <div role="tablist" aria-label="Platform features" onKeyDown={onKeyDown} className="flex flex-col">
-          {features.map((item, i) => {
-            const on = i === active;
-            const Icon = item.icon;
-            return (
-              <button key={item.title} {...tabProps(i)}
-                className="flex items-center gap-3 py-3.5 text-left"
-                style={{ borderTop: i === 0 ? "none" : `1px solid ${V.line}` }}>
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg"
-                  style={on
-                    ? { background: `linear-gradient(150deg, ${V.glow}, ${V.primary2})`, color: "#fff" }
-                    : { background: V.surface, color: V.primary, border: `1px solid ${V.line}` }}>
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <span className="text-[15px] tracking-tight" style={{ color: on ? V.ink : V.inkSoft, fontWeight: on ? 700 : 500 }}>
-                  {item.title}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      </div>
-
-      {/* ══ RIGHT — the live panel ══
-          Intentionally unframed: it sits directly on the page background,
-          which is what the mockups inside <FeaturePreview/> are drawn against,
-          so their white cards keep the contrast they were designed for.
-
-          The panels are STACKED and cross-fade rather than swapping with
-          AnimatePresence's `wait` mode. Scrubbing can cross two or three
-          features in a flick, and `wait` queues each exit before the next
-          entrance, so the panel would visibly trail the ring. Absolute
-          positioning also fixes the panel's height, which matters more here
-          than it looks: a panel that grew or shrank per feature would resize
-          the pinned box and make the whole section jitter as you scroll. */}
-      <div id="saas-feat-panel" role="tabpanel" aria-labelledby={`saas-feat-tab-${active}`}
-        className="relative w-full">
-        {/* No negative z-index: neither .saas-page nor .saas-section opens a
-            stacking context, so -z-10 would drop this behind the page
-            background entirely. Paint order does the job — the glow is
-            absolute and the panel after it is `relative`, so the panel wins. */}
-        <span aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[110%] w-[118%] -translate-x-1/2 -translate-y-1/2"
-          style={{ background: "radial-gradient(closest-side, rgba(var(--tenant-accent-rgb),.10), transparent 78%)" }} />
-        <div className="relative" style={{ minHeight: 440 }}>
-          <AnimatePresence initial={false}>
-            <motion.div key={active} className="absolute inset-x-0 top-0"
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.4, ease: EASE }}>
-              <h3 className="text-[clamp(20px,1.8vw,26px)] font-bold tracking-tight" style={{ color: V.ink }}>
-                {f.title}
-              </h3>
-              <p className="mt-2.5 max-w-[46ch] text-[15px] leading-relaxed" style={{ color: V.inkSoft }}>
-                {f.desc}
+        <motion.div className="mt-[clamp(32px,4vw,56px)] grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3"
+          variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+          {proofPoints.map((p, i) => (
+            <motion.div key={p.title} custom={i} variants={fadeUpChild}>
+              <span aria-hidden className="mb-4 block h-[3px] w-9 rounded-full" style={{ background: V.primary }} />
+              <h3 className="text-[17px] font-semibold">{p.title}</h3>
+              <p className="mt-2 max-w-[34ch] text-[14.5px] leading-relaxed" style={{ color: "rgba(255,255,255,.6)" }}>
+                {p.body}
               </p>
-              <div className="mt-7">
-                <FeaturePreview kind={f.kind} />
-              </div>
             </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── How it works — a vertical timeline.
-
-   This replaced a horizontal three-column stepper that autoplayed one "active"
-   column at a time. Two things were wrong with it. Laid out across the full
-   shell the three columns were 400px apart, so nothing read as a SEQUENCE —
-   just three headings in a row. And dimming the two inactive columns to
-   inkFaint at 45% opacity meant that two thirds of the section was always
-   unreadable; it looked like a rendering fault rather than a walkthrough.
-
-   Stood on its end, the order is carried by the layout itself, so nothing has
-   to be dimmed to say "not this one" — all three steps are fully legible at
-   once, and each pairs with its own product shot instead of the three sharing
-   one panel that swapped underneath them. Progress is now scroll-linked rather
-   than timed: the connector between two dots draws itself as you arrive at the
-   next step, so the rail still reads as motion without a clock deciding how
-   fast anyone reads. ── */
-
-/* ── The mini product shot for the active step — a real slice of the app, so
-   the section pays off with something to look at rather than three sentences.
-   All three are built to one width; their container holds one height, so the
-   cross-fade never resizes the panel. ── */
-function StepVisual({ index }) {
-  if (index === 0) {
-    return (
-      <div className="w-full max-w-[380px] space-y-2.5">
-        <div className="flex items-center rounded-lg px-3 py-2.5 text-[12.5px]" style={{ background: V.surface, border: `1px solid ${V.line}` }}>
-          <span style={{ color: V.ink, fontWeight: 600 }}>hopebridge</span>
-          <span style={{ color: V.inkFaint }}>.donexus.org</span>
-          <Check className="ml-auto h-4 w-4" style={{ color: V.success }} />
-        </div>
-        <div className="flex gap-1.5">
-          {["Basic", "Pro", "Enterprise"].map((pl, i) => (
-            <span key={pl} className="rounded-md px-2.5 py-1 text-[11.5px] font-semibold"
-              style={i === 1 ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff" } : { background: V.surface2, color: V.inkSoft }}>{pl}</span>
           ))}
-        </div>
-      </div>
-    );
-  }
-  if (index === 1) {
-    return (
-      <div className="flex w-full max-w-[380px] items-center gap-3.5">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(150deg, ${V.primary}, ${V.glow})` }}>
-          <HandHeart className="h-5 w-5" />
-        </span>
-        <div className="flex gap-1.5">
-          {[V.primary, V.accent, V.primary2, "#0EA5E9", "#F472B6"].map((c) => (
-            <span key={c} className="h-7 w-7 rounded-lg" style={{ background: c, border: `1px solid ${V.line}` }} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex w-full max-w-[380px] items-center gap-3 rounded-xl p-3" style={{ background: V.surface, border: `1px solid ${V.line}` }}>
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[12px] font-bold text-white" style={{ background: `linear-gradient(140deg, ${V.primary}, ${V.primary2})` }}>ER</span>
-      <div className="flex-1 text-[13px]">
-        <span style={{ color: V.ink, fontWeight: 600 }}>Emily</span> <span style={{ color: V.inkSoft }}>gave</span> <span style={{ color: V.primary, fontWeight: 700 }}>$50</span>
-      </div>
-      <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold" style={{ color: V.success }}><Check className="h-3.5 w-3.5" /> Receipt</span>
-    </div>
-  );
-}
-
-/* ── The ribbon.
-
-   The path is GENERATED from the measured position of each step, not authored
-   as a fixed `d`. A hand-drawn path in a normalised viewBox would need
-   preserveAspectRatio="none" to stretch to the section, and that scales the
-   stroke unevenly — the ribbon would fatten horizontally and thin vertically at
-   every width. Measuring instead keeps one user unit equal to one pixel, so the
-   carriageway stays ROAD_W wide everywhere and the curve always meets the dots.
-
-   Each step contributes TWO points: where the road meets the top of the card
-   and where it leaves the bottom. The rail those come from is deliberately
-   INSIDE the card's footprint, not beside it in a gutter — the road runs under
-   the card and the card's own surface hides it, so the route visibly enters at
-   the numbered marker and re-emerges below. Running it down the flank instead
-   made the card look like something the road merely passed, rather than a stop
-   on it.
-
-   The two points also keep every S-curve in the row gap. Anchoring one point
-   per step would put each horizontal crossing at the vertical midpoint between
-   steps — behind a card — and the road would vanish exactly where the turn is
-   most worth seeing. ── */
-const ROAD_W = 13;   // carriageway width, in px == SVG user units
-
-function StepsRibbon() {
-  const wrapRef = useRef(null);
-  const railRefs = useRef([]);
-  const drawRef = useRef(null);
-  const reduce = useReducedMotion();
-  const [geo, setGeo] = useState({ w: 0, h: 0, rails: [] });
-
-  useLayoutEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return undefined;
-    const measure = () => {
-      const c = wrap.getBoundingClientRect();
-      const rails = railRefs.current.filter(Boolean).map((el) => {
-        const r = el.getBoundingClientRect();
-        return { x: r.left - c.left, top: r.top - c.top, bot: r.bottom - c.top };
-      });
-      setGeo((g) => {
-        const same = Math.abs(g.w - c.width) < 0.5 && Math.abs(g.h - c.height) < 0.5
-          && g.rails.length === rails.length
-          && g.rails.every((p, i) => Math.abs(p.x - rails[i].x) < 0.5
-            && Math.abs(p.top - rails[i].top) < 0.5 && Math.abs(p.bot - rails[i].bot) < 0.5);
-        return same ? g : { w: c.width, h: c.height, rails };
-      });
-    };
-    measure();
-    // Fonts landing late shift every row, so re-measure rather than trusting
-    // the first pass; the observer is on the wrapper, which the SVG (absolute)
-    // cannot resize, so this cannot feed back on itself.
-    const ro = new ResizeObserver(measure);
-    ro.observe(wrap);
-    document.fonts?.ready.then(measure).catch(() => {});
-    return () => ro.disconnect();
-  }, []);
-
-  const d = React.useMemo(() => {
-    const r = geo.rails;
-    if (r.length < 2) return "";
-    let s = `M ${r[0].x} ${Math.max(0, r[0].top - 44)} L ${r[0].x} ${r[0].bot}`;
-    for (let i = 1; i < r.length; i++) {
-      const a = r[i - 1], b = r[i];
-      const k = Math.max(28, (b.top - a.bot) * 0.62);   // control-point reach
-      s += ` C ${a.x} ${a.bot + k} ${b.x} ${b.top - k} ${b.x} ${b.top}`;
-      // No rail past the LAST dot. Running it down the final card's flank left
-      // a line hanging off the bottom of the section with nothing to connect
-      // to, which read as a loose thread rather than an ending.
-      if (i < r.length - 1) s += ` L ${b.x} ${b.bot}`;
-    }
-    return s;
-  }, [geo]);
-
-  // Draw the accent copy of the path on scroll. strokeDasharray is set to the
-  // full length and the offset scrubbed to 0, so the line appears to be drawn
-  // rather than faded in.
-  useEffect(() => {
-    const el = drawRef.current;
-    if (!el || !d || !wrapRef.current) return undefined;
-    const len = el.getTotalLength();
-    el.style.strokeDasharray = String(len);
-    if (reduce) { el.style.strokeDashoffset = "0"; return undefined; }
-    el.style.strokeDashoffset = String(len);
-    const tw = gsap.to(el, {
-      strokeDashoffset: 0,
-      ease: "none",
-      scrollTrigger: {
-        trigger: wrapRef.current,
-        start: "top 78%",
-        end: "bottom 68%",
-        scrub: 0.6,
-        invalidateOnRefresh: true,
-      },
-    });
-    return () => { tw.scrollTrigger?.kill(); tw.kill(); };
-  }, [d, reduce]);
-
-  return (
-    <div ref={wrapRef} className="saas-ribbon">
-      <svg className="saas-ribbon__svg" width={geo.w || 1} height={geo.h || 1}
-        viewBox={`0 0 ${geo.w || 1} ${geo.h || 1}`} aria-hidden focusable="false">
-        <defs>
-          <linearGradient id="saas-road-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={V.glow} />
-            <stop offset="100%" stopColor={V.primary2} />
-          </linearGradient>
-          {/* The reveal is a MASK, not a dashoffset on the road itself: the
-              surface and its lane markings have to appear together, and the
-              markings already spend strokeDasharray on being dashes. Wiping a
-              mask over both is the only way to reveal them as one object.
-              userSpaceOnUse — the default objectBoundingBox would resolve the
-              stroke against the path's own bbox and collapse it. */}
-          <mask id="saas-road-mask" maskUnits="userSpaceOnUse">
-            <path ref={drawRef} d={d} fill="none" stroke="#fff"
-              strokeWidth={ROAD_W + 6} strokeLinecap="round" />
-          </mask>
-        </defs>
-
-        {/* Unsurfaced road: the route ahead is always visible, so the section
-            reads as a journey with a known end rather than a line to nowhere. */}
-        <path d={d} fill="none" stroke="rgba(var(--tenant-accent-rgb),.13)"
-          strokeWidth={ROAD_W} strokeLinecap="round" />
-
-        {/* Surfaced road + lane markings, wiped in by the mask above. */}
-        <g mask="url(#saas-road-mask)">
-          <path d={d} fill="none" stroke="url(#saas-road-grad)" strokeWidth={ROAD_W} strokeLinecap="round" />
-          <path d={d} fill="none" stroke="rgba(255,255,255,.72)" strokeWidth="2"
-            strokeDasharray="9 13" strokeLinecap="round" />
-        </g>
-      </svg>
-
-      <ol className="saas-ribbon__rows">
-        {steps.map((s, i) => (
-          <RibbonStep key={s.n} step={s} i={i}
-            setRail={(el) => { railRefs.current[i] = el; }} />
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-function RibbonStep({ step, i, setRail }) {
-  const ref = useRef(null);
-  const reduce = useReducedMotion();
-  const on = useInView(ref, { once: true, amount: 0.4 });
-  const left = i % 2 === 0;
-
-  return (
-    <li ref={ref} className={`saas-ribbon__row saas-ribbon__row--${left ? "l" : "r"}`}>
-      <div className="saas-ribbon__cell">
-        {/* Zero-width, un-animated: the path is measured off THIS, so it must
-            never carry a transform of its own or the ribbon would be laid out
-            against a position the card is only passing through. */}
-        <span ref={setRail} aria-hidden className="saas-ribbon__rail" />
-
-        <motion.span aria-hidden className="saas-ribbon__dot"
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={on ? { scale: 1, opacity: 1 } : {}}
-          transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 380, damping: 24 }}>
-          {i + 1}
-        </motion.span>
-
-        <motion.div className="saas-ribbon__body rounded-2xl"
-          initial={{ opacity: 0, y: RISE, x: reduce ? 0 : (left ? -16 : 16) }}
-          animate={on ? { opacity: 1, y: 0, x: 0 } : {}}
-          transition={{ duration: REVEAL, ease: EASE }}>
-          <h3 className="saas-h3 font-bold" style={{ color: V.ink }}>{step.title}</h3>
-          <p className="mt-2.5 text-[15px] leading-relaxed" style={{ color: V.inkSoft }}>{step.desc}</p>
-          <div className="saas-ribbon__visual">
-            <StepVisual index={i} />
-          </div>
         </motion.div>
+
+        <HeroStats tone="light" />
       </div>
-    </li>
+    </section>
+  );
+}
+
+/* ── Features — six compact cards.
+   This section used to render a bespoke mini-mockup of the product inside
+   every card (a donation form, a donor list, a branded portal, a campaign bar,
+   an events list, a bar chart). It was the tallest block on the page by a wide
+   margin and, because each mockup carried its own gradients and tinted panels,
+   it was also the loudest — six little colour schemes stacked under a heading
+   that only promises "one home". The cards now carry the one thing that block
+   was there to say, and the page keeps to its two backgrounds.
+   Icon tile / topline / hover-lift are the shared card vocabulary from ui.jsx,
+   so nothing here is a one-off treatment. ── */
+function FeatureCards() {
+  return (
+    <motion.div className="mt-[clamp(32px,3.4vw,52px)] grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      {features.map((f, i) => (
+        <motion.div key={f.kind} custom={i} variants={fadeUpChild}
+          className="saas-card relative flex flex-col overflow-hidden rounded-[24px] p-6"
+          style={{ background: V.surface, border: `1px solid ${V.line}` }}>
+          <span aria-hidden className="saas-topline pointer-events-none absolute inset-x-0 top-0 h-[3px]"
+            style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }} />
+          <span className="saas-ic grid h-11 w-11 place-items-center rounded-full"
+            style={{ background: V.surface2, color: V.primary, border: `1px solid ${V.line}` }}>
+            <f.icon className="h-5 w-5" />
+          </span>
+          <h3 className="mt-4 text-[17px] font-semibold" style={{ color: V.ink }}>{f.title}</h3>
+          <p className="mt-2 text-[14.5px] leading-relaxed" style={{ color: V.inkSoft }}>{f.desc}</p>
+        </motion.div>
+      ))}
+    </motion.div>
+  );
+}
+
+/* ── How it works — three drawn steps, same hand as the hero. ── */
+const stepScenes = [StepSetup, StepBrand, StepReceive];
+
+function StepCards() {
+  return (
+    <motion.div className="mt-[clamp(36px,4vw,60px)] grid gap-5 md:grid-cols-3"
+      variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      {steps.map((st, i) => {
+        const Scene = stepScenes[i];
+        return (
+          <motion.div key={st.n} custom={i} variants={fadeUpChild}
+            className="overflow-hidden rounded-[24px]"
+            style={{ background: V.surface, border: `1px solid ${V.line}` }}>
+            {Scene && <Scene className="block h-auto w-full" />}
+            <div className="p-6 pt-1">
+              <div className="flex items-baseline gap-3">
+                <span className="text-[13px] font-bold" style={{ color: V.primary }}>{`0${st.n}`}</span>
+                <h3 className="text-[17px] font-semibold" style={{ color: V.ink }}>{st.title}</h3>
+              </div>
+              <p className="mt-2.5 text-[14.5px] leading-relaxed" style={{ color: V.inkSoft }}>{st.desc}</p>
+            </div>
+          </motion.div>
+        );
+      })}
+    </motion.div>
   );
 }
 
@@ -1722,7 +554,7 @@ function RollingPrice({ value, className = "", style = {} }) {
       onUpdate: () => { if (node) node.textContent = "$" + Math.round(obj.v).toLocaleString("en-US"); } });
     prev.current = value;
     return () => tween.kill();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [inView, value]);
   return <span ref={ref} className={className} style={style}>{"$" + value.toLocaleString("en-US")}</span>;
 }
@@ -1919,9 +751,11 @@ function PricingCards() {
    decorative. ── */
 function CharityWall() {
   return (
+    // No seam of its own: the dark story band directly above IS the separator,
+    // and a hairline drawn a pixel under a colour block reads as an artefact.
+    // The features section below carries the next one.
     <section aria-labelledby="saas-wall-title" className="relative py-[clamp(44px,5vw,76px)]"
       style={{
-        borderTop: `1px solid ${V.line}`, borderBottom: `1px solid ${V.line}`,
         "--logo-gap": "clamp(38px,4.6vw,72px)",
         "--logo-h": "clamp(26px,3vw,42px)",
       }}>
@@ -2008,31 +842,34 @@ export default function SaaSHome() {
       {/* ══ HERO ══ */}
       <HeroSection />
 
+      {/* ══ THE PRIMARY BLOCK THE HERO RUNS INTO — do not insert above ══ */}
+      <StoryBand />
+
       {/* ══ CHARITY LOGO WALL — one scrolling row ══ */}
       <CharityWall />
 
       {/* ══ FEATURES ══ */}
-      <section id="features" aria-labelledby="saas-features-title" className="saas-section relative">
+      <section id="features" aria-labelledby="saas-features-title" className="saas-section saas-seam">
         <div className="saas-shell relative">
           <SectionHead center id="saas-features-title"
-            title="One friendly home for<br/>all your fundraising."
-            subtitle="From the first donation to the final thank-you, the platform handles the busywork so your team can focus on the cause." />
-          <FeatureRosette />
+            title="One home for all<br/>your fundraising."
+            subtitle="From the first donation to the final thank-you." />
+          <FeatureCards />
         </div>
       </section>
 
       {/* ══ HOW IT WORKS — vertical timeline ══ */}
-      <section id="how" aria-labelledby="saas-how-title" className="saas-section" style={{ background: V.surface2 }}>
+      <section id="how" aria-labelledby="saas-how-title" className="saas-section saas-seam">
         <div className="saas-shell">
           <SectionHead center id="saas-how-title"
-            title="Three simple steps to<br/>your own donation portal."
-            subtitle="From signing up to your first donation. No developers, no lead times, no waiting on anyone." />
-          <StepsRibbon />
+            title="Three steps to your<br/>own donation portal."
+            subtitle="No developers, no lead times, no waiting on anyone." />
+          <StepCards />
         </div>
       </section>
 
       {/* ══ TESTIMONIALS ══ */}
-      <section aria-labelledby="saas-reviews-title" className="overflow-hidden" style={{ paddingBlock: "var(--section-y)" }}>
+      <section aria-labelledby="saas-reviews-title" className="saas-seam overflow-hidden" style={{ paddingBlock: "var(--section-y)" }}>
         <div style={{ paddingInline: "var(--page-pad)" }}>
           <SectionHead center id="saas-reviews-title"
             title="Trusted by the people<br/>doing the good work." />
@@ -2051,7 +888,7 @@ export default function SaaSHome() {
       </section>
 
       {/* ══ PRICING ══ */}
-      <section id="pricing" aria-labelledby="saas-pricing-title" className="saas-section" style={{ background: V.surface2 }}>
+      <section id="pricing" aria-labelledby="saas-pricing-title" className="saas-section saas-seam">
         <div className="saas-shell">
           <SectionHead center id="saas-pricing-title"
             title="A plan for every charity."
@@ -2061,9 +898,13 @@ export default function SaaSHome() {
       </section>
 
       {/* ══ CTA ══ */}
-      {/* CtaSection only takes `className` — the page gutter is passed as an
-          arbitrary utility rather than a style prop it would drop. */}
-      <CtaSection className="px-[var(--page-pad)] pb-[clamp(64px,7vw,112px)]" primaryTo="/plans" style={{ background: V.surface2 }} />
+      <CtaSection
+        title="Take your first online gift next week."
+        primaryLabel="See the plans"
+        primaryTo="/plans"
+        secondaryLabel="Book a demo"
+        secondaryTo="/contact"
+      />
     </div>
   );
 }

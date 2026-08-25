@@ -1,10 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { SectionHeading, CardHoverGlow } from "../giving";
+import { ArrowUpRight } from "lucide-react";
+import { Reveal, Eyebrow } from "../../pages/Home/ui";
 
-/* Card / feature grid section — image-topped cards with an overlaid title,
-   body copy and a "Read more" link. Mirrors the legacy About cards. */
+/* Card / feature grid section — tall image cards with the title set over the
+   photograph and a corner arrow chip. Shares the homepage's rounded editorial
+   language (see pages/Home/ui.jsx) so a page mixing bespoke and CMS blocks
+   reads as one design. */
 const CardGridSection = ({ eyebrow, heading, intro, items }) => {
   const reduce = useReducedMotion();
   const cards = Array.isArray(items) ? items : [];
@@ -12,49 +14,57 @@ const CardGridSection = ({ eyebrow, heading, intro, items }) => {
 
   return (
     <section className="bg-background px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         {(eyebrow || heading || intro) && (
-          <SectionHeading icon={Sparkles} eyebrow={eyebrow} title={heading} intro={intro} center />
+          <Reveal className="mb-12 max-w-2xl">
+            {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+            {heading && (
+              <h2 className="mt-5 font-display text-[clamp(2rem,4vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.03em] text-primary">
+                {heading}
+              </h2>
+            )}
+            {intro && <p className="mt-4 text-[15px] leading-relaxed text-text-muted md:text-base">{intro}</p>}
+          </Reveal>
         )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {cards.map((card, i) => {
             const isLink = card.link && card.link !== "#";
             const cls =
-              "group relative flex h-full flex-col overflow-hidden rounded-token border-token border-gray-100 bg-white shadow-token transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20";
+              "group relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-primary/10 bg-white transition-colors duration-300 hover:border-accent/50";
             const inner = (
               <>
-                <CardHoverGlow />
-                <div className="relative h-44 overflow-hidden">
+                <div className="relative h-56 overflow-hidden">
                   <img
                     src={card.image}
                     alt={card.title || ""}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
-                  <h3 className="absolute bottom-3 left-4 right-4 font-heading text-lg font-bold text-white drop-shadow">
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/10 to-transparent" />
+                  <h3 className="absolute bottom-4 left-5 right-14 font-display text-xl font-bold leading-tight text-white">
                     {card.title}
                   </h3>
-                </div>
-                <div className="relative flex flex-1 flex-col p-5">
-                  <p className="flex-1 text-sm leading-relaxed text-text-muted">{card.description}</p>
                   {isLink && (
-                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-accent transition-all group-hover:gap-3">
-                      Read more <ArrowRight className="h-4 w-4" />
+                    <span className="absolute bottom-4 right-4 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-primary transition-all duration-300 group-hover:rotate-45 group-hover:bg-accent">
+                      <ArrowUpRight className="h-4 w-4" />
                     </span>
                   )}
+                </div>
+                <div className="flex flex-1 flex-col p-6">
+                  <p className="flex-1 text-sm leading-relaxed text-text-muted">{card.description}</p>
                 </div>
               </>
             );
             return (
               <motion.div
                 key={card.title || i}
-                initial={{ opacity: 0, y: 28 }}
+                initial={reduce ? false : { opacity: 0, y: 28 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
-                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: (i % 4) * 0.08 }}
+                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: (i % 4) * 0.08 }}
                 whileHover={reduce ? {} : { y: -6 }}
+                className="h-full"
               >
                 {isLink ? (
                   <Link to={card.link} className={cls}>{inner}</Link>

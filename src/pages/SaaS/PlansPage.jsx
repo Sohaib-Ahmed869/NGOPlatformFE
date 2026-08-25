@@ -1,45 +1,17 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence, useInView } from "framer-motion";
-import { Check, X, ChevronDown, Shield, Zap, Headphones, LayoutGrid, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, X, ChevronDown, ArrowRight } from "lucide-react";
 import PlanCard from "./PlanCard";
 import CtaSection from "./CtaSection";
 import tenantService from "../../services/tenant.service";
+import { V, PageStyle, Reveal, PageHero } from "./ui";
 
-const V = {
-  // surface2 = faint accent wash (was a hardcoded mint) so bands/fills follow the theme.
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .08)", line2: "rgba(var(--tenant-primary-rgb), .04)",
-  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)",
-  glow: "var(--tenant-accent-light, #059669)", accent: "var(--pf-gold, #F59E0B)",
-  success: "#059669",
-};
 const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 const mono = "'JetBrains Mono', monospace";
 
 /* Scroll-reveal — same as homepage */
-/* Warm pill badge — matches the home page's section eyebrow. */
-const Badge = ({ icon: Icon, children, center }) => (
-  <span className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-medium ${center ? "mx-auto" : ""}`}
-    style={{ background: V.surface, border: `1px solid ${V.line}`, color: V.primary, boxShadow: "0 1px 2px rgba(6,40,30,.04)" }}>
-    {Icon && <Icon className="w-3.5 h-3.5" />}
-    {children}
-  </span>
-);
 
-const Reveal = ({ children, delay = 0, className = "", style = {} }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.12 });
-  return (
-    <motion.div ref={ref} className={className} style={style}
-      initial={{ opacity: 0, y: 24 }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-      transition={{ duration: 1, delay, ease: [0.2, 0.7, 0.2, 1] }}>
-      {children}
-    </motion.div>
-  );
-};
 
 const stagger = { visible: { transition: { staggerChildren: 0.08 } } };
 const fadeUpChild = {
@@ -49,15 +21,8 @@ const fadeUpChild = {
 
 /* Injected CSS — hover effects + grid matching homepage */
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
-/* Editorial serif headings + sharp corners everywhere — matches the home page. */
-.saas-page h1, .saas-page h2, .saas-page h3, .saas-page h4, .saas-page h5, .saas-page h6 {
-  font-family: 'Fraunces', 'Outfit', Georgia, serif !important;
-  letter-spacing: -0.015em;
-}
 /* Display headings at 500, not bold — see the note on the home page. */
 .saas-page h1, .saas-page h2 { font-weight: 500 !important; }
-.saas-page [class*="rounded"] { border-radius: 0 !important; }
 
 /* Regular (non-featured) price cards */
 .saas-price-regular {
@@ -296,6 +261,7 @@ export default function PlansPage() {
 
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, overflowX: "hidden", position: "relative", minHeight: "100vh" }}>
+      <PageStyle />
       <style>{css}</style>
 
       {/* Page-wide ambient grid + noise — same as homepage */}
@@ -313,18 +279,18 @@ export default function PlansPage() {
       }} />
 
       {/* ── Header ── */}
-      <section data-hero className="relative z-[1] pt-32 pb-8 px-6">
+      {/* band={false}: the billing toggle follows immediately, so the landscape
+          strip would cut between the title and its own control. */}
+      <div data-hero>
+        <PageHero
+          chip="Pricing"
+          title="Simple, transparent pricing"
+          lede="No hidden fees, no surprises. Every plan includes donation processing and a branded portal."
+          band={false}
+        />
+      </div>
+      <section className="relative z-[1] pb-8 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <Reveal delay={0.1}>
-            <h1 className="text-[clamp(30px,4vw,44px)] font-medium tracking-[-0.03em] leading-[1.04] mb-4" style={{ color: V.ink }}>
-              Simple, transparent pricing
-            </h1>
-          </Reveal>
-          <Reveal delay={0.2}>
-            <p className="text-lg max-w-xl mx-auto mb-10 leading-relaxed" style={{ color: V.inkSoft }}>
-              Choose the plan that fits your organisation. No hidden fees, no surprises. All plans include donation processing and a branded portal.
-            </p>
-          </Reveal>
 
           {/* Billing toggle — smooth sliding indicator */}
           <Reveal delay={0.3}>

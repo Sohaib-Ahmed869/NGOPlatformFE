@@ -1,6 +1,6 @@
-import React, { useState, useRef } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Mail, Phone, MapPin, CheckCircle, Clock, CalendarClock, ArrowRight, ChevronDown,
   Facebook, Instagram, Twitter, Linkedin,
@@ -8,14 +8,8 @@ import {
 import axiosInstance from "../../services/axios";
 import { toast } from "react-hot-toast";
 import { useTenant } from "../../context/TenantContext";
+import { V, PageStyle, Reveal } from "./ui";
 
-const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .10)",
-  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", glow: "var(--tenant-accent-light, #059669)", accent: "var(--pf-gold, #F59E0B)",
-  success: "#059669",
-};
 const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 const mono = "'JetBrains Mono', monospace";
 
@@ -70,22 +64,8 @@ function ContactFaq({ items }) {
   );
 }
 
-const Reveal = ({ children, delay = 0, className = "" }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.12 });
-  return (
-    <motion.div ref={ref} className={className}
-      initial={{ opacity: 0, y: 24 }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-      transition={{ duration: 0.9, delay, ease: [0.2, 0.7, 0.2, 1] }}>
-      {children}
-    </motion.div>
-  );
-};
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
-.saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
 /* Display headings at 500, not bold — see the note on the home page. */
 .saas-page h1,.saas-page h2{font-weight:500!important}
 /* Sharp, editorial corners — force EVERY element square, overriding both the
@@ -163,6 +143,7 @@ export default function ContactPage() {
 
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, overflowX: "hidden", position: "relative", minHeight: "100vh" }}>
+      <PageStyle />
       <style>{css}</style>
 
       {/* Subtle ambient grid (no blobs) */}

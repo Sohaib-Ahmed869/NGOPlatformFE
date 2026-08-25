@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import tenantService from "../../services/tenant.service";
 import { useTenant } from "../../context/TenantContext";
+import { V, PageStyle } from "./ui";
 import {
   CAUSE_AREAS, STAFF_SIZES, BUDGET_RANGES, DONOR_DB_SIZES,
   CURRENT_TOOLS, CHALLENGES, TIMELINES, DECISION_ROLES,
@@ -34,19 +35,10 @@ const STATIC_PLANS = [
   { key: "enterprise", name: "Enterprise" },
 ];
 
-const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .10)",
-  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", glow: "var(--tenant-accent-light, #059669)", accent: "var(--pf-gold, #F59E0B)",
-  success: "#059669",
-};
 const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 const mono = "'JetBrains Mono', monospace";
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
-.gs-page h1,.gs-page h2,.gs-page h3{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
 .gs-page h1,.gs-page h2{font-weight:500!important}
 .gs-page, .gs-page *, .gs-page *::before, .gs-page *::after{border-radius:0 !important}
 .gs-uline{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(var(--tenant-primary-rgb),.18);padding:10px 2px;font-size:14px;color:var(--tenant-primary,#102A23);outline:none;transition:border-color .3s,box-shadow .3s}
@@ -206,6 +198,7 @@ export default function GetStarted() {
 
   return (
     <div className="gs-page relative min-h-screen" style={{ fontFamily: font, background: V.bg, color: V.ink, overflowX: "hidden" }}>
+      <PageStyle />
       <style>{css}</style>
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px)", backgroundSize: "64px 64px", maskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)", WebkitMaskImage: "radial-gradient(ellipse at 50% 0%, black 30%, transparent 80%)" }} />
 

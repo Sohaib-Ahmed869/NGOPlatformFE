@@ -1,15 +1,10 @@
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import gsap from "gsap";
-import { Check, X, ArrowRight } from "lucide-react";
+import { X, ArrowRight } from "lucide-react";
+import { V } from "./ui";
 
-const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .08)", ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", accent: "var(--pf-gold, #F59E0B)", accentGlow: "rgba(245,158,11,.20)",
-  success: "#059669",
-};
 const mono = "'JetBrains Mono', monospace";
 
 /* GSAP count-up that rolls from the previous price to the new one — fires on

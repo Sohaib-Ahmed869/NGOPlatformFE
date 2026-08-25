@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ArrowRight, HeartHandshake } from "lucide-react";
+import { Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useTenant } from "../../context/TenantContext";
+// The Donexus wordmark. Two cuts of the same lockup: dark ink for the light
+// bar, white for the dark mobile overlay. Used as real <img>s (not the CSS
+// mask <DonexusMark/> uses) because the wordmark's type must stay legible and
+// must NOT recolour with the tenant accent — this is OUR brand, not theirs.
+import donexusWordmark from "../../assets/Donexus Logo/Donexus-260.png";
+import donexusWordmarkLight from "../../assets/Donexus Logo/Donexus-265.png";
 
 const NAV_LINKS = [
   { label: "Features", path: "/#features", hash: "features" },
@@ -28,7 +34,14 @@ export default function SaaSNavbar() {
   // a light surface, so the bar is dark-on-light throughout. `isHome` survives
   // only to decide WHEN the bar collapses (see below), not how it's coloured.
   const isHome = location.pathname === "/";
-  const navLogo = platform?.logoDark || platform?.logo || "";
+  // A platform logo set in SuperAdmin still wins; the Donexus wordmark is the
+  // default rather than the old icon-plus-text lockup, so an unconfigured
+  // install ships the real brand instead of a placeholder.
+  const navLogo = platform?.logoDark || platform?.logo || donexusWordmark;
+  // The mobile overlay is a dark gradient and the bar renders ABOVE it (z-50 vs
+  // z-40), so the dark-ink wordmark would sit invisible on dark green while the
+  // menu is open. Swap in the white cut for as long as it is.
+  const openLogo = platform?.logo || platform?.logoDark || donexusWordmarkLight;
 
   useEffect(() => {
     const NAV_H = 64; // expanded bar height (h-16)
@@ -103,34 +116,30 @@ export default function SaaSNavbar() {
             className={cn(
               "relative flex items-center justify-between gap-3 px-4 transition-all duration-500 ease-out sm:px-6",
               scrolled
-                ? "h-14 rounded-full border border-black/[0.06] bg-background/90 shadow-lg shadow-black/[0.05] backdrop-blur-xl"
-                : "h-16 rounded-none border border-transparent bg-transparent",
+                ? "h-14 rounded-full border border-black/[0.06] shadow-lg shadow-black/[0.05] backdrop-blur-xl"
+                : "h-16 rounded-none border border-transparent",
             )}
+            /* The fill is set here, not with `bg-background/90`: Tailwind cannot
+               apply a slash-opacity to a bare var() colour, so that utility was
+               emitting nothing and the capsule was fully transparent. Over the
+               light page you could not tell — but the bar is fixed, so it also
+               rides over the dark CTA and footer, where a see-through capsule
+               left the wordmark and every link unreadable. Opaque. */
+            style={{ background: scrolled ? "var(--tenant-bg, #F3F8F5)" : "transparent" }}
           >
             {/* Brand */}
-            <Link to="/" className="flex shrink-0 items-center gap-2.5">
-              {navLogo ? (
-                <img
-                  src={navLogo}
-                  alt={brandName}
-                  className={cn("w-auto object-contain transition-all duration-500", scrolled ? "h-8 max-w-[150px]" : "h-9 max-w-[170px]")}
-                />
-              ) : (
-                <>
-                  <span
-                    className={cn(
-                      "grid place-items-center rounded-token-btn text-white transition-all duration-500",
-                      scrolled ? "h-8 w-8" : "h-9 w-9",
-                    )}
-                    style={{ background: "linear-gradient(135deg, var(--tenant-accent), var(--pf-accent-2, #065F46))" }}
-                  >
-                    <HeartHandshake className={cn("transition-all", scrolled ? "h-[17px] w-[17px]" : "h-[19px] w-[19px]")} />
-                  </span>
-                  <span className="whitespace-nowrap font-nav text-[17px] font-extrabold leading-none tracking-tight text-primary">
-                    {brandName}
-                  </span>
-                </>
-              )}
+            <Link to="/" className="flex shrink-0 items-center" aria-label={brandName}>
+              <img
+                src={open ? openLogo : navLogo}
+                alt={brandName}
+                /* The lockup is ~3.3:1, so it is height-capped and left to find
+                   its own width; max-w only guards a tenant logo with a wilder
+                   ratio. Slightly smaller once collapsed, matching the bar. */
+                className={cn(
+                  "w-auto object-contain transition-all duration-500",
+                  scrolled ? "h-8 max-w-[170px]" : "h-9 max-w-[190px]",
+                )}
+              />
             </Link>
 
             {/* Desktop links — centred */}
@@ -163,7 +172,12 @@ export default function SaaSNavbar() {
                 onClick={() => setOpen((v) => !v)}
                 aria-label={open ? "Close menu" : "Open menu"}
                 aria-expanded={open}
-                className="inline-flex items-center justify-center rounded-full p-2 text-primary transition-colors hover:bg-primary/5 lg:hidden"
+                className={cn(
+                  "inline-flex items-center justify-center rounded-full p-2 transition-colors lg:hidden",
+                  // Same reason as the logo swap: while the overlay is open the
+                  // button is sitting on dark green, not on the light bar.
+                  open ? "text-white hover:bg-white/10" : "text-primary hover:bg-primary/5",
+                )}
               >
                 {open ? <X size={22} /> : <Menu size={22} />}
               </button>

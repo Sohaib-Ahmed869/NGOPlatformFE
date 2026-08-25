@@ -1,33 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { useEffect, useState } from "react";
 import { useTenant } from "../../context/TenantContext";
+import { V, PageStyle, Reveal, PageHero } from "./ui";
 
 /* Palette mirrors the other SaaS pages — brand hues resolve to the platform
    design tokens so these pages theme with the rest of the marketing site. */
-const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .08)", line2: "rgba(var(--tenant-primary-rgb), .04)",
-  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", accent: "var(--pf-gold, #F59E0B)",
-  success: "#059669",
-};
 const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 
 // Single source of truth for when these policies were last revised.
 const LAST_UPDATED = "18 June 2026";
 
-const Reveal = ({ children, delay = 0, className = "", id }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.08 });
-  return (
-    <motion.div ref={ref} id={id} className={className}
-      initial={{ opacity: 0, y: 22 }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
-      transition={{ duration: 0.8, delay, ease: [0.2, 0.7, 0.2, 1] }}>
-      {children}
-    </motion.div>
-  );
-};
 
 const css = `
 .saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:var(--font-heading,'Outfit',system-ui,sans-serif)!important}
@@ -76,6 +57,7 @@ function LegalLayout({ title, intro, updated, sections }) {
 
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, minHeight: "100vh", position: "relative" }}>
+      <PageStyle />
       <style>{css}</style>
 
       {/* Ambient grid + noise (matches Contact/Plans) */}
@@ -86,16 +68,11 @@ function LegalLayout({ title, intro, updated, sections }) {
       </div>
 
       {/* ── Hero ── */}
-      <section data-hero className="relative z-[1] px-6 pt-24 pb-8">
-        <div className="mx-auto max-w-3xl text-center">
-          <Reveal>
-            <h1 className="text-[clamp(30px,4vw,44px)] font-bold leading-[1.04] tracking-[-0.03em]" style={{ color: V.ink }}>{title}</h1>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <p className="mx-auto mt-4 max-w-xl text-[16.5px] leading-relaxed" style={{ color: V.inkSoft }}>{intro}</p>
-          </Reveal>
-        </div>
-      </section>
+      {/* band={false}: a legal page is a document, and the landscape strip would
+          read as decoration in front of terms someone came here to read. */}
+      <div data-hero>
+        <PageHero title={title} lede={intro} band={false} />
+      </div>
 
       {/* ── Body + sticky TOC ── */}
       <section className="relative z-[1] px-6 pb-28 pt-6">

@@ -1,14 +1,9 @@
-import React, { useState, useRef } from "react";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import CtaSection from "./CtaSection";
+import { V, PageStyle, Reveal, PageHero } from "./ui";
 
-const V = {
-  bg: "var(--tenant-bg, #F3F8F5)", surface: "#FFFFFF", surface2: "rgba(var(--tenant-accent-rgb), .08)",
-  line: "rgba(var(--tenant-primary-rgb), .10)",
-  ink: "var(--tenant-primary, #102A23)", inkSoft: "#46685C", inkFaint: "#8AA89C",
-  primary: "var(--tenant-accent, #047857)", primary2: "var(--pf-accent-2, #065F46)", glow: "var(--tenant-accent-light, #059669)",
-};
 const font = "var(--font-body, 'Outfit', system-ui, sans-serif)";
 const mono = "'JetBrains Mono', monospace";
 
@@ -27,18 +22,6 @@ const faqs = [
   { q: "Do I need technical skills to set this up?", a: "Not at all. Your portal, branding and campaigns are set up through simple forms, and most charities are live within minutes." },
 ];
 
-const Reveal = ({ children, delay = 0, className = "" }) => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, amount: 0.12 });
-  return (
-    <motion.div ref={ref} className={className}
-      initial={{ opacity: 0, y: 24 }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
-      transition={{ duration: 0.9, delay, ease: [0.2, 0.7, 0.2, 1] }}>
-      {children}
-    </motion.div>
-  );
-};
 
 /* Single-open, animated FAQ accordion — matches the home/plans page style. */
 function FaqItem({ faq, index, isOpen, onToggle }) {
@@ -106,10 +89,7 @@ function FaqList({ faqs: items }) {
 }
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&display=swap');
-.saas-page h1,.saas-page h2,.saas-page h3{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
 .saas-page h1,.saas-page h2{font-weight:500!important}
-.saas-page [class*="rounded"]{border-radius:0!important}
 .saas-faq2{transition:transform .35s ease,box-shadow .35s ease,border-color .35s ease,background .35s ease}
 .saas-faq2:hover{transform:translateY(-2px)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -118,6 +98,7 @@ const css = `
 export default function FAQPage() {
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, overflowX: "hidden", position: "relative", minHeight: "100vh" }}>
+      <PageStyle />
       <style>{css}</style>
 
       {/* Page-wide ambient grid — matches the rest of the marketing site */}
@@ -130,20 +111,13 @@ export default function FAQPage() {
       }} />
 
       {/* ── Header ── */}
-      <section data-hero className="relative z-[1] px-6 pb-8 pt-32">
-        <div className="mx-auto max-w-3xl text-center">
-          <Reveal delay={0.1}>
-            <h1 className="mb-4 text-[clamp(30px,4vw,44px)] font-medium leading-[1.04] tracking-[-0.03em]" style={{ color: V.ink }}>
-              Frequently asked questions
-            </h1>
-          </Reveal>
-          <Reveal delay={0.2}>
-            <p className="mx-auto max-w-xl text-lg leading-relaxed" style={{ color: V.inkSoft }}>
-              Everything you need to know about getting started, plans and billing, and how the platform works. Can't find your answer? We're one message away.
-            </p>
-          </Reveal>
-        </div>
-      </section>
+      <div data-hero>
+        <PageHero
+          chip="Questions"
+          title="Frequently asked questions"
+          lede="Getting started, plans and billing, and how the platform works. Cannot find your answer? We are one message away."
+        />
+      </div>
 
       {/* ── FAQ list ── */}
       <section className="relative z-[1] px-6 py-16">

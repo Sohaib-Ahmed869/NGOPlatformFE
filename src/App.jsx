@@ -403,9 +403,13 @@ const PLATFORM_VARS = {
   "--pf-accent-2": "#065F46",
   "--pf-gold": "#F59E0B",
   "--pf-gold-soft": "#FEF3C7",
-  "--radius-card": "16px",
-  "--radius-btn": "10px",
-  "--radius-input": "10px",
+  // Shape for the whole marketing site, navbar and footer included. The
+  // illustrated redesign runs fully round with pill controls; these tokens are
+  // what carry that into every legacy button, input and card via the
+  // [data-public-site] rules in index.css.
+  "--radius-card": "24px",
+  "--radius-btn": "9999px",
+  "--radius-input": "14px",
   "--radius-pill": "9999px",
   "--border-width": "1px",
   "--card-shadow": "0 1px 2px 0 rgb(0 0 0 / 0.05)",

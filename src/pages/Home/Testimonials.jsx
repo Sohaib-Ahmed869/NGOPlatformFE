@@ -1,6 +1,6 @@
 import { useReducedMotion } from "framer-motion";
 import { Quote, Star } from "lucide-react";
-import { SectionHeading } from "../../components/giving";
+import { R, Reveal, Eyebrow } from "./ui";
 import { cn } from "../../utils/cn";
 
 const REVIEWS = [
@@ -56,7 +56,7 @@ const REVIEWS = [
 
 function ReviewCard({ t }) {
   return (
-    <div className="relative w-[300px] shrink-0 overflow-hidden border border-gray-100 bg-white p-7 shadow-sm sm:w-[360px]">
+    <div className={`relative w-[300px] shrink-0 overflow-hidden ${R.card} border border-primary/10 bg-background p-7 sm:w-[340px]`}>
       <Quote className="h-8 w-8 text-accent/20" />
       <div className="mt-3 flex gap-0.5">
         {Array.from({ length: 5 }).map((_, s) => (
@@ -64,7 +64,7 @@ function ReviewCard({ t }) {
         ))}
       </div>
       <p className="mt-4 text-sm leading-relaxed text-text-muted">&ldquo;{t.quote}&rdquo;</p>
-      <div className="mt-6 flex items-center gap-3 border-t border-gray-100 pt-5">
+      <div className="mt-6 flex items-center gap-3 border-t border-primary/10 pt-5">
         <img src={t.avatar} alt={t.name} className="h-11 w-11 rounded-full object-cover" loading="lazy" />
         <div>
           <p className="font-semibold text-primary">{t.name}</p>
@@ -79,15 +79,17 @@ function Testimonials() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="overflow-hidden bg-white py-20 lg:py-24">
-      <div className="mx-auto mb-12 max-w-6xl px-6">
-        <SectionHeading
-          icon={Quote}
-          eyebrow="Donor stories"
-          title="What our donors say"
-          intro="Real stories from real people making a difference around the world."
-          center
-        />
+    <section className="overflow-hidden bg-white py-20 lg:py-28">
+      <div className="mx-auto mb-14 max-w-7xl px-6">
+        <Reveal className="text-center">
+          <Eyebrow>Donor stories</Eyebrow>
+          <h2 className="mt-5 font-display text-[clamp(2rem,4vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.03em] text-primary">
+            What our donors say
+          </h2>
+          <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-text-muted">
+            Real people, real receipts.
+          </p>
+        </Reveal>
       </div>
 
       {/* Auto-scrolling carousel (pauses on hover). Reduced-motion → manual scroll. */}
