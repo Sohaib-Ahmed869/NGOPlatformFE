@@ -14,11 +14,6 @@ export default {
         // swap to Outfit (see index.css) while the public website keeps its serif
         // look. Where the variable is unset (public site) the serif stack applies.
         heading: ['var(--font-heading, "Times New Roman", Tinos, Times, serif)'],
-        // Homepage display face. The public site's editorial redesign uses a
-        // geometric sans for its big statement headings while the rest of the
-        // site keeps the tenant's heading font. Outfit is already loaded in
-        // index.html, so this costs no extra request.
-        display: ["Outfit", "ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
         body: ['var(--font-body, "Times New Roman", Tinos, Times, serif)'],
         nav: ['var(--font-nav, "Times New Roman", Tinos, Times, serif)'],
         mono: ["JetBrains Mono", "monospace"],

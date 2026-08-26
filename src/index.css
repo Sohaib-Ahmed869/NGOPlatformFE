@@ -81,20 +81,6 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   The homepage runs an editorial layout built around a geometric sans (Outfit,
-   already loaded in index.html) — big flat-illustration hero, statement
-   headings, pill controls. Redefining the font vars on the page wrapper is the
-   same mechanism the admin portal uses above; `font-family` is restated so
-   unclassed text inherits Outfit too, rather than the <body> serif. Scoped to
-   [data-home-display], so every other public page keeps the tenant's fonts.
-   ───────────────────────────────────────────────────────────────────────── */
-[data-home-display] {
-  --font-heading: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-body: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-family: var(--font-body);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
    Per-tenant DESIGN shape — applied to EVERY surface & control the tenant owns:
    the public site ([data-public-site]), the donor dashboard ([data-user-portal])
    and the admin console ([data-admin-theme]). (Admin keeps its own Outfit UI

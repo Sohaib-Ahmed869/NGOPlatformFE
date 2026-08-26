@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, ArrowRight } from "lucide-react";
 import axiosInstance from "../../services/axios";
-import { R, Eyebrow, PillButton } from "./ui";
+import { Eyebrow, CardHoverGlow } from "../../components/giving";
 
 function Events() {
   const [events, setEvents] = useState([]);
@@ -33,22 +33,21 @@ function Events() {
     new Date(dateStr).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   return (
-    <section className="bg-background px-6 py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="bg-background px-6 py-20 lg:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Eyebrow>Get together</Eyebrow>
-            <h2 className="mt-5 font-display text-[clamp(2rem,4vw,3.25rem)] font-bold leading-[1.08] tracking-[-0.03em] text-primary">
-              Upcoming events
-            </h2>
-            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-text-muted">
-              Be part of the change in person.
-            </p>
+            <Eyebrow icon={Calendar}>Get together</Eyebrow>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary md:text-4xl">Upcoming events</h2>
+            <p className="mt-3 max-w-2xl text-text-muted">Join us at our next event and be part of the change in person.</p>
           </div>
           {events.length > 0 && (
-            <PillButton to="/events" tone="ghost" className="shrink-0">
-              View all events
-            </PillButton>
+            <Link
+              to="/events"
+              className="inline-flex shrink-0 items-center gap-2 border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-accent/50 hover:text-accent"
+            >
+              View all events <ArrowRight className="h-4 w-4" />
+            </Link>
           )}
         </div>
 
@@ -66,18 +65,19 @@ function Events() {
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: (i % 3) * 0.08 }}
                 whileHover={reduce ? {} : { y: -6 }}
-                className={`group relative flex flex-col overflow-hidden ${R.card} border border-primary/10 bg-white transition-colors duration-300 hover:border-accent/50`}
+                className="group relative flex flex-col overflow-hidden border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/20"
               >
+                <CardHoverGlow />
                 {event.imageUrl ? (
-                  <div className="relative h-48 overflow-hidden">
+                  <div className="relative h-44 overflow-hidden">
                     <img
                       src={event.imageUrl}
                       alt={event.title}
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
                 ) : (
-                  <div className="grid h-48 place-items-center bg-warm-beige">
+                  <div className="grid h-44 place-items-center bg-accent/10">
                     <Calendar className="h-10 w-10 text-accent/40" />
                   </div>
                 )}
@@ -93,21 +93,21 @@ function Events() {
                       </>
                     )}
                   </div>
-                  <h3 className="mt-2 font-display text-lg font-bold text-primary">{event.title}</h3>
+                  <h3 className="mt-2 font-heading text-lg font-bold text-primary">{event.title}</h3>
                   <p className="mt-2 line-clamp-3 flex-1 text-sm text-text-muted">{event.description}</p>
                   {event.registrationLink ? (
                     <a
                       href={event.registrationLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-primary/20 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+                      className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 border border-primary text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
                     >
                       Register
                     </a>
                   ) : (
                     <Link
                       to="/events"
-                      className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-primary/20 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+                      className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 border border-primary text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
                     >
                       View details
                     </Link>
