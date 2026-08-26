@@ -1,5 +1,5 @@
 import { Figure, Tree, Cloud } from "../../components/illustration";
-import { S, BrowserWindow, Phone, NotifyCard, MiniChart, GivingChip } from "./illustration";
+import { S, BrowserWindow, Phone, NotifyCard, MiniChart } from "./illustration";
 
 /**
  * Donexus scenes — the same flat-vector hand as the charity sites, pointed at
@@ -51,7 +51,6 @@ export default function HeroScene() {
       {/* a gift landing, and the week's numbers */}
       <NotifyCard x={1010} y={168} s={0.94} />
       <MiniChart x={1052} y={286} s={0.86} />
-      <GivingChip x={436} y={424} s={0.9} label="Zakat" />
 
       {/* the people either side of it */}
       <Figure x={218} y={524} h={128} tone={1} cloth={S.brand} pose="reach" />

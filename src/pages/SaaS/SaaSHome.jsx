@@ -15,6 +15,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import HeroScene, { StepSetup, StepBrand, StepReceive } from "./scenes";
+import ProductTour from "./ProductTour";
 import CtaSection from "./CtaSection";
 import {
   V, font, pageCss as css, EASE, REVEAL, RISE, Reveal, stagger, fadeUpChild,
@@ -847,6 +848,20 @@ export default function SaaSHome() {
 
       {/* ══ CHARITY LOGO WALL — one scrolling row ══ */}
       <CharityWall />
+
+      {/* ══ PRODUCT TOUR — the actual software, before we describe it ══
+          This has to sit ABOVE <FeatureCards/>. The feature copy ("one home for
+          all your fundraising") only means something once you have seen the
+          thing it describes; with the order reversed the page asks you to take
+          six abstract claims on trust and never shows the product at all. ══ */}
+      <section id="product" aria-labelledby="saas-product-title" className="saas-section saas-seam">
+        <div className="saas-shell">
+          <SectionHead center id="saas-product-title"
+            title="This is the software<br/>your team logs into."
+            subtitle="A full fundraising back office — donations, supporters, campaigns and your public site — behind one login. Have a look around." />
+          <ProductTour />
+        </div>
+      </section>
 
       {/* ══ FEATURES ══ */}
       <section id="features" aria-labelledby="saas-features-title" className="saas-section saas-seam">

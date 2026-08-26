@@ -153,19 +153,3 @@ export function MiniChart({ x = 0, y = 0, s = 1 }) {
   );
 }
 
-/* ── Islamic-giving chip — the differentiator, named on the page. ────────── */
-export function GivingChip({ x = 0, y = 0, s = 1, label = "Zakat" }) {
-  return (
-    <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <rect x="0" y="0" width="150" height="52" rx="26" fill={S.ink} />
-      <path
-        d="M40 26a13 13 0 1 0 0 20 15 15 0 1 1 0-20Z"
-        fill={S.gold}
-        transform="translate(-6 -10)"
-      />
-      <text x="62" y="33" fill={S.chrome} style={{ font: "600 17px Outfit, sans-serif" }}>
-        {label}
-      </text>
-    </g>
-  );
-}

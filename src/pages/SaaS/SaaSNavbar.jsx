@@ -12,6 +12,7 @@ import donexusWordmark from "../../assets/Donexus Logo/Donexus-260.png";
 import donexusWordmarkLight from "../../assets/Donexus Logo/Donexus-265.png";
 
 const NAV_LINKS = [
+  { label: "Product", path: "/#product", hash: "product" },
   { label: "Features", path: "/#features", hash: "features" },
   { label: "How it works", path: "/#how", hash: "how" },
   { label: "Pricing", path: "/plans" },
