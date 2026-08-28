@@ -32,10 +32,12 @@ import {
   RefreshCw,
   ShieldCheck,
   HeartHandshake,
+  Trash2,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import SALoader from "../SALoader";
+import SASelect from "../components/SASelect";
 import { useConfirm } from "../components/ConfirmProvider";
 import toast from "react-hot-toast";
 import { cn } from "../../utils/cn";
@@ -200,6 +202,8 @@ export default function OrganisationDetail() {
   const [supportReason, setSupportReason] = useState("");
   const [supportMode, setSupportMode] = useState("admin"); // "admin" | "website"
   const [supportAccess, setSupportAccess] = useState("full"); // "full" | "view_only"
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   // Fetch pipeline, cache-first: a fresh cached org renders instantly and makes
   // NO request; a stale one (a mutation happened — the service flags it) renders
@@ -363,6 +367,21 @@ export default function OrganisationDetail() {
       icon: Ban,
     });
     if (ok) setStatus("suspend");
+  };
+
+  // Soft delete — hides the org from the console; data is kept, not erased.
+  // Gated on typing the org's exact name (mirrors GitHub's repo-delete pattern).
+  const deleteOrg = async () => {
+    if (deleteConfirmText.trim() !== org.name) return;
+    setBusy(true);
+    try {
+      await superadminService.deleteOrganisation(id, deleteConfirmText.trim());
+      toast.success("Organisation deleted");
+      navigate("/organisations");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete organisation");
+      setBusy(false);
+    }
   };
 
   const changePlan = async () => {
@@ -980,6 +999,29 @@ export default function OrganisationDetail() {
               <button onClick={() => setStatus("reactivate")} disabled={busy} className="inline-flex shrink-0 items-center gap-1.5 bg-accent px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Reactivate</button>
             )}
           </div>
+
+          {org.deletedAt ? (
+            <div className="mt-4 flex items-center gap-3 border border-gray-200 bg-gray-50 px-4 py-3">
+              <Trash2 className="h-4 w-4 shrink-0 text-gray-400" />
+              <p className="text-xs text-gray-500">
+                Deleted on {new Date(org.deletedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}. Contact support to restore.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 flex items-center justify-between gap-4 border border-red-100 bg-red-50/50 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">Delete organisation</p>
+                <p className="text-xs text-gray-500">Hides them from the console and cancels billing. Records are kept, not erased.</p>
+              </div>
+              <button
+                onClick={() => setDeleteOpen(true)}
+                disabled={busy}
+                className="inline-flex shrink-0 items-center gap-1.5 bg-red-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
         </motion.div>
@@ -996,23 +1038,28 @@ export default function OrganisationDetail() {
               <h3 className="mb-1 text-lg font-semibold text-gray-900">Change plan</h3>
               <p className="mb-4 text-xs text-gray-400">Limits and pricing update immediately.</p>
               <label className={labelCls}>Plan</label>
-              <select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)} className={`${inputCls} mb-4`}>
-                {(plans.length
-                  // Name the currency rather than assuming "$" — the platform
-                  // bills in AUD and a bare $ reads as USD.
-                  ? plans.map((p) => ({
-                      value: p.code,
-                      label: `${p.name} — ${Number(p.price?.monthly || 0).toLocaleString()} ${String(p.currency || "").toUpperCase()}/mo`,
-                    }))
-                  : [
-                      { value: "basic", label: "Basic" },
-                      { value: "professional", label: "Professional" },
-                      { value: "enterprise", label: "Enterprise" },
-                    ]
-                ).map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+              {/* The console's dropdown, not a native <select>: that one draws
+                  the OS menu, which ignores the theme (and the dark console). */}
+              <SASelect
+                fullWidth
+                value={selectedPlan}
+                onChange={setSelectedPlan}
+                className="mb-4"
+                options={
+                  plans.length
+                    // Name the currency rather than assuming "$" — the platform
+                    // bills in AUD and a bare $ reads as USD.
+                    ? plans.map((p) => ({
+                        value: p.code,
+                        label: `${p.name} — ${Number(p.price?.monthly || 0).toLocaleString()} ${String(p.currency || "").toUpperCase()}/mo`,
+                      }))
+                    : [
+                        { value: "basic", label: "Basic" },
+                        { value: "professional", label: "Professional" },
+                        { value: "enterprise", label: "Enterprise" },
+                      ]
+                }
+              />
               <div className="flex gap-3">
                 <button onClick={() => setPlanOpen(false)} className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">Cancel</button>
                 <button onClick={changePlan} disabled={busy} className="flex-1 bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">Update</button>
@@ -1054,14 +1101,14 @@ export default function OrganisationDetail() {
               <label className={labelCls}>Surface</label>
               <div className="mb-4 grid grid-cols-2 gap-2">
                 {[{ v: "admin", label: "Admin portal" }, { v: "website", label: "Public website" }].map((o) => (
-                  <button key={o.v} type="button" onClick={() => chooseSupportMode(o.v)} className="border px-3 py-2 text-sm font-medium transition-colors" style={supportMode === o.v ? { borderColor: ACCENT, backgroundColor: accentTint(0.1), color: ACCENT } : { borderColor: "#e5e7eb", color: "#4b5563" }}>{o.label}</button>
+                  <button key={o.v} type="button" onClick={() => chooseSupportMode(o.v)} className={`border px-3 py-2 text-sm font-medium transition-colors ${supportMode === o.v ? "" : "border-gray-200 text-gray-600"}`} style={supportMode === o.v ? { borderColor: ACCENT, backgroundColor: accentTint(0.1), color: ACCENT } : undefined}>{o.label}</button>
                 ))}
               </div>
 
               <label className={labelCls}>Access</label>
               <div className="mb-1 grid grid-cols-2 gap-2">
                 {[{ v: "view_only", label: "View-only" }, { v: "full", label: "Full access" }].map((o) => (
-                  <button key={o.v} type="button" onClick={() => setSupportAccess(o.v)} className="border px-3 py-2 text-sm font-medium transition-colors" style={supportAccess === o.v ? { borderColor: ACCENT, backgroundColor: accentTint(0.1), color: ACCENT } : { borderColor: "#e5e7eb", color: "#4b5563" }}>{o.label}</button>
+                  <button key={o.v} type="button" onClick={() => setSupportAccess(o.v)} className={`border px-3 py-2 text-sm font-medium transition-colors ${supportAccess === o.v ? "" : "border-gray-200 text-gray-600"}`} style={supportAccess === o.v ? { borderColor: ACCENT, backgroundColor: accentTint(0.1), color: ACCENT } : undefined}>{o.label}</button>
                 ))}
               </div>
               <p className="mb-4 text-xs text-gray-400">{supportAccess === "view_only" ? "You can look around but cannot change anything." : "Changes you make are real and recorded against you."}</p>
@@ -1113,6 +1160,29 @@ export default function OrganisationDetail() {
               <div className="mt-6 flex gap-3">
                 <button onClick={() => setOverrideOpen(false)} className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10">Cancel</button>
                 <button onClick={saveOverride} disabled={busy} className="flex-1 bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">Save override</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete organisation modal — typed-name confirm */}
+      <AnimatePresence>
+        {deleteOpen && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { if (!busy) { setDeleteOpen(false); setDeleteConfirmText(""); } }} />
+            <motion.div className={`${card} relative w-full max-w-sm p-6 shadow-xl`} initial={{ scale: 0.92, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }} transition={{ type: "spring", stiffness: 380, damping: 30 }}>
+              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center bg-red-50 ring-1 ring-red-100"><Trash2 className="h-6 w-6 text-red-500" /></div>
+              <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">Delete organisation</h3>
+              <p className="mb-4 text-center text-sm text-gray-500">
+                Deactivates <strong className="text-gray-800">{org.name}</strong>&rsquo;s portal, cancels their Stripe subscription,
+                and hides them from the console. Records are kept, not erased — this can only be undone by support.
+              </p>
+              <label className={labelCls}>Type <span className="font-semibold normal-case text-gray-600">{org.name}</span> to confirm</label>
+              <input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={org.name} className={`${inputCls} mb-4`} autoFocus />
+              <div className="flex gap-3">
+                <button onClick={() => { setDeleteOpen(false); setDeleteConfirmText(""); }} disabled={busy} className="flex-1 border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/10">Cancel</button>
+                <button onClick={deleteOrg} disabled={busy || deleteConfirmText.trim() !== org.name} className="flex-1 bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Deleting…" : "Delete"}</button>
               </div>
             </motion.div>
           </motion.div>

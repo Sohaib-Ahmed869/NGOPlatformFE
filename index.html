@@ -8,6 +8,28 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <title>Charity Platform</title>
+    <!-- Pre-paint ground for the SuperAdmin console's sign-in pages. The browser
+         paints its own canvas (white) until the bundle parses and React renders,
+         and arriving at a near-black sign-in page through a frame of white is
+         what a full-page logout reads as. Inline and synchronous on purpose: it
+         has to run before the first paint, which rules out the module bundle.
+         Gradient must match GROUND_GRADIENT in src/utils/authTransition.js.
+         Scoped to the admin host: `/login` on a tenant subdomain is a LIGHT
+         page, and painting it dark first would trade one flash for another. -->
+    <script>
+      (function () {
+        try {
+          var host = location.hostname.split(".")[0];
+          var path = location.pathname;
+          if (host === "admin" && /^\/(login|forgot-password|accept-invite)/.test(path)) {
+            document.documentElement.style.background =
+              "linear-gradient(180deg,#0a1512,#060b09)";
+          }
+        } catch (e) {
+          /* a missing background is a flash, not a broken page */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

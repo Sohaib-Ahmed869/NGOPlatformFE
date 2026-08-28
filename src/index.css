@@ -160,3 +160,78 @@
 .checkout-glow-lg {
   box-shadow: 0 12px 30px -8px color-mix(in srgb, var(--tenant-accent, #c9a84c) 50%, transparent);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Slim scroll panes (.scroll-slim)
+   The platform's inner scrollers — an inbox rail, a conversation thread — are
+   narrow, and the OS scrollbar spends up to 17px of that on a track and a pair
+   of arrow buttons. This is the overlay treatment instead: no track, a thumb
+   that fades in when you're over the pane (and darkens under the cursor), so
+   the affordance is there without the furniture. Sized in both engines —
+   scrollbar-width for Firefox, ::-webkit-scrollbar for Chromium/WebKit.
+   ───────────────────────────────────────────────────────────────────────── */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+.scroll-slim:hover,
+.scroll-slim:focus-within {
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: 3px solid transparent; /* inset via content-box → a 4px thumb */
+  background-clip: content-box;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+.scroll-slim:hover::-webkit-scrollbar-thumb,
+.scroll-slim:focus-within::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.4);
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.65);
+}
+/* Chromium draws the corner square where two scrollbars meet. */
+.scroll-slim::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The document scrollbar, but only while a console shell is on the page
+   (:has() keeps the public NGO sites on their default). The window scrollbar
+   can't be styled by descendant selector — it belongs to <html> — so this is
+   the one place that has to reach up. No hover-reveal here: <html> is always
+   hovered, so it's a permanently quiet 8px thumb instead. */
+html:has([data-admin-theme]),
+html:has([data-user-portal]) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+html:has([data-admin-theme])::-webkit-scrollbar,
+html:has([data-user-portal])::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+html:has([data-admin-theme])::-webkit-scrollbar-track,
+html:has([data-user-portal])::-webkit-scrollbar-track {
+  background: transparent;
+}
+html:has([data-admin-theme])::-webkit-scrollbar-thumb,
+html:has([data-user-portal])::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.35);
+  border: 4px solid transparent;
+  background-clip: content-box;
+  border-radius: 9999px;
+}
+html:has([data-admin-theme])::-webkit-scrollbar-thumb:hover,
+html:has([data-user-portal])::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.6);
+}

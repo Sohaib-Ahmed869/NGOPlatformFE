@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getSocket, disconnectSocket } from "../../services/socket";
+import { getSocketId } from "../../services/socketId";
 import superadminService from "../../services/superadmin.service";
 import platformService from "../../services/platform.service";
 
@@ -52,6 +53,12 @@ export function SARealtimeProvider({ children }) {
     }
   }, []);
 
+  // The inbox screen loads every query with its unread flag, so while it's open
+  // it already KNOWS the count — it publishes it here instead of asking the
+  // server again after each open/send/delete. `useState`'s setter is stable, so
+  // this adds no re-render churn to consumers.
+  const setContactUnread = setUnreadContactQueries;
+
   const refreshBrandingPending = useCallback(async () => {
     try {
       const res = await superadminService.getBrandingPendingCount();
@@ -83,11 +90,25 @@ export function SARealtimeProvider({ children }) {
     // is the signal a MOUNTED inbox watches — the unread count can't serve that
     // role because a status change or an assignment doesn't move it.
     let contactTimer = null;
-    const onContact = () => {
+    const onContact = (payload) => {
+      // Our own echo. The screen that performed the action already applied the
+      // server's response to its state AND both caches — treating it as "the
+      // world changed" made every note, status change and assignment pay for a
+      // full inbox refetch it didn't need. Matched on CONNECTION, so a second
+      // tab of the same operator still refreshes itself.
+      if (payload?.actorSocketId && payload.actorSocketId === getSocketId()) return;
       superadminService.markContactQueriesStale();
       refreshContactUnread();
       clearTimeout(contactTimer);
       contactTimer = setTimeout(() => setContactVersion((v) => v + 1), 400);
+    };
+    // A status change or a reassignment moves ONE row and can't move the
+    // unread count. A MOUNTED inbox patches it from the payload (see
+    // ContactQueries' onRowChange), so all this owes an UNMOUNTED one is a
+    // stale flag for its next visit — no count fetch, no list refetch.
+    const onContactRow = (payload) => {
+      if (payload?.actorSocketId && payload.actorSocketId === getSocketId()) return;
+      superadminService.markContactQueriesStale();
     };
     const onBranding = () => refreshBrandingPending();
     // A lead was created, messaged, edited, assigned, staged, converted or
@@ -192,7 +213,8 @@ export function SARealtimeProvider({ children }) {
     s.on("connect", onConnect);
     s.on("contactQuery:new", onContact);
     s.on("contactQuery:message", onContact);
-    s.on("contactQuery:updated", onContact);
+    s.on("contactQuery:updated", onContactRow);
+    s.on("contactQuery:assigned", onContactRow);
     s.on("contactQuery:deleted", onContact);
     s.on("brandingRequest:new", onBranding);
     s.on("brandingRequest:updated", onBranding);
@@ -224,7 +246,8 @@ export function SARealtimeProvider({ children }) {
       s.off("connect", onConnect);
       s.off("contactQuery:new", onContact);
       s.off("contactQuery:message", onContact);
-      s.off("contactQuery:updated", onContact);
+      s.off("contactQuery:updated", onContactRow);
+      s.off("contactQuery:assigned", onContactRow);
       s.off("contactQuery:deleted", onContact);
       s.off("brandingRequest:new", onBranding);
       s.off("brandingRequest:updated", onBranding);
@@ -251,13 +274,39 @@ export function SARealtimeProvider({ children }) {
     if (!user) disconnectSocket();
   }, [user]);
 
-  return (
-    <SARealtimeContext.Provider
-      value={{ unreadContactQueries, pendingBrandingRequests, newLeadsCount, refreshContactUnread, refreshBrandingPending, refreshNewLeadsCount, orgsVersion, plansVersion, couponsVersion, invoicesVersion, ticketsVersion, contactVersion, leadsVersion, platformVersion, sessionsVersion, socket }}
-    >
-      {children}
-    </SARealtimeContext.Provider>
+  // Memoised: this object is read by 19 screens/components. Built inline it was
+  // a new identity on EVERY provider render — including renders caused by
+  // something none of them care about (an auth refresh, a version counter for a
+  // different screen) — and every consumer re-rendered with it.
+  const value = useMemo(
+    () => ({
+      unreadContactQueries,
+      pendingBrandingRequests,
+      newLeadsCount,
+      refreshContactUnread,
+      refreshBrandingPending,
+      refreshNewLeadsCount,
+      setContactUnread,
+      orgsVersion,
+      plansVersion,
+      couponsVersion,
+      invoicesVersion,
+      ticketsVersion,
+      contactVersion,
+      leadsVersion,
+      platformVersion,
+      sessionsVersion,
+      socket,
+    }),
+    [
+      unreadContactQueries, pendingBrandingRequests, newLeadsCount,
+      refreshContactUnread, refreshBrandingPending, refreshNewLeadsCount, setContactUnread,
+      orgsVersion, plansVersion, couponsVersion, invoicesVersion, ticketsVersion,
+      contactVersion, leadsVersion, platformVersion, sessionsVersion, socket,
+    ],
   );
+
+  return <SARealtimeContext.Provider value={value}>{children}</SARealtimeContext.Provider>;
 }
 
 export function useSARealtime() {

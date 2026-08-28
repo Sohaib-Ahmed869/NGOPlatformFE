@@ -151,10 +151,14 @@ const SupportSessionDetail = lazy(() => import("./SuperAdmin/Screens/SupportSess
 const AuditLog = lazy(() => import("./SuperAdmin/Screens/AuditLog"));
 const TeamUsers = lazy(() => import("./SuperAdmin/Screens/TeamUsers"));
 const MfaSetupRequired = lazy(() => import("./SuperAdmin/Screens/MfaSetupRequired"));
+const SAEmailTemplates = lazy(() => import("./SuperAdmin/Screens/EmailTemplates"));
+const SAEmailTemplateEdit = lazy(() => import("./SuperAdmin/Screens/EmailTemplateEdit"));
 const AcceptInvite = lazy(() => import("./pages/AdminLogin/AcceptInvite"));
+const SAForgotPassword = lazy(() => import("./pages/AdminLogin/ForgotPassword"));
 import SupportSessionBanner from "./Admin/components/SupportSessionBanner";
 import ProtectedSuperAdminRoute from "./components/ProtectedSuperAdminRoute";
 import TenantLoader from "./components/TenantLoader";
+import { onAuthGround, GROUND_GRADIENT } from "./utils/authTransition";
 import { onColor, gradientStop } from "./utils/contrast";
 
 import { Toaster } from "react-hot-toast";
@@ -162,16 +166,33 @@ import { Toaster } from "react-hot-toast";
 
 // Shown while a lazily-loaded route chunk is downloading. Deliberately plain
 // (no framer/lucide) so it can't pull anything extra into the entry chunk.
-const RouteFallback = () => (
-  <div className="flex min-h-[60vh] items-center justify-center">
-    <span
-      className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-transparent"
-      style={{ borderTopColor: "var(--tenant-accent, #047857)" }}
-      role="status"
-      aria-label="Loading"
-    />
-  </div>
-);
+const RouteFallback = () => {
+  // On the console's dark pre-auth pages this fallback IS the whole screen --
+  // it is what shows between the document painting and the lazy /login chunk
+  // arriving, which is most of what a full-page sign-out looks like. A
+  // light-grey ring floating a third of the way down a near-black page was the
+  // flash people saw; on the ground colour, full height, it reads as the page
+  // still settling rather than as a different screen.
+  const onGround = onAuthGround();
+  return (
+    <div
+      className={`flex items-center justify-center ${onGround ? "min-h-screen" : "min-h-[60vh]"}`}
+      style={onGround ? { background: GROUND_GRADIENT } : undefined}
+    >
+      <span
+        className="h-7 w-7 animate-spin rounded-full"
+        style={{
+          borderWidth: 2,
+          borderStyle: "solid",
+          borderColor: onGround ? "rgba(255,255,255,.12)" : "#e5e7eb",
+          borderTopColor: onGround ? "#34d399" : "var(--tenant-accent, #047857)",
+        }}
+        role="status"
+        aria-label="Loading"
+      />
+    </div>
+  );
+};
 
 // Redirect to Home if a CMS-managed page has been disabled by the tenant.
 // Paths not managed by the CMS always render (isPathEnabled returns true).
@@ -327,6 +348,7 @@ const SuperAdminRoutes = () => (
   <Routes>
     <Route path="/login" element={<AdminLogin />} />
     <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+    <Route path="/forgot-password" element={<SAForgotPassword />} />
     {/* Full-bleed, no sidebar/topbar — same escape-the-chrome treatment as
         /register, since converting a lead is a focused, register-like task. */}
     <Route
@@ -367,6 +389,9 @@ const SuperAdminRoutes = () => (
       <Route path="support-sessions" element={<SupportSessions />} />
       <Route path="support-sessions/:sessionId" element={<SupportSessionDetail />} />
       <Route path="audit" element={<AuditLog />} />
+      <Route path="emails" element={<SAEmailTemplates />} />
+      {/* Encoded so a dotted key like "donation.receipt" survives the URL. */}
+      <Route path="emails/:key" element={<SAEmailTemplateEdit />} />
       <Route path="platform" element={<PlatformSettings />} />
       <Route path="settings" element={<SASettings />} />
       <Route path="profile" element={<SASettings />} />

@@ -18,7 +18,7 @@ import {
 } from "./supportSessionUtils";
 import {
   AccessPill, CARD as card, ExpiryCountdown, HEADER_GRADIENT, ImpersonationBlock,
-  StatusPill, SurfacePill, surfaceIcon, useServerClock,
+  StatusPill, SurfacePill, surfaceIcon, tenantLogo, useServerClock,
 } from "./supportSessionShared";
 
 const METHOD = {
@@ -139,6 +139,10 @@ export default function SupportSessionDetail() {
   phaseRef.current = phase;
   const { session, actions, actionTotal, writeTotal, truncated, serverTime } = data;
 
+  // When the last read actually landed — the poll and the focus catch-up below
+  // both measure from this rather than from their own clocks.
+  const lastReadRef = useRef(0);
+
   useEffect(() => {
     const controller = new AbortController();
     let alive = true;
@@ -159,6 +163,7 @@ export default function SupportSessionDetail() {
       try {
         const res = await superadminService.loadSupportSession(sessionId, { signal: controller.signal });
         if (!alive) return;
+        lastReadRef.current = Date.now();
         dispatch({ type: "ready", data: res });
       } catch (err) {
         if (!alive || axios.isCancel(err)) return;
@@ -190,6 +195,9 @@ export default function SupportSessionDetail() {
     sync(serverTime);
   }, [serverTime, sync]);
 
+  // The hero gradient is dark whatever the console theme is, so its logo
+  // variant is chosen for a dark surface — not for the theme.
+  const heroLogo = tenantLogo(session?.organisationId, "dark");
   const status = session ? effectiveStatus(session, now) : null;
   const isLiveNow = status === "active";
 
@@ -198,13 +206,24 @@ export default function SupportSessionDetail() {
   useEffect(() => {
     if (!isLiveNow) return undefined;
     const tick = () => {
-      if (!document.hidden) refresh();
+      if (document.hidden) return;
+      // A websocket bump may have just re-read this session; don't read again
+      // one second behind it.
+      if (Date.now() - lastReadRef.current < 14000) return;
+      refresh();
     };
-    const id = setInterval(tick, 15000);
-    document.addEventListener("visibilitychange", tick);
+    const id = setInterval(tick, 5000);
+    // Returning to the tab catches up immediately — but alt-tabbing between
+    // windows shouldn't fire a request per switch.
+    const onVisible = () => {
+      if (!document.hidden && Date.now() - lastReadRef.current > 5000) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       clearInterval(id);
-      document.removeEventListener("visibilitychange", tick);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [isLiveNow, refresh]);
 
@@ -319,8 +338,23 @@ export default function SupportSessionDetail() {
                 <Building2 className="h-3 w-3" />
                 {tenantName(session)}
               </button>
-              <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold leading-tight text-white">
-                <ShieldCheck className="h-6 w-6" /> Support session
+              <h1 className="mt-1 flex items-center gap-2.5 text-2xl font-bold leading-tight text-white">
+                {/* The tenant's own mark, so it's obvious WHOSE console this
+                    session was inside; falls back to the shield. */}
+                {heroLogo.src ? (
+                  <span
+                    className={cn(
+                      "grid h-9 w-9 shrink-0 place-items-center overflow-hidden",
+                      heroLogo.backdrop && "p-1 shadow-sm",
+                    )}
+                    style={heroLogo.backdrop ? { background: heroLogo.backdrop } : undefined}
+                  >
+                    <img src={heroLogo.src} alt={tenantName(session)} className="h-full w-full object-contain" />
+                  </span>
+                ) : (
+                  <ShieldCheck className="h-6 w-6" />
+                )}
+                Support session
               </h1>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 <StatusPill status={status} />

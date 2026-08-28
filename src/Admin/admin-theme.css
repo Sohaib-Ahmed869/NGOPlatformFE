@@ -13,6 +13,10 @@
  *
  * Descendant selectors ([scope] .bg-white) outrank the single-class utilities
  * they override, so no !important is needed (inline styles still win).
+ *
+ * The same treatment is applied further down to the PASTEL families the
+ * screens use for status chips (bg-red-50, bg-amber-50, bg-emerald-50 ...),
+ * which otherwise glow as near-white blocks on the dark surface.
  */
 
 [data-admin-theme="dark"] {
@@ -28,6 +32,9 @@
   --admin-muted-3: color-mix(in srgb, var(--tenant-primary, #2c2418) 38%, #282b34);
 
   --tenant-bg: var(--admin-bg);
+  /* Tailwind's ring-offset defaults to #fff, so a `ring-offset-2` focus ring
+     punched a white gap around the button. Inherit the card surface instead. */
+  --tw-ring-offset-color: var(--admin-card);
   color-scheme: dark;
 }
 
@@ -53,11 +60,37 @@
 [data-admin-theme="dark"] .bg-white\/30 { background-color: color-mix(in srgb, var(--admin-card) 35%, transparent); }
 [data-admin-theme="dark"] .bg-gray-50\/60 { background-color: color-mix(in srgb, var(--admin-soft) 65%, transparent); }
 
+/* The mappings from here down carry a `:not([class*="dark:…"])` guard. Tailwind
+   compiles a `dark:` utility to a single class + :where(), so a blanket rule in
+   this file would silently outrank a screen that already picked its own dark
+   value (`dark:bg-white/5`, `dark:bg-blue-500/15`). The guard skips those
+   elements outright instead of racing them on specificity. */
+[data-admin-theme="dark"] .bg-gray-50\/70:not([class*="dark:bg-"]) { background-color: color-mix(in srgb, var(--admin-soft) 75%, transparent); }
+[data-admin-theme="dark"] .bg-gray-50\/50:not([class*="dark:bg-"]) { background-color: color-mix(in srgb, var(--admin-soft) 55%, transparent); }
+[data-admin-theme="dark"] .bg-gray-50\/40:not([class*="dark:bg-"]) { background-color: color-mix(in srgb, var(--admin-soft) 45%, transparent); }
+
 /* Hover surfaces */
 [data-admin-theme="dark"] .hover\:bg-gray-50:hover { background-color: var(--admin-muted); }
 [data-admin-theme="dark"] .hover\:bg-gray-100:hover { background-color: var(--admin-muted-2); }
 [data-admin-theme="dark"] .hover\:bg-gray-200:hover { background-color: var(--admin-muted-3); }
 [data-admin-theme="dark"] .hover\:bg-white:hover { background-color: var(--admin-muted); }
+[data-admin-theme="dark"] .hover\:bg-gray-50\/70:hover:not([class*="dark:hover:bg-"]) { background-color: color-mix(in srgb, var(--admin-muted) 75%, transparent); }
+[data-admin-theme="dark"] .hover\:bg-gray-50\/60:hover:not([class*="dark:hover:bg-"]) { background-color: color-mix(in srgb, var(--admin-muted) 65%, transparent); }
+[data-admin-theme="dark"] .hover\:bg-gray-100\/60:hover:not([class*="dark:hover:bg-"]) { background-color: color-mix(in srgb, var(--admin-muted-2) 65%, transparent); }
+[data-admin-theme="dark"] .hover\:bg-gray-200\/70:hover:not([class*="dark:hover:bg-"]) { background-color: color-mix(in srgb, var(--admin-muted-3) 75%, transparent); }
+[data-admin-theme="dark"] .hover\:bg-white\/90:hover:not([class*="dark:hover:bg-"]) { background-color: var(--admin-muted); }
+[data-admin-theme="dark"] .hover\:bg-white\/50:hover:not([class*="dark:hover:bg-"]) { background-color: var(--admin-muted); }
+[data-admin-theme="dark"] .bg-gray-200\/70:not([class*="dark:bg-"]) { background-color: color-mix(in srgb, var(--admin-muted-2) 75%, transparent); }
+
+/* A focused field lifts to the card surface, the way it lifts to white on the
+   light theme — without this it flashed bright white mid-typing. */
+[data-admin-theme="dark"] .focus\:bg-white:focus:not([class*="dark:focus:bg-"]) { background-color: var(--admin-card); }
+[data-admin-theme="dark"] .focus-within\:bg-white:focus-within:not([class*="dark:focus-within:bg-"]) { background-color: var(--admin-card); }
+
+/* Row hover on a STICKY cell (the feature matrix's frozen first column): that
+   cell scrolls over its neighbours, so its hover fill must stay OPAQUE — a
+   translucent one lets the plan columns bleed through as it passes. */
+[data-admin-theme="dark"] .group\/row:hover .group-hover\/row\:bg-gray-50\/60 { background-color: var(--admin-muted); }
 
 /* ---- Text (neutral light for readability) ---- */
 [data-admin-theme="dark"] .text-gray-900 { color: #eef2f7; }
@@ -72,10 +105,28 @@
 [data-admin-theme="dark"] .text-text-dark { color: #eef2f7; }
 [data-admin-theme="dark"] .text-text-muted { color: #94a1b2; }
 
+[data-admin-theme="dark"] .hover\:text-gray-900:hover:not([class*="dark:hover:text-"]) { color: #eef2f7; }
+[data-admin-theme="dark"] .hover\:text-gray-800:hover:not([class*="dark:hover:text-"]) { color: #e2e8f0; }
+[data-admin-theme="dark"] .hover\:text-gray-700:hover:not([class*="dark:hover:text-"]) { color: #cbd5e1; }
+[data-admin-theme="dark"] .hover\:text-gray-600:hover:not([class*="dark:hover:text-"]) { color: #aab6c5; }
+[data-admin-theme="dark"] .hover\:text-gray-500:hover:not([class*="dark:hover:text-"]) { color: #94a1b2; }
+[data-admin-theme="dark"] .hover\:text-gray-400:hover:not([class*="dark:hover:text-"]) { color: #7c8a9a; }
+[data-admin-theme="dark"] .hover\:text-primary:hover:not([class*="dark:hover:text-"]) { color: #eef2f7; }
+[data-admin-theme="dark"] .hover\:text-text-dark:hover:not([class*="dark:hover:text-"]) { color: #eef2f7; }
+
 /* ---- Borders ---- */
+[data-admin-theme="dark"] .border-gray-50:not([class*="dark:border-"]) { border-color: rgba(255, 255, 255, 0.04); }
 [data-admin-theme="dark"] .border-gray-100 { border-color: rgba(255, 255, 255, 0.06); }
 [data-admin-theme="dark"] .border-gray-200 { border-color: rgba(255, 255, 255, 0.10); }
 [data-admin-theme="dark"] .border-gray-300 { border-color: rgba(255, 255, 255, 0.16); }
+[data-admin-theme="dark"] .hover\:border-gray-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(255, 255, 255, 0.10); }
+[data-admin-theme="dark"] .hover\:border-gray-300:hover:not([class*="dark:hover:border-"]) { border-color: rgba(255, 255, 255, 0.16); }
+[data-admin-theme="dark"] .hover\:border-gray-400:hover:not([class*="dark:hover:border-"]) { border-color: rgba(255, 255, 255, 0.22); }
+[data-admin-theme="dark"] .ring-gray-100:not([class*="dark:ring-"]) { --tw-ring-color: rgba(255, 255, 255, 0.06); }
+[data-admin-theme="dark"] .ring-gray-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(255, 255, 255, 0.10); }
+[data-admin-theme="dark"] .ring-gray-300:not([class*="dark:ring-"]) { --tw-ring-color: rgba(255, 255, 255, 0.16); }
+[data-admin-theme="dark"] .border-gray-200\/70:not([class*="dark:border-"]) { border-color: rgba(255, 255, 255, 0.08); }
+[data-admin-theme="dark"] .divide-gray-50:not([class*="dark:divide-"]) > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255, 255, 255, 0.04); }
 [data-admin-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255, 255, 255, 0.06); }
 [data-admin-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(255, 255, 255, 0.10); }
 
@@ -96,6 +147,327 @@
 [data-admin-theme="dark"] .shadow-md {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
+
+
+/* ---- Tinted status chips (success / warning / danger / info) ----
+ *
+ * The screens build these out of Tailwind's pastel families — bg-red-50 with
+ * text-red-700, bg-amber-50 with text-amber-800, and so on. Those fills are
+ * near-white by design, so on the dark surface each chip lit up as a bright
+ * block. Each family is remapped to a translucent tint of its own hue, and the
+ * dark text/border shades (drawn for a pastel background) lift to light ones,
+ * so a chip keeps its meaning and its colour but sits INSIDE the dark surface
+ * instead of punching a hole in it. Solid fills (bg-*-500/600/700) are left
+ * alone — they already read correctly on dark — and, per the note above, a
+ * screen that ships its own `dark:` chip colours keeps them.
+ */
+
+/* red */
+[data-admin-theme="dark"] .bg-red-50:not([class*="dark:bg-"]) { background-color: rgba(239, 68, 68, 0.10); }
+[data-admin-theme="dark"] .bg-red-50\/60:not([class*="dark:bg-"]) { background-color: rgba(239, 68, 68, 0.07); }
+[data-admin-theme="dark"] .bg-red-50\/50:not([class*="dark:bg-"]) { background-color: rgba(239, 68, 68, 0.06); }
+[data-admin-theme="dark"] .bg-red-100:not([class*="dark:bg-"]) { background-color: rgba(239, 68, 68, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-red-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(239, 68, 68, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-red-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(239, 68, 68, 0.24); }
+[data-admin-theme="dark"] .border-red-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-red-200:not([class*="dark:border-"]) { border-color: rgba(239, 68, 68, 0.28); }
+[data-admin-theme="dark"] .ring-red-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-red-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(239, 68, 68, 0.28); }
+[data-admin-theme="dark"] .text-red-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-red-700:not([class*="dark:text-"]) { color: #fca5a5; }
+[data-admin-theme="dark"] .text-red-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-red-900:not([class*="dark:text-"]) { color: #fecaca; }
+[data-admin-theme="dark"] .bg-red-200:not([class*="dark:bg-"]) { background-color: rgba(239, 68, 68, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-red-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(239, 68, 68, 0.30); }
+[data-admin-theme="dark"] .hover\:border-red-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(239, 68, 68, 0.36); }
+[data-admin-theme="dark"] .hover\:text-red-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-red-700:hover:not([class*="dark:hover:text-"]) { color: #fca5a5; }
+[data-admin-theme="dark"] .text-red-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-red-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #fca5a5 75%, transparent); }
+
+/* orange */
+[data-admin-theme="dark"] .bg-orange-50:not([class*="dark:bg-"]) { background-color: rgba(249, 115, 22, 0.10); }
+[data-admin-theme="dark"] .bg-orange-50\/60:not([class*="dark:bg-"]) { background-color: rgba(249, 115, 22, 0.07); }
+[data-admin-theme="dark"] .bg-orange-50\/50:not([class*="dark:bg-"]) { background-color: rgba(249, 115, 22, 0.06); }
+[data-admin-theme="dark"] .bg-orange-100:not([class*="dark:bg-"]) { background-color: rgba(249, 115, 22, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-orange-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(249, 115, 22, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-orange-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(249, 115, 22, 0.24); }
+[data-admin-theme="dark"] .border-orange-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-orange-200:not([class*="dark:border-"]) { border-color: rgba(249, 115, 22, 0.28); }
+[data-admin-theme="dark"] .ring-orange-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-orange-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(249, 115, 22, 0.28); }
+[data-admin-theme="dark"] .text-orange-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-orange-700:not([class*="dark:text-"]) { color: #fdba74; }
+[data-admin-theme="dark"] .text-orange-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-orange-900:not([class*="dark:text-"]) { color: #fed7aa; }
+[data-admin-theme="dark"] .bg-orange-200:not([class*="dark:bg-"]) { background-color: rgba(249, 115, 22, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-orange-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(249, 115, 22, 0.30); }
+[data-admin-theme="dark"] .hover\:border-orange-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(249, 115, 22, 0.36); }
+[data-admin-theme="dark"] .hover\:text-orange-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-orange-700:hover:not([class*="dark:hover:text-"]) { color: #fdba74; }
+[data-admin-theme="dark"] .text-orange-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-orange-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #fdba74 75%, transparent); }
+
+/* amber */
+[data-admin-theme="dark"] .bg-amber-50:not([class*="dark:bg-"]) { background-color: rgba(245, 158, 11, 0.10); }
+[data-admin-theme="dark"] .bg-amber-50\/60:not([class*="dark:bg-"]) { background-color: rgba(245, 158, 11, 0.07); }
+[data-admin-theme="dark"] .bg-amber-50\/50:not([class*="dark:bg-"]) { background-color: rgba(245, 158, 11, 0.06); }
+[data-admin-theme="dark"] .bg-amber-100:not([class*="dark:bg-"]) { background-color: rgba(245, 158, 11, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-amber-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(245, 158, 11, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-amber-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(245, 158, 11, 0.24); }
+[data-admin-theme="dark"] .border-amber-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-amber-200:not([class*="dark:border-"]) { border-color: rgba(245, 158, 11, 0.28); }
+[data-admin-theme="dark"] .ring-amber-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-amber-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(245, 158, 11, 0.28); }
+[data-admin-theme="dark"] .text-amber-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-amber-700:not([class*="dark:text-"]) { color: #fcd34d; }
+[data-admin-theme="dark"] .text-amber-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-amber-900:not([class*="dark:text-"]) { color: #fde68a; }
+[data-admin-theme="dark"] .bg-amber-200:not([class*="dark:bg-"]) { background-color: rgba(245, 158, 11, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-amber-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(245, 158, 11, 0.30); }
+[data-admin-theme="dark"] .hover\:border-amber-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(245, 158, 11, 0.36); }
+[data-admin-theme="dark"] .hover\:text-amber-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-amber-700:hover:not([class*="dark:hover:text-"]) { color: #fcd34d; }
+[data-admin-theme="dark"] .text-amber-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-amber-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #fcd34d 75%, transparent); }
+
+/* yellow */
+[data-admin-theme="dark"] .bg-yellow-50:not([class*="dark:bg-"]) { background-color: rgba(234, 179, 8, 0.10); }
+[data-admin-theme="dark"] .bg-yellow-50\/60:not([class*="dark:bg-"]) { background-color: rgba(234, 179, 8, 0.07); }
+[data-admin-theme="dark"] .bg-yellow-50\/50:not([class*="dark:bg-"]) { background-color: rgba(234, 179, 8, 0.06); }
+[data-admin-theme="dark"] .bg-yellow-100:not([class*="dark:bg-"]) { background-color: rgba(234, 179, 8, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-yellow-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(234, 179, 8, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-yellow-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(234, 179, 8, 0.24); }
+[data-admin-theme="dark"] .border-yellow-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-yellow-200:not([class*="dark:border-"]) { border-color: rgba(234, 179, 8, 0.28); }
+[data-admin-theme="dark"] .ring-yellow-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-yellow-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(234, 179, 8, 0.28); }
+[data-admin-theme="dark"] .text-yellow-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-yellow-700:not([class*="dark:text-"]) { color: #fde047; }
+[data-admin-theme="dark"] .text-yellow-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-yellow-900:not([class*="dark:text-"]) { color: #fef08a; }
+[data-admin-theme="dark"] .bg-yellow-200:not([class*="dark:bg-"]) { background-color: rgba(234, 179, 8, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-yellow-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(234, 179, 8, 0.30); }
+[data-admin-theme="dark"] .hover\:border-yellow-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(234, 179, 8, 0.36); }
+[data-admin-theme="dark"] .hover\:text-yellow-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-yellow-700:hover:not([class*="dark:hover:text-"]) { color: #fde047; }
+[data-admin-theme="dark"] .text-yellow-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-yellow-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #fde047 75%, transparent); }
+
+/* lime */
+[data-admin-theme="dark"] .bg-lime-50:not([class*="dark:bg-"]) { background-color: rgba(132, 204, 22, 0.10); }
+[data-admin-theme="dark"] .bg-lime-50\/60:not([class*="dark:bg-"]) { background-color: rgba(132, 204, 22, 0.07); }
+[data-admin-theme="dark"] .bg-lime-50\/50:not([class*="dark:bg-"]) { background-color: rgba(132, 204, 22, 0.06); }
+[data-admin-theme="dark"] .bg-lime-100:not([class*="dark:bg-"]) { background-color: rgba(132, 204, 22, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-lime-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(132, 204, 22, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-lime-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(132, 204, 22, 0.24); }
+[data-admin-theme="dark"] .border-lime-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-lime-200:not([class*="dark:border-"]) { border-color: rgba(132, 204, 22, 0.28); }
+[data-admin-theme="dark"] .ring-lime-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-lime-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(132, 204, 22, 0.28); }
+[data-admin-theme="dark"] .text-lime-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-lime-700:not([class*="dark:text-"]) { color: #bef264; }
+[data-admin-theme="dark"] .text-lime-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-lime-900:not([class*="dark:text-"]) { color: #d9f99d; }
+[data-admin-theme="dark"] .bg-lime-200:not([class*="dark:bg-"]) { background-color: rgba(132, 204, 22, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-lime-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(132, 204, 22, 0.30); }
+[data-admin-theme="dark"] .hover\:border-lime-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(132, 204, 22, 0.36); }
+[data-admin-theme="dark"] .hover\:text-lime-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-lime-700:hover:not([class*="dark:hover:text-"]) { color: #bef264; }
+[data-admin-theme="dark"] .text-lime-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-lime-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #bef264 75%, transparent); }
+
+/* green */
+[data-admin-theme="dark"] .bg-green-50:not([class*="dark:bg-"]) { background-color: rgba(34, 197, 94, 0.10); }
+[data-admin-theme="dark"] .bg-green-50\/60:not([class*="dark:bg-"]) { background-color: rgba(34, 197, 94, 0.07); }
+[data-admin-theme="dark"] .bg-green-50\/50:not([class*="dark:bg-"]) { background-color: rgba(34, 197, 94, 0.06); }
+[data-admin-theme="dark"] .bg-green-100:not([class*="dark:bg-"]) { background-color: rgba(34, 197, 94, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-green-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(34, 197, 94, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-green-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(34, 197, 94, 0.24); }
+[data-admin-theme="dark"] .border-green-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-green-200:not([class*="dark:border-"]) { border-color: rgba(34, 197, 94, 0.28); }
+[data-admin-theme="dark"] .ring-green-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-green-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(34, 197, 94, 0.28); }
+[data-admin-theme="dark"] .text-green-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-green-700:not([class*="dark:text-"]) { color: #86efac; }
+[data-admin-theme="dark"] .text-green-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-green-900:not([class*="dark:text-"]) { color: #bbf7d0; }
+[data-admin-theme="dark"] .bg-green-200:not([class*="dark:bg-"]) { background-color: rgba(34, 197, 94, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-green-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(34, 197, 94, 0.30); }
+[data-admin-theme="dark"] .hover\:border-green-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(34, 197, 94, 0.36); }
+[data-admin-theme="dark"] .hover\:text-green-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-green-700:hover:not([class*="dark:hover:text-"]) { color: #86efac; }
+[data-admin-theme="dark"] .text-green-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-green-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #86efac 75%, transparent); }
+
+/* emerald */
+[data-admin-theme="dark"] .bg-emerald-50:not([class*="dark:bg-"]) { background-color: rgba(16, 185, 129, 0.10); }
+[data-admin-theme="dark"] .bg-emerald-50\/60:not([class*="dark:bg-"]) { background-color: rgba(16, 185, 129, 0.07); }
+[data-admin-theme="dark"] .bg-emerald-50\/50:not([class*="dark:bg-"]) { background-color: rgba(16, 185, 129, 0.06); }
+[data-admin-theme="dark"] .bg-emerald-100:not([class*="dark:bg-"]) { background-color: rgba(16, 185, 129, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-emerald-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(16, 185, 129, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-emerald-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(16, 185, 129, 0.24); }
+[data-admin-theme="dark"] .border-emerald-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-emerald-200:not([class*="dark:border-"]) { border-color: rgba(16, 185, 129, 0.28); }
+[data-admin-theme="dark"] .ring-emerald-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-emerald-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(16, 185, 129, 0.28); }
+[data-admin-theme="dark"] .text-emerald-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-emerald-700:not([class*="dark:text-"]) { color: #6ee7b7; }
+[data-admin-theme="dark"] .text-emerald-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-emerald-900:not([class*="dark:text-"]) { color: #a7f3d0; }
+[data-admin-theme="dark"] .bg-emerald-200:not([class*="dark:bg-"]) { background-color: rgba(16, 185, 129, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-emerald-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(16, 185, 129, 0.30); }
+[data-admin-theme="dark"] .hover\:border-emerald-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(16, 185, 129, 0.36); }
+[data-admin-theme="dark"] .hover\:text-emerald-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-emerald-700:hover:not([class*="dark:hover:text-"]) { color: #6ee7b7; }
+[data-admin-theme="dark"] .text-emerald-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-emerald-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #6ee7b7 75%, transparent); }
+
+/* teal */
+[data-admin-theme="dark"] .bg-teal-50:not([class*="dark:bg-"]) { background-color: rgba(20, 184, 166, 0.10); }
+[data-admin-theme="dark"] .bg-teal-50\/60:not([class*="dark:bg-"]) { background-color: rgba(20, 184, 166, 0.07); }
+[data-admin-theme="dark"] .bg-teal-50\/50:not([class*="dark:bg-"]) { background-color: rgba(20, 184, 166, 0.06); }
+[data-admin-theme="dark"] .bg-teal-100:not([class*="dark:bg-"]) { background-color: rgba(20, 184, 166, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-teal-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(20, 184, 166, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-teal-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(20, 184, 166, 0.24); }
+[data-admin-theme="dark"] .border-teal-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-teal-200:not([class*="dark:border-"]) { border-color: rgba(20, 184, 166, 0.28); }
+[data-admin-theme="dark"] .ring-teal-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-teal-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(20, 184, 166, 0.28); }
+[data-admin-theme="dark"] .text-teal-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-teal-700:not([class*="dark:text-"]) { color: #5eead4; }
+[data-admin-theme="dark"] .text-teal-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-teal-900:not([class*="dark:text-"]) { color: #99f6e4; }
+[data-admin-theme="dark"] .bg-teal-200:not([class*="dark:bg-"]) { background-color: rgba(20, 184, 166, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-teal-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(20, 184, 166, 0.30); }
+[data-admin-theme="dark"] .hover\:border-teal-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(20, 184, 166, 0.36); }
+[data-admin-theme="dark"] .hover\:text-teal-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-teal-700:hover:not([class*="dark:hover:text-"]) { color: #5eead4; }
+[data-admin-theme="dark"] .text-teal-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-teal-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #5eead4 75%, transparent); }
+
+/* cyan */
+[data-admin-theme="dark"] .bg-cyan-50:not([class*="dark:bg-"]) { background-color: rgba(6, 182, 212, 0.10); }
+[data-admin-theme="dark"] .bg-cyan-50\/60:not([class*="dark:bg-"]) { background-color: rgba(6, 182, 212, 0.07); }
+[data-admin-theme="dark"] .bg-cyan-50\/50:not([class*="dark:bg-"]) { background-color: rgba(6, 182, 212, 0.06); }
+[data-admin-theme="dark"] .bg-cyan-100:not([class*="dark:bg-"]) { background-color: rgba(6, 182, 212, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-cyan-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(6, 182, 212, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-cyan-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(6, 182, 212, 0.24); }
+[data-admin-theme="dark"] .border-cyan-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-cyan-200:not([class*="dark:border-"]) { border-color: rgba(6, 182, 212, 0.28); }
+[data-admin-theme="dark"] .ring-cyan-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-cyan-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(6, 182, 212, 0.28); }
+[data-admin-theme="dark"] .text-cyan-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-cyan-700:not([class*="dark:text-"]) { color: #67e8f9; }
+[data-admin-theme="dark"] .text-cyan-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-cyan-900:not([class*="dark:text-"]) { color: #a5f3fc; }
+[data-admin-theme="dark"] .bg-cyan-200:not([class*="dark:bg-"]) { background-color: rgba(6, 182, 212, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-cyan-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(6, 182, 212, 0.30); }
+[data-admin-theme="dark"] .hover\:border-cyan-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(6, 182, 212, 0.36); }
+[data-admin-theme="dark"] .hover\:text-cyan-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-cyan-700:hover:not([class*="dark:hover:text-"]) { color: #67e8f9; }
+[data-admin-theme="dark"] .text-cyan-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-cyan-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #67e8f9 75%, transparent); }
+
+/* sky */
+[data-admin-theme="dark"] .bg-sky-50:not([class*="dark:bg-"]) { background-color: rgba(14, 165, 233, 0.10); }
+[data-admin-theme="dark"] .bg-sky-50\/60:not([class*="dark:bg-"]) { background-color: rgba(14, 165, 233, 0.07); }
+[data-admin-theme="dark"] .bg-sky-50\/50:not([class*="dark:bg-"]) { background-color: rgba(14, 165, 233, 0.06); }
+[data-admin-theme="dark"] .bg-sky-100:not([class*="dark:bg-"]) { background-color: rgba(14, 165, 233, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-sky-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(14, 165, 233, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-sky-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(14, 165, 233, 0.24); }
+[data-admin-theme="dark"] .border-sky-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-sky-200:not([class*="dark:border-"]) { border-color: rgba(14, 165, 233, 0.28); }
+[data-admin-theme="dark"] .ring-sky-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-sky-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(14, 165, 233, 0.28); }
+[data-admin-theme="dark"] .text-sky-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-sky-700:not([class*="dark:text-"]) { color: #7dd3fc; }
+[data-admin-theme="dark"] .text-sky-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-sky-900:not([class*="dark:text-"]) { color: #bae6fd; }
+[data-admin-theme="dark"] .bg-sky-200:not([class*="dark:bg-"]) { background-color: rgba(14, 165, 233, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-sky-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(14, 165, 233, 0.30); }
+[data-admin-theme="dark"] .hover\:border-sky-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(14, 165, 233, 0.36); }
+[data-admin-theme="dark"] .hover\:text-sky-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-sky-700:hover:not([class*="dark:hover:text-"]) { color: #7dd3fc; }
+[data-admin-theme="dark"] .text-sky-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-sky-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #7dd3fc 75%, transparent); }
+
+/* blue */
+[data-admin-theme="dark"] .bg-blue-50:not([class*="dark:bg-"]) { background-color: rgba(59, 130, 246, 0.10); }
+[data-admin-theme="dark"] .bg-blue-50\/60:not([class*="dark:bg-"]) { background-color: rgba(59, 130, 246, 0.07); }
+[data-admin-theme="dark"] .bg-blue-50\/50:not([class*="dark:bg-"]) { background-color: rgba(59, 130, 246, 0.06); }
+[data-admin-theme="dark"] .bg-blue-100:not([class*="dark:bg-"]) { background-color: rgba(59, 130, 246, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-blue-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(59, 130, 246, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-blue-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(59, 130, 246, 0.24); }
+[data-admin-theme="dark"] .border-blue-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-blue-200:not([class*="dark:border-"]) { border-color: rgba(59, 130, 246, 0.28); }
+[data-admin-theme="dark"] .ring-blue-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-blue-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(59, 130, 246, 0.28); }
+[data-admin-theme="dark"] .text-blue-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-blue-700:not([class*="dark:text-"]) { color: #93c5fd; }
+[data-admin-theme="dark"] .text-blue-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-blue-900:not([class*="dark:text-"]) { color: #bfdbfe; }
+[data-admin-theme="dark"] .bg-blue-200:not([class*="dark:bg-"]) { background-color: rgba(59, 130, 246, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-blue-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(59, 130, 246, 0.30); }
+[data-admin-theme="dark"] .hover\:border-blue-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(59, 130, 246, 0.36); }
+[data-admin-theme="dark"] .hover\:text-blue-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-blue-700:hover:not([class*="dark:hover:text-"]) { color: #93c5fd; }
+[data-admin-theme="dark"] .text-blue-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-blue-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #93c5fd 75%, transparent); }
+
+/* indigo */
+[data-admin-theme="dark"] .bg-indigo-50:not([class*="dark:bg-"]) { background-color: rgba(99, 102, 241, 0.10); }
+[data-admin-theme="dark"] .bg-indigo-50\/60:not([class*="dark:bg-"]) { background-color: rgba(99, 102, 241, 0.07); }
+[data-admin-theme="dark"] .bg-indigo-50\/50:not([class*="dark:bg-"]) { background-color: rgba(99, 102, 241, 0.06); }
+[data-admin-theme="dark"] .bg-indigo-100:not([class*="dark:bg-"]) { background-color: rgba(99, 102, 241, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-indigo-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(99, 102, 241, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-indigo-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(99, 102, 241, 0.24); }
+[data-admin-theme="dark"] .border-indigo-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-indigo-200:not([class*="dark:border-"]) { border-color: rgba(99, 102, 241, 0.28); }
+[data-admin-theme="dark"] .ring-indigo-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-indigo-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(99, 102, 241, 0.28); }
+[data-admin-theme="dark"] .text-indigo-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-indigo-700:not([class*="dark:text-"]) { color: #a5b4fc; }
+[data-admin-theme="dark"] .text-indigo-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-indigo-900:not([class*="dark:text-"]) { color: #c7d2fe; }
+[data-admin-theme="dark"] .bg-indigo-200:not([class*="dark:bg-"]) { background-color: rgba(99, 102, 241, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-indigo-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(99, 102, 241, 0.30); }
+[data-admin-theme="dark"] .hover\:border-indigo-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(99, 102, 241, 0.36); }
+[data-admin-theme="dark"] .hover\:text-indigo-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-indigo-700:hover:not([class*="dark:hover:text-"]) { color: #a5b4fc; }
+[data-admin-theme="dark"] .text-indigo-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-indigo-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #a5b4fc 75%, transparent); }
+
+/* violet */
+[data-admin-theme="dark"] .bg-violet-50:not([class*="dark:bg-"]) { background-color: rgba(139, 92, 246, 0.10); }
+[data-admin-theme="dark"] .bg-violet-50\/60:not([class*="dark:bg-"]) { background-color: rgba(139, 92, 246, 0.07); }
+[data-admin-theme="dark"] .bg-violet-50\/50:not([class*="dark:bg-"]) { background-color: rgba(139, 92, 246, 0.06); }
+[data-admin-theme="dark"] .bg-violet-100:not([class*="dark:bg-"]) { background-color: rgba(139, 92, 246, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-violet-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(139, 92, 246, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-violet-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(139, 92, 246, 0.24); }
+[data-admin-theme="dark"] .border-violet-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-violet-200:not([class*="dark:border-"]) { border-color: rgba(139, 92, 246, 0.28); }
+[data-admin-theme="dark"] .ring-violet-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-violet-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(139, 92, 246, 0.28); }
+[data-admin-theme="dark"] .text-violet-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-violet-700:not([class*="dark:text-"]) { color: #c4b5fd; }
+[data-admin-theme="dark"] .text-violet-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-violet-900:not([class*="dark:text-"]) { color: #ddd6fe; }
+[data-admin-theme="dark"] .bg-violet-200:not([class*="dark:bg-"]) { background-color: rgba(139, 92, 246, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-violet-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(139, 92, 246, 0.30); }
+[data-admin-theme="dark"] .hover\:border-violet-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(139, 92, 246, 0.36); }
+[data-admin-theme="dark"] .hover\:text-violet-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-violet-700:hover:not([class*="dark:hover:text-"]) { color: #c4b5fd; }
+[data-admin-theme="dark"] .text-violet-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-violet-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #c4b5fd 75%, transparent); }
+
+/* purple */
+[data-admin-theme="dark"] .bg-purple-50:not([class*="dark:bg-"]) { background-color: rgba(168, 85, 247, 0.10); }
+[data-admin-theme="dark"] .bg-purple-50\/60:not([class*="dark:bg-"]) { background-color: rgba(168, 85, 247, 0.07); }
+[data-admin-theme="dark"] .bg-purple-50\/50:not([class*="dark:bg-"]) { background-color: rgba(168, 85, 247, 0.06); }
+[data-admin-theme="dark"] .bg-purple-100:not([class*="dark:bg-"]) { background-color: rgba(168, 85, 247, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-purple-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(168, 85, 247, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-purple-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(168, 85, 247, 0.24); }
+[data-admin-theme="dark"] .border-purple-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-purple-200:not([class*="dark:border-"]) { border-color: rgba(168, 85, 247, 0.28); }
+[data-admin-theme="dark"] .ring-purple-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-purple-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(168, 85, 247, 0.28); }
+[data-admin-theme="dark"] .text-purple-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-purple-700:not([class*="dark:text-"]) { color: #d8b4fe; }
+[data-admin-theme="dark"] .text-purple-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-purple-900:not([class*="dark:text-"]) { color: #e9d5ff; }
+[data-admin-theme="dark"] .bg-purple-200:not([class*="dark:bg-"]) { background-color: rgba(168, 85, 247, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-purple-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(168, 85, 247, 0.30); }
+[data-admin-theme="dark"] .hover\:border-purple-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(168, 85, 247, 0.36); }
+[data-admin-theme="dark"] .hover\:text-purple-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-purple-700:hover:not([class*="dark:hover:text-"]) { color: #d8b4fe; }
+[data-admin-theme="dark"] .text-purple-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-purple-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #d8b4fe 75%, transparent); }
+
+/* fuchsia */
+[data-admin-theme="dark"] .bg-fuchsia-50:not([class*="dark:bg-"]) { background-color: rgba(217, 70, 239, 0.10); }
+[data-admin-theme="dark"] .bg-fuchsia-50\/60:not([class*="dark:bg-"]) { background-color: rgba(217, 70, 239, 0.07); }
+[data-admin-theme="dark"] .bg-fuchsia-50\/50:not([class*="dark:bg-"]) { background-color: rgba(217, 70, 239, 0.06); }
+[data-admin-theme="dark"] .bg-fuchsia-100:not([class*="dark:bg-"]) { background-color: rgba(217, 70, 239, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-fuchsia-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(217, 70, 239, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-fuchsia-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(217, 70, 239, 0.24); }
+[data-admin-theme="dark"] .border-fuchsia-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-fuchsia-200:not([class*="dark:border-"]) { border-color: rgba(217, 70, 239, 0.28); }
+[data-admin-theme="dark"] .ring-fuchsia-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-fuchsia-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(217, 70, 239, 0.28); }
+[data-admin-theme="dark"] .text-fuchsia-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-fuchsia-700:not([class*="dark:text-"]) { color: #f0abfc; }
+[data-admin-theme="dark"] .text-fuchsia-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-fuchsia-900:not([class*="dark:text-"]) { color: #f5d0fe; }
+[data-admin-theme="dark"] .bg-fuchsia-200:not([class*="dark:bg-"]) { background-color: rgba(217, 70, 239, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-fuchsia-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(217, 70, 239, 0.30); }
+[data-admin-theme="dark"] .hover\:border-fuchsia-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(217, 70, 239, 0.36); }
+[data-admin-theme="dark"] .hover\:text-fuchsia-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-fuchsia-700:hover:not([class*="dark:hover:text-"]) { color: #f0abfc; }
+[data-admin-theme="dark"] .text-fuchsia-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-fuchsia-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #f0abfc 75%, transparent); }
+
+/* pink */
+[data-admin-theme="dark"] .bg-pink-50:not([class*="dark:bg-"]) { background-color: rgba(236, 72, 153, 0.10); }
+[data-admin-theme="dark"] .bg-pink-50\/60:not([class*="dark:bg-"]) { background-color: rgba(236, 72, 153, 0.07); }
+[data-admin-theme="dark"] .bg-pink-50\/50:not([class*="dark:bg-"]) { background-color: rgba(236, 72, 153, 0.06); }
+[data-admin-theme="dark"] .bg-pink-100:not([class*="dark:bg-"]) { background-color: rgba(236, 72, 153, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-pink-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(236, 72, 153, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-pink-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(236, 72, 153, 0.24); }
+[data-admin-theme="dark"] .border-pink-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-pink-200:not([class*="dark:border-"]) { border-color: rgba(236, 72, 153, 0.28); }
+[data-admin-theme="dark"] .ring-pink-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-pink-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(236, 72, 153, 0.28); }
+[data-admin-theme="dark"] .text-pink-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-pink-700:not([class*="dark:text-"]) { color: #f9a8d4; }
+[data-admin-theme="dark"] .text-pink-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-pink-900:not([class*="dark:text-"]) { color: #fbcfe8; }
+[data-admin-theme="dark"] .bg-pink-200:not([class*="dark:bg-"]) { background-color: rgba(236, 72, 153, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-pink-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(236, 72, 153, 0.30); }
+[data-admin-theme="dark"] .hover\:border-pink-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(236, 72, 153, 0.36); }
+[data-admin-theme="dark"] .hover\:text-pink-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-pink-700:hover:not([class*="dark:hover:text-"]) { color: #f9a8d4; }
+[data-admin-theme="dark"] .text-pink-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-pink-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #f9a8d4 75%, transparent); }
+
+/* rose */
+[data-admin-theme="dark"] .bg-rose-50:not([class*="dark:bg-"]) { background-color: rgba(244, 63, 94, 0.10); }
+[data-admin-theme="dark"] .bg-rose-50\/60:not([class*="dark:bg-"]) { background-color: rgba(244, 63, 94, 0.07); }
+[data-admin-theme="dark"] .bg-rose-50\/50:not([class*="dark:bg-"]) { background-color: rgba(244, 63, 94, 0.06); }
+[data-admin-theme="dark"] .bg-rose-100:not([class*="dark:bg-"]) { background-color: rgba(244, 63, 94, 0.18); }
+[data-admin-theme="dark"] .hover\:bg-rose-50:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(244, 63, 94, 0.16); }
+[data-admin-theme="dark"] .hover\:bg-rose-100:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(244, 63, 94, 0.24); }
+[data-admin-theme="dark"] .border-rose-100:not([class*="dark:border-"]), [data-admin-theme="dark"] .border-rose-200:not([class*="dark:border-"]) { border-color: rgba(244, 63, 94, 0.28); }
+[data-admin-theme="dark"] .ring-rose-100:not([class*="dark:ring-"]), [data-admin-theme="dark"] .ring-rose-200:not([class*="dark:ring-"]) { --tw-ring-color: rgba(244, 63, 94, 0.28); }
+[data-admin-theme="dark"] .text-rose-600:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-rose-700:not([class*="dark:text-"]) { color: #fda4af; }
+[data-admin-theme="dark"] .text-rose-800:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-rose-900:not([class*="dark:text-"]) { color: #fecdd3; }
+[data-admin-theme="dark"] .bg-rose-200:not([class*="dark:bg-"]) { background-color: rgba(244, 63, 94, 0.26); }
+[data-admin-theme="dark"] .hover\:bg-rose-200:hover:not([class*="dark:hover:bg-"]) { background-color: rgba(244, 63, 94, 0.30); }
+[data-admin-theme="dark"] .hover\:border-rose-200:hover:not([class*="dark:hover:border-"]) { border-color: rgba(244, 63, 94, 0.36); }
+[data-admin-theme="dark"] .hover\:text-rose-600:hover:not([class*="dark:hover:text-"]), [data-admin-theme="dark"] .hover\:text-rose-700:hover:not([class*="dark:hover:text-"]) { color: #fda4af; }
+[data-admin-theme="dark"] .text-rose-600\/70:not([class*="dark:text-"]), [data-admin-theme="dark"] .text-rose-700\/70:not([class*="dark:text-"]) { color: color-mix(in srgb, #fda4af 75%, transparent); }
+
+
+/* ---- Charts (Recharts) ----
+ *
+ * Recharts writes `background-color: #fff` straight onto the tooltip element,
+ * so a class rule can't reach it — hence the only !important in this file. The
+ * label inherits .admin-content's light ink, so on dark the old tooltip was
+ * pale text on a white card. Grid lines arrive as SVG presentation attributes
+ * (stroke="#f1f5f9"), which a plain rule overrides without any help.
+ */
+[data-admin-theme="dark"] .recharts-default-tooltip {
+  background-color: var(--admin-elevated) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #e2e8f0;
+}
+[data-admin-theme="dark"] .recharts-tooltip-label { color: #e2e8f0; }
+[data-admin-theme="dark"] .recharts-cartesian-grid line { stroke: rgba(255, 255, 255, 0.07); }
+[data-admin-theme="dark"] rect.recharts-tooltip-cursor { fill: rgba(255, 255, 255, 0.06); }
 
 /*
  * Platform console (SuperAdmin) — the UI is sharp-cornered (screens carry the

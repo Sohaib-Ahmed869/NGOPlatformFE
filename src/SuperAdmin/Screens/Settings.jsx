@@ -262,7 +262,6 @@ export default function SASettings() {
     try {
       await AuthService.mfaDisable(code);
       setMfa({ enabled: false });
-      setMfaSetup(null);
       setMfaCode("");
       setDisarming(false);
       toast.success("Two-factor authentication disabled");

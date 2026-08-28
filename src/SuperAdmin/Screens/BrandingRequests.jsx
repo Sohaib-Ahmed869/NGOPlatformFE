@@ -379,7 +379,7 @@ export default function BrandingRequests() {
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setReviewModal(null)} />
             <motion.div className={`${card} relative w-full max-w-md p-6 shadow-xl`} initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}>
-              <div className="mx-auto mb-4 grid h-12 w-12 place-items-center" style={reviewAction === "approve" ? { background: accentTint(0.12), color: ACCENT } : { background: "#fef2f2", color: "#dc2626" }}>
+              <div className={`mx-auto mb-4 grid h-12 w-12 place-items-center ${reviewAction === "approve" ? "" : "bg-red-50 text-red-600"}`} style={reviewAction === "approve" ? { background: accentTint(0.12), color: ACCENT } : undefined}>
                 {reviewAction === "approve" ? <CheckCircle2 className="h-6 w-6" /> : <XCircle className="h-6 w-6" />}
               </div>
               <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">{reviewAction === "approve" ? "Approve request" : "Reject request"}</h3>

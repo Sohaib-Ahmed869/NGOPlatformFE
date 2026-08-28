@@ -23,6 +23,10 @@ import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import { CustomSelect } from "../../components/CustomSelect";
 import SAErrorState from "../components/SAErrorState";
+import SATableHead from "../components/SATableHead";
+import SAPagination from "../components/SAPagination";
+import { useTableSort } from "../utils/tableSort";
+import { DEFAULT_PAGE_SIZE } from "../utils/paging";
 import SALoader from "../SALoader";
 import LostReasonModal from "../components/LostReasonModal";
 import { useConfirm } from "../components/ConfirmProvider";
@@ -32,6 +36,36 @@ import AnimatedNumberBase from "../components/AnimatedNumber";
 
 const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.6} {...props} />;
 const card = "border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
+
+/**
+ * Table columns. `key` names a column the SERVER sorts by (LEAD_SORTS in
+ * leadController). Assignee is a populated User, so ordering by it would need
+ * a $lookup — it stays a plain label rather than a control that does nothing.
+ *
+ * The default is "activity" (last message, newest first) because the question
+ * this table answers is "who needs chasing".
+ */
+const LEAD_TH = "px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400";
+const LEAD_COLUMNS = [
+  { label: "Organisation", key: "org", className: LEAD_TH },
+  { label: "Contact", key: "contact", className: LEAD_TH },
+  { label: "Stage", key: "stage", className: LEAD_TH },
+  { label: "Assignee", className: LEAD_TH },
+  { label: "Last activity", key: "activity", defaultDir: "desc", className: LEAD_TH },
+  { label: "", className: LEAD_TH },
+];
+
+/**
+ * The same columns read off a row in the browser, so a header click re-orders
+ * the loaded leads on the spot rather than after a round trip. The server is
+ * still asked — only it can order the leads that aren't on this page.
+ */
+const LEAD_SORT_ACCESSORS = {
+  org: (l) => l.orgName,
+  contact: (l) => l.contactName || l.contactEmail,
+  stage: (l) => l.stage,
+  activity: (l) => l.lastMessageAt || l.createdAt,
+};
 const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
 
 const STAGES = [
@@ -106,8 +140,11 @@ export default function Leads() {
   const [stageFilter, setStageFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
+  const [sort, setSort] = useState({ key: "activity", dir: "desc" });
   const [refreshKey, setRefreshKey] = useState(0);
   const lastParamsKeyRef = useRef(null);
+  const lastViewKeyRef = useRef(null);
 
   useEffect(() => {
     const next = search.trim();
@@ -118,12 +155,17 @@ export default function Leads() {
 
   useEffect(() => {
     if (tab !== "list") return undefined;
-    const params = { page, limit: 25 };
+    const params = { page, limit, sort: sort.key, dir: sort.dir };
     if (debouncedSearch) params.search = debouncedSearch;
     if (stageFilter !== "all") params.stage = stageFilter;
     if (assigneeFilter !== "all") params.assignee = assigneeFilter;
     const paramsKey = JSON.stringify(params);
-    const sameView = lastParamsKeyRef.current === paramsKey;
+    // Identity of the CONTENT, without the ordering or the window into it.
+    const viewKey = JSON.stringify([debouncedSearch, stageFilter, assigneeFilter]);
+    // Sorting or paging the same filtered set is navigation within one view —
+    // it must not blank the table for the full-screen loader. That is what made
+    // a header click look like a page reload.
+    const sameView = lastViewKeyRef.current === viewKey || lastParamsKeyRef.current === paramsKey;
     const controller = new AbortController();
     let alive = true;
     (async () => {
@@ -138,6 +180,7 @@ export default function Leads() {
         setNewCount(nc);
         setListError(null);
         lastParamsKeyRef.current = paramsKey;
+        lastViewKeyRef.current = viewKey;
       } catch (err) {
         if (!alive || axios.isCancel(err)) return;
         const msg = err?.response?.data?.error || "Couldn't load leads.";
@@ -147,7 +190,21 @@ export default function Leads() {
       }
     })();
     return () => { alive = false; controller.abort(); };
-  }, [tab, page, debouncedSearch, stageFilter, assigneeFilter, refreshKey, leadsVersion]);
+  }, [tab, page, limit, sort, debouncedSearch, stageFilter, assigneeFilter, refreshKey, leadsVersion]);
+
+  // Re-ordered in the browser the instant a header is clicked; the server's
+  // answer for the same sort lands behind it.
+  const sortedLeads = useTableSort(leads, sort, LEAD_SORT_ACCESSORS);
+
+  // Both re-shape the result set, so the page number stops meaning anything.
+  const changeSort = useCallback((next) => {
+    setSort(next);
+    setPage(1);
+  }, []);
+  const changeLimit = useCallback((next) => {
+    setLimit((cur) => (cur === next ? cur : next));
+    setPage(1);
+  }, []);
 
   useEffect(() => {
     superadminService.setLeadsCache({ leads, pagination, newCount });
@@ -346,7 +403,7 @@ export default function Leads() {
           <div className="relative z-10 min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Sales</p>
             <h1 className="mt-1 text-2xl font-bold text-white">Leads</h1>
-            <p className="mt-1 text-sm text-white/80">Every "Express interest" submission, tracked from first contact to converted tenant.</p>
+            <p className="mt-1 text-sm text-white/80">Every “Express interest” submission, tracked from first contact to converted tenant.</p>
           </div>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
@@ -403,18 +460,9 @@ export default function Leads() {
             <div className={`${card} overflow-hidden`}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400 dark:border-white/10">
-                      <th className="px-5 py-3">Organisation</th>
-                      <th className="px-5 py-3">Contact</th>
-                      <th className="px-5 py-3">Stage</th>
-                      <th className="px-5 py-3">Assignee</th>
-                      <th className="px-5 py-3">Last activity</th>
-                      <th className="px-5 py-3" />
-                    </tr>
-                  </thead>
+                  <SATableHead columns={LEAD_COLUMNS} sort={sort} onSort={changeSort} />
                   <tbody className="divide-y divide-gray-50 dark:divide-white/5">
-                    {leads.map((l) => (
+                    {sortedLeads.map((l) => (
                       <tr key={l._id} onClick={() => navigate(`/leads/${l._id}`)} className="cursor-pointer transition-colors hover:bg-gray-50/70 dark:hover:bg-white/5">
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
@@ -443,15 +491,18 @@ export default function Leads() {
                 </table>
               </div>
             </div>
-            {pagination.pages > 1 ? (
-              <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-                <span>Page {pagination.page} of {pagination.pages} · {pagination.total} lead{pagination.total === 1 ? "" : "s"}</span>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="grid h-8 w-8 place-items-center border border-gray-200 text-gray-500 disabled:opacity-40 dark:border-white/10"><ChevronLeft className="h-4 w-4" /></button>
-                  <button type="button" onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))} disabled={page >= pagination.pages} className="grid h-8 w-8 place-items-center border border-gray-200 text-gray-500 disabled:opacity-40 dark:border-white/10"><ChevronRight className="h-4 w-4" /></button>
-                </div>
-              </div>
-            ) : null}
+            {/* Shared footer — the count and the rows control read the same
+                here as on every other list screen. */}
+            <SAPagination
+              className="mt-4"
+              page={page}
+              pages={pagination.pages}
+              total={pagination.total || 0}
+              limit={limit}
+              shown={leads.length}
+              onPage={setPage}
+              onLimit={changeLimit}
+            />
           </>
         )
       ) : boardLoading ? (

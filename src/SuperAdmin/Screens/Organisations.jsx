@@ -19,10 +19,15 @@ import {
   RefreshCw,
   Ban,
   Power,
+  Trash2,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import SASelect from "../components/SASelect";
+import SATableHead from "../components/SATableHead";
+import SAPagination from "../components/SAPagination";
+import { DEFAULT_PAGE_SIZE } from "../utils/paging";
+import { useTableSort } from "../utils/tableSort";
 import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
@@ -43,6 +48,40 @@ const statusDot = {
 };
 
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm";
+
+/**
+ * Table columns. `key` names a column the SERVER sorts by (ORGANISATION_SORTS
+ * in superAdminController). "Admin" comes from a populated User document, so
+ * Mongo can't order the tenants by it without a $lookup — it stays unsortable
+ * rather than rendering a control that silently does nothing.
+ */
+const ORG_COLUMNS = [
+  { label: "Name", key: "name" },
+  { label: "Slug", key: "slug" },
+  { label: "Plan", key: "plan" },
+  { label: "Status", key: "status" },
+  { label: "Admin" },
+  { label: "Created", key: "created", defaultDir: "desc" },
+  { label: "Actions" },
+];
+
+/**
+ * The same columns, read off a row in the browser.
+ *
+ * Clicking a header re-orders what's on screen IMMEDIATELY from these — no
+ * request, no loader, no wait. The server is still asked, because it's the
+ * only thing that can order rows that aren't loaded yet (page 4's tenants are
+ * not in the browser to be sorted), but that happens behind the rows you're
+ * already looking at. When the whole set fits on one page the two orders are
+ * identical and nothing moves at all.
+ */
+const ORG_SORT_ACCESSORS = {
+  name: (o) => o.name,
+  slug: (o) => o.slug,
+  plan: (o) => o.plan,
+  status: (o) => o.subscriptionStatus,
+  created: (o) => o.createdAt,
+};
 const inputCls =
   "w-full border border-gray-200 bg-white py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
 
@@ -99,12 +138,20 @@ export default function Organisations() {
   const [planFilter, setPlanFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
+  // Applied in BOTH places, on purpose. The browser re-orders the loaded rows
+  // the instant you click, so the table never waits on the network; the server
+  // is asked as well because it's the only one that can order rows that aren't
+  // in the browser yet. On a single-page set the two agree and nothing moves.
+  const [sort, setSort] = useState({ key: "created", dir: "desc" });
   const [pagination, setPagination] = useState({});
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState("grid"); // "grid" | "table"
   const [planModal, setPlanModal] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState("");
   const [statusModal, setStatusModal] = useState(null); // { org, action: "suspend" | "reactivate" }
+  const [deleteModal, setDeleteModal] = useState(null); // org pending delete confirmation
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [acting, setActing] = useState(false); // a mutation is in flight — blocks double submits
   const [revalidating, setRevalidating] = useState(false); // background refresh of the current view
   const [plans, setPlans] = useState([]);
@@ -136,12 +183,15 @@ export default function Organisations() {
   // Superseded live requests are aborted so a slow stale response can never
   // overwrite a newer one.
   const lastParamsKeyRef = useRef(null);
+  const lastViewKeyRef = useRef(null);
   useEffect(() => {
-    const params = { page, limit: 20 };
+    const params = { page, limit, sort: sort.key, dir: sort.dir };
     if (debouncedSearch) params.search = debouncedSearch;
     if (planFilter) params.plan = planFilter;
     if (statusFilter) params.status = statusFilter;
     const paramsKey = JSON.stringify(params);
+    // Identity of the CONTENT, without the ordering or the window into it.
+    const viewKey = JSON.stringify([debouncedSearch, planFilter, statusFilter]);
 
     const cached = superadminService.getOrganisationsCached(params);
     if (cached) {
@@ -150,10 +200,15 @@ export default function Organisations() {
       setError(null);
       setLoading(false);
       lastParamsKeyRef.current = paramsKey;
+      lastViewKeyRef.current = viewKey;
       return undefined;
     }
 
-    const sameView = lastParamsKeyRef.current === paramsKey;
+    // "Same view" means the same CONTENT — the same filters and search. Sorting
+    // it, re-sizing it or stepping through its pages is navigation within that
+    // view, not a different one, so it must not blank the table and drop in the
+    // full-screen loader. That's what made sorting look like a page reload.
+    const sameView = lastViewKeyRef.current === viewKey || lastParamsKeyRef.current === paramsKey;
     const controller = new AbortController();
     let alive = true;
     (async () => {
@@ -172,6 +227,7 @@ export default function Organisations() {
         setPagination(pg);
         setError(null);
         lastParamsKeyRef.current = paramsKey;
+        lastViewKeyRef.current = viewKey;
       } catch (err) {
         if (!alive || axios.isCancel(err)) return;
         console.error("Failed to fetch organisations:", err);
@@ -189,7 +245,24 @@ export default function Organisations() {
       alive = false;
       controller.abort();
     };
-  }, [page, planFilter, statusFilter, debouncedSearch, refreshKey, orgsVersion]);
+  }, [page, limit, sort, planFilter, statusFilter, debouncedSearch, refreshKey, orgsVersion]);
+
+  // Re-order the rows we already hold, straight away. The server request below
+  // still goes out (it's the only thing that can order rows that aren't loaded
+  // yet), but it lands behind these — so a header click reorders the table on
+  // the spot instead of waiting on a round trip.
+  const rows = useTableSort(orgs, sort, ORG_SORT_ACCESSORS);
+
+  // Both re-shape the result set, so the current page number no longer refers
+  // to anything. Batched into one render → one request.
+  const changeSort = useCallback((next) => {
+    setSort(next);
+    setPage(1);
+  }, []);
+  const changeLimit = useCallback((next) => {
+    setLimit((cur) => (cur === next ? cur : next));
+    setPage(1);
+  }, []);
 
   // Platform-wide totals for the summary band (same source as the dashboard).
   // Session-cached in the service; org mutations and realtime events clear the
@@ -247,6 +320,28 @@ export default function Organisations() {
       refresh();
     } catch (err) {
       toast.error(err.response?.data?.error || `Failed to ${action}`);
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    if (acting) return;
+    setDeleteModal(null);
+    setDeleteConfirmText("");
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!deleteModal || acting || deleteConfirmText.trim() !== deleteModal.name) return;
+    setActing(true);
+    try {
+      await superadminService.deleteOrganisation(deleteModal._id, deleteConfirmText.trim());
+      toast.success("Organisation deleted");
+      setDeleteModal(null);
+      setDeleteConfirmText("");
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete organisation");
     } finally {
       setActing(false);
     }
@@ -320,6 +415,15 @@ export default function Organisations() {
           <Ban className="h-4 w-4" />
         </button>
       )}
+      <button
+        type="button"
+        title="Delete"
+        aria-label="Delete"
+        onClick={() => setDeleteModal(org)}
+        className="grid h-8 w-8 place-items-center bg-gray-100 text-gray-500 transition-colors hover:bg-red-100 hover:text-red-700"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   );
 
@@ -496,7 +600,7 @@ export default function Organisations() {
             <RefreshCw className="h-3.5 w-3.5" /> Try again
           </button>
         </motion.div>
-      ) : orgs.length === 0 ? (
+      ) : rows.length === 0 ? (
         <motion.div
           key="empty"
           initial={{ opacity: 0, y: 10 }}
@@ -534,7 +638,7 @@ export default function Organisations() {
               animate="show"
               exit={{ opacity: 0, transition: { duration: 0.15 } }}
             >
-              {orgs.map((org) => {
+              {rows.map((org) => {
                 const pc = planColor(org.plan);
                 const planPrice = planByCode[org.plan]?.price?.monthly;
                 return (
@@ -669,6 +773,14 @@ export default function Organisations() {
                           <Ban className="h-3.5 w-3.5" /> Suspend
                         </button>
                       )}
+                      <button
+                        type="button"
+                        title="Delete organisation"
+                        onClick={() => setDeleteModal(org)}
+                        className="flex w-12 shrink-0 items-center justify-center border-l border-gray-100 py-3 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </motion.div>
                 );
@@ -685,18 +797,14 @@ export default function Organisations() {
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead>
-                    <tr
-                      className="border-b border-gray-100 text-left"
-                      style={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 16, 185, 129), 0.14)" }}
-                    >
-                      {["Name", "Slug", "Plan", "Status", "Admin", "Created", "Actions"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
+                  <SATableHead
+                    columns={ORG_COLUMNS}
+                    sort={sort}
+                    onSort={changeSort}
+                    rowStyle={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 16, 185, 129), 0.14)" }}
+                  />
                   <tbody>
-                    {orgs.map((org, i) => {
+                    {rows.map((org, i) => {
                       const pc = planColor(org.plan);
                       return (
                         <motion.tr
@@ -764,36 +872,19 @@ export default function Organisations() {
           )}
       </AnimatePresence>
 
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <motion.div
-          className="mt-6 flex items-center justify-between px-1"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.15, duration: 0.3 }}
-        >
-          <span className="font-mono text-xs text-gray-400">
-            Page {pagination.page} of {pagination.pages} · {pagination.total} total
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page >= pagination.pages}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10"
-            >
-              Next
-            </button>
-          </div>
-        </motion.div>
+      {/* Pagination — the shared footer, so the count and the rows control
+          read the same here as on every other list screen. */}
+      {!loading && (
+        <SAPagination
+          className="mt-6"
+          page={page}
+          pages={pagination.pages}
+          total={pagination.total || 0}
+          limit={limit}
+          shown={rows.length}
+          onPage={setPage}
+          onLimit={changeLimit}
+        />
       )}
 
       {/* Change Plan Modal */}
@@ -909,6 +1000,66 @@ export default function Organisations() {
                     : statusModal.action === "suspend"
                       ? "Suspend"
                       : "Reactivate"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal — typed-name confirm, same pattern GitHub uses for repo deletion */}
+      <AnimatePresence>
+        {deleteModal && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeDeleteModal} />
+            <motion.div
+              className={`${card} relative w-full max-w-sm p-6 shadow-xl`}
+              initial={{ scale: 0.92, y: 24, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 16, opacity: 0, transition: { duration: 0.15 } }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            >
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.08 }}
+                className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-red-50 ring-1 ring-red-100"
+              >
+                <Trash2 className="h-6 w-6 text-red-500" />
+              </motion.div>
+              <h3 className="mb-1 text-center text-lg font-semibold text-gray-900">Delete Organisation</h3>
+              <p className="mb-4 text-center text-sm text-gray-500">
+                This deactivates <strong className="text-gray-800">{deleteModal.name}</strong>&rsquo;s portal, cancels their
+                Stripe subscription, and hides them from the console. Their records are kept, not erased — this can only be
+                undone by support.
+              </p>
+              <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                Type <span className="font-semibold text-gray-600">{deleteModal.name}</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={deleteModal.name}
+                autoFocus
+                className={`${inputCls} mb-4 rounded-lg px-3`}
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={acting}
+                  onClick={closeDeleteModal}
+                  className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={acting || deleteConfirmText.trim() !== deleteModal.name}
+                  onClick={handleDeleteOrg}
+                  className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 hover:bg-red-700"
+                >
+                  {acting ? "Deleting…" : "Delete"}
                 </button>
               </div>
             </motion.div>

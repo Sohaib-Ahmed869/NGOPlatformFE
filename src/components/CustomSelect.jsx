@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
+import Portal from "./Portal";
 import { cn } from "../utils/cn";
 
 /**
@@ -50,14 +51,30 @@ export function CustomSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [dropUp, setDropUp] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
   const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const naturalRef = useRef(0); // uncapped menu height, measured once per open
+
+  const selected = options.find((o) => String(o.value) === String(value));
+  const q = query.trim().toLowerCase();
+  const filtered =
+    searchable && q
+      ? options.filter(
+          (o) =>
+            o.label.toLowerCase().includes(q) ||
+            String(o.value).toLowerCase().includes(q),
+        )
+      : options;
 
   useEffect(() => {
     if (!open) return;
+    // The menu is portalled out of `ref` now, so exclude it explicitly —
+    // otherwise mousedown on an option closes the menu before its click lands.
     const onDown = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
     const onKey = (e) => {
       if (e.key === "Escape") setOpen(false);
@@ -70,28 +87,59 @@ export function CustomSelect({
     };
   }, [open]);
 
-  const selected = options.find((o) => String(o.value) === String(value));
-  const q = query.trim().toLowerCase();
-  const filtered =
-    searchable && q
-      ? options.filter(
-          (o) =>
-            o.label.toLowerCase().includes(q) ||
-            String(o.value).toLowerCase().includes(q),
-        )
-      : options;
-  const scrolls = searchable || options.length > 7;
+  /* Placement. The menu is fixed to the viewport rather than absolute inside the
+     trigger, because an absolute menu is clipped by any scrolling or
+     `overflow-hidden` ancestor — a table cell, a card, a scroll pane — which is
+     where this control usually lives. Positioning here also means the up/down
+     decision can be made against the MEASURED menu, and the menu capped to the
+     space that's actually there instead of running off-screen either way. */
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) { setOpen(false); return; } // anchor scrolled away
+      if (!naturalRef.current) naturalRef.current = menuRef.current?.offsetHeight || 0;
+
+      const GAP = 6;
+      const EDGE = 8;
+      const natural = Math.min(naturalRef.current || 240, 320);
+      const below = window.innerHeight - r.bottom - GAP - EDGE;
+      const above = r.top - GAP - EDGE;
+      // Open upward when it doesn't fit below and there's more room above.
+      const up = natural > below && above > below;
+      const maxHeight = Math.max(120, Math.min(natural, up ? above : below));
+      const width = Math.min(Math.max(r.width, 160), Math.min(320, window.innerWidth - EDGE * 2));
+
+      setPos({
+        top: up ? Math.max(EDGE, r.top - GAP - maxHeight) : Math.min(r.bottom + GAP, window.innerHeight - maxHeight - EDGE),
+        left: Math.max(EDGE, Math.min(r.left, window.innerWidth - width - EDGE)),
+        minWidth: r.width,
+        maxWidth: Math.min(320, window.innerWidth - EDGE * 2),
+        maxHeight,
+        // Match the trigger's corner so the portalled panel doesn't come out
+        // rounded on a square screen (or vice versa).
+        radius: window.getComputedStyle(el).borderRadius,
+      });
+    };
+    place();
+    // `capture` — scroll events from an inner scroll container don't bubble.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, filtered.length]);
+
 
   const toggle = () => {
     if (disabled) return;
     if (!open) {
-      const rect = triggerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const spaceBelow = window.innerHeight - rect.bottom;
-        // Open upward when there isn't room below and there's more room above.
-        setDropUp(spaceBelow < 300 && rect.top > spaceBelow);
-      }
       setQuery("");
+      setPos(null);
+      naturalRef.current = 0; // re-measure; the option count may have changed
     }
     setOpen((v) => !v);
   };
@@ -136,16 +184,28 @@ export function CustomSelect({
       </button>
 
       {open ? (
+        <Portal>
         <div
+          ref={menuRef}
+          style={{
+            position: "fixed",
+            top: pos?.top ?? -9999,
+            left: pos?.left ?? -9999,
+            minWidth: pos?.minWidth,
+            maxWidth: pos?.maxWidth ?? 320,
+            maxHeight: pos?.maxHeight,
+            borderRadius: pos?.radius,
+            // Hidden for the frame before `place()` has measured it.
+            visibility: pos ? "visible" : "hidden",
+          }}
           className={cn(
-            "absolute left-0 z-40 w-max min-w-full max-w-[20rem] overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-white/10 dark:bg-[var(--admin-elevated)]",
-            dropUp ? "bottom-full mb-2" : "top-full mt-2",
+            "z-[60] flex w-max flex-col overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-white/10 dark:bg-[var(--admin-elevated)]",
             menuClassName,
           )}
           role="listbox"
         >
           {searchable ? (
-            <div className="border-b border-gray-100 p-2 dark:border-white/10">
+            <div className="shrink-0 border-b border-gray-100 p-2 dark:border-white/10">
               <input
                 autoFocus
                 value={query}
@@ -155,7 +215,7 @@ export function CustomSelect({
               />
             </div>
           ) : null}
-          <div className={cn("p-1.5", scrolls && "max-h-60 overflow-auto")}>
+          <div className="scroll-slim min-h-0 flex-1 overflow-y-auto p-1.5">
             {filtered.length === 0 ? (
               <p className="px-3 py-5 text-center text-sm text-gray-400">No matches</p>
             ) : (
@@ -188,6 +248,7 @@ export function CustomSelect({
             )}
           </div>
         </div>
+        </Portal>
       ) : null}
     </div>
   );

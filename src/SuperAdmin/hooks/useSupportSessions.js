@@ -104,14 +104,20 @@ function reducer(state, action) {
  * @param {number}   opts.version  bump to force a silent re-read (websocket events)
  * @param {Function} opts.onError  called with a message when a BACKGROUND refresh fails
  */
-export default function useSupportSessions({ params, version = 0, onError }) {
+export default function useSupportSessions({ params, viewKey, version = 0, onError }) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [nonce, bump] = useReducer((n) => n + 1, 0);
 
   // The view's identity. Deriving the params back out of it inside the effect
   // keeps the dependency list honest without memoising an object.
   const key = JSON.stringify(params);
+  // What makes this a DIFFERENT view rather than the same one re-ordered or
+  // re-paged. Without it, sorting counted as new content and blanked the table
+  // for the full-screen loader — which read as a page reload. Defaults to the
+  // full param set, so a caller that doesn't distinguish behaves as before.
+  const view = viewKey ?? key;
   const lastKeyRef = useRef(null);
+  const lastViewRef = useRef(null);
   const skipCacheRef = useRef(false);
   const lastReadRef = useRef(0);
   const onErrorRef = useRef(onError);
@@ -127,12 +133,15 @@ export default function useSupportSessions({ params, version = 0, onError }) {
     const cached = forced ? null : superadminService.getSupportSessionsCached(query);
     // Same filters as last time → a refresh, so keep the rows and spin quietly.
     // Different filters → the rows on screen answer a different question.
-    const sameView = lastKeyRef.current === key;
+    // Re-ordering or paging counts as the SAME view: the rows still answer the
+    // question you asked, just in a different order or window.
+    const sameView = lastViewRef.current === view || lastKeyRef.current === key;
 
     let needsRevalidate = true;
     if (cached) {
       dispatch({ type: "ready", data: cached });
       lastKeyRef.current = key;
+      lastViewRef.current = view;
       const claimsLive =
         (cached.summary?.liveNow || 0) > 0 || (cached.sessions || []).some((s) => s.status === "active");
       needsRevalidate = claimsLive;
@@ -149,6 +158,7 @@ export default function useSupportSessions({ params, version = 0, onError }) {
         lastReadRef.current = Date.now();
         dispatch({ type: "ready", data });
         lastKeyRef.current = key;
+        lastViewRef.current = view;
       } catch (err) {
         if (!alive || axios.isCancel(err)) return;
         const message = err?.response?.data?.error || "Couldn't load support sessions.";
@@ -161,7 +171,7 @@ export default function useSupportSessions({ params, version = 0, onError }) {
       alive = false;
       controller.abort();
     };
-  }, [key, nonce, version]);
+  }, [key, view, nonce, version]);
 
   /** Re-read from the server, keeping the rows on screen while it happens. */
   const refresh = useCallback(() => {
@@ -184,9 +194,15 @@ export default function useSupportSessions({ params, version = 0, onError }) {
     if (state.phase === "error") return undefined;
     const every = anyLive ? POLL_LIVE_MS : POLL_IDLE_MS;
     const tick = () => {
-      if (!document.hidden) refresh();
+      if (document.hidden) return;
+      // A websocket bump or a manual refresh may have just re-read the list.
+      // The interval runs on its own clock and knew nothing about those, so it
+      // would fire a second read seconds behind the first. Poll from the last
+      // ACTUAL read, whoever caused it.
+      if (Date.now() - lastReadRef.current < every - 1000) return;
+      refresh();
     };
-    const id = setInterval(tick, every);
+    const id = setInterval(tick, Math.min(every, 5000));
     // Coming back to the tab catches up immediately — but clicking between
     // windows shouldn't fire a request per click.
     const onVisible = () => {

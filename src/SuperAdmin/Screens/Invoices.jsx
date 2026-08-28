@@ -1,10 +1,14 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { Receipt, ExternalLink, FileText, DollarSign, Search, CheckCircle2, AlertCircle, Calendar, RefreshCw, X } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import SASelect from "../components/SASelect";
+import SATableHead from "../components/SATableHead";
+import SAPagination from "../components/SAPagination";
+import { DEFAULT_PAGE_SIZE } from "../utils/paging";
+import { useTableSort } from "../utils/tableSort";
 import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import { cn } from "../../utils/cn";
@@ -16,6 +20,37 @@ import AnimatedNumberBase from "../components/AnimatedNumber";
 // implementation shouldn't silently restyle it.
 const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.8} {...props} />;
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
+
+/**
+ * Table columns. `key` names a column the SERVER sorts by (INVOICE_SORTS in
+ * superAdminController). "Tenant" isn't one: the charity's name lives on the
+ * populated Organisation, not on the invoice, so Mongo can't order by it
+ * without a $lookup — it stays a plain label rather than a control that would
+ * appear to work and do nothing.
+ */
+const INVOICE_COLUMNS = [
+  { label: "Tenant" },
+  { label: "Invoice", key: "invoice" },
+  { label: "Period", key: "period", defaultDir: "desc" },
+  { label: "Amount", key: "amount", align: "right", defaultDir: "desc" },
+  { label: "Status", key: "status" },
+  { label: "Date", key: "date", defaultDir: "desc" },
+  { label: "" },
+];
+
+/**
+ * The same columns read off a row in the browser, so a header click re-orders
+ * the loaded invoices immediately instead of waiting on the server. The server
+ * is still asked — it's the only one that can order the invoices that aren't
+ * on this page — but that lands behind the rows you're already reading.
+ */
+const INVOICE_SORT_ACCESSORS = {
+  invoice: (i) => i.number,
+  period: (i) => i.periodStart,
+  amount: (i) => i.amountDue,
+  status: (i) => i.status,
+  date: (i) => i.createdAt,
+};
 const inputCls =
   "w-full border border-gray-200 bg-white py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5";
 // Brand hero gradient — the platform palette (same vars as the sidebar).
@@ -74,6 +109,10 @@ export default function Invoices() {
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
+  // Sorting belongs on the server for the same reason the paging does: the
+  // largest outstanding invoice is rarely on the page you happen to be on.
+  const [sort, setSort] = useState({ key: "date", dir: "desc" });
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [summary, setSummary] = useState({ paidCount: 0, outstandingAmount: 0, outstandingCount: 0 });
@@ -101,11 +140,15 @@ export default function Invoices() {
   // seen this session renders with NO request; superseded requests are aborted
   // so a slow stale response can't overwrite a newer one.
   const lastKeyRef = useRef(null);
+  const lastViewKeyRef = useRef(null);
   useEffect(() => {
-    const params = { page, limit: 30 };
+    const params = { page, limit, sort: sort.key, dir: sort.dir };
     if (status !== "all") params.status = status;
     if (debouncedSearch) params.search = debouncedSearch;
     const key = JSON.stringify(params);
+    // Identity of the CONTENT, without the ordering or the window into it.
+    // Re-ordering or paging the same set is navigation, not a new view.
+    const viewKey = JSON.stringify([status, debouncedSearch]);
 
     const apply = (data) => {
       const { invoices: rows = [], pagination: pg = {}, summary: sum, totalCollected } = data || {};
@@ -115,6 +158,7 @@ export default function Invoices() {
       setSummary(sum || { paidCount: 0, outstandingAmount: 0, outstandingCount: 0 });
       setError(null);
       lastKeyRef.current = key;
+      lastViewKeyRef.current = viewKey;
     };
 
     const cached = superadminService.getInvoicesCached(params);
@@ -124,7 +168,9 @@ export default function Invoices() {
       return undefined;
     }
 
-    const sameView = lastKeyRef.current === key;
+    // Sorting or paging the same set must not blank the table for the
+    // full-screen loader — that's what made a header click look like a reload.
+    const sameView = lastViewKeyRef.current === viewKey || lastKeyRef.current === key;
     const controller = new AbortController();
     let alive = true;
     (async () => {
@@ -157,7 +203,17 @@ export default function Invoices() {
       alive = false;
       controller.abort();
     };
-  }, [page, status, debouncedSearch, refreshKey, invoicesVersion]);
+  }, [page, limit, sort, status, debouncedSearch, refreshKey, invoicesVersion]);
+
+  // Both re-shape the result set, so the page number stops meaning anything.
+  const changeSort = useCallback((next) => {
+    setSort(next);
+    setPage(1);
+  }, []);
+  const changeLimit = useCallback((next) => {
+    setLimit((cur) => (cur === next ? cur : next));
+    setPage(1);
+  }, []);
 
   const hardRefresh = () => {
     superadminService.invalidateInvoicesCache();
@@ -172,7 +228,9 @@ export default function Invoices() {
   const hasFilters = Boolean(search.trim() || debouncedSearch || status !== "all");
 
   // The server filters and searches now, so the rows ARE the result set.
-  const visible = invoices;
+  // Re-ordered in the browser the moment a header is clicked; the server's
+  // answer for the same sort lands behind it and agrees.
+  const visible = useTableSort(invoices, sort, INVOICE_SORT_ACCESSORS);
 
   // Every tile describes the whole filtered set — paid/outstanding used to
   // count only the 30 rows on screen while sitting beside lifetime figures.
@@ -317,13 +375,12 @@ export default function Invoices() {
         <motion.div key="table" className={`${card} overflow-hidden`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.3, ease: "easeOut" }}>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 text-left dark:border-white/10" style={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.10)" }}>
-                  {["Tenant", "Invoice", "Period", "Amount", "Status", "Date", ""].map((h, i) => (
-                    <th key={h || i} className={cn("px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500", h === "Amount" && "text-right")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+              <SATableHead
+                columns={INVOICE_COLUMNS}
+                sort={sort}
+                onSort={changeSort}
+                rowStyle={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.10)" }}
+              />
               <tbody>
                 {visible.map((inv, i) => (
                   <motion.tr
@@ -377,29 +434,19 @@ export default function Invoices() {
       )}
       </AnimatePresence>
 
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="mt-6 flex items-center justify-between px-1">
-          <span className="font-mono text-xs text-gray-400">Page {pagination.page} of {pagination.pages} · {pagination.total} total</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page >= pagination.pages}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+      {/* Pagination — shared footer: same count, same rows control, same
+          wording as the rest of the console. */}
+      {!loading && (
+        <SAPagination
+          className="mt-6"
+          page={page}
+          pages={pagination.pages}
+          total={pagination.total || 0}
+          limit={limit}
+          shown={invoices.length}
+          onPage={setPage}
+          onLimit={changeLimit}
+        />
       )}
     </div>
     </MotionConfig>

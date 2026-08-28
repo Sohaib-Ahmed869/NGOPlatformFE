@@ -1,14 +1,26 @@
 import { useRef } from "react";
 
+// "light" (default) is the original box — white fill, dark text, used on the
+// light admin/donor MFA screens. "glass" matches the dark panel the
+// SuperAdmin sign-in/forgot-password pages use — same surface, border and
+// focus treatment as GlassField in PlatformAuthChrome, so a code box and a
+// text field sitting in the same form look like one set.
+const BOX_VARIANTS = {
+  light: "border border-gray-200 bg-white text-gray-900 shadow-sm focus:shadow-md focus:ring-2 focus:ring-accent/30 dark:border-white/15 dark:bg-white/5 dark:text-white",
+  glass: "border bg-white/[0.03] text-white focus:ring-1 focus:ring-accent",
+};
+const glassBoxStyle = { borderColor: "rgba(255,255,255,.11)" };
+
 /**
  * Segmented one-time-code input — N individual boxes with auto-advance, paste
  * support, backspace + arrow navigation. Controlled via `value` (a string) and
  * `onChange`. Calls `onComplete(code)` when all boxes are filled.
  *
  * Colours come from the `--tenant-accent` token (works in both the tenant admin
- * and the platform console).
+ * and the platform console). `variant="glass"` swaps the box surface for the
+ * SuperAdmin console's dark panel look.
  */
-export default function OtpInput({ value = "", onChange, length = 6, disabled, autoFocus, onComplete, accent }) {
+export default function OtpInput({ value = "", onChange, length = 6, disabled, autoFocus, onComplete, accent, variant = "light" }) {
   const refs = useRef([]);
 
   const emit = (next) => {
@@ -74,7 +86,8 @@ export default function OtpInput({ value = "", onChange, length = 6, disabled, a
           onKeyDown={(e) => handleKeyDown(i, e)}
           onFocus={(e) => e.target.select()}
           aria-label={`Digit ${i + 1}`}
-          className="h-12 w-10 rounded-xl border border-gray-200 bg-white text-center text-lg font-bold text-gray-900 shadow-sm outline-none transition-all focus:-translate-y-0.5 focus:border-accent focus:shadow-md focus:ring-2 focus:ring-accent/30 disabled:opacity-50 sm:h-14 sm:w-12 sm:text-xl dark:border-white/15 dark:bg-white/5 dark:text-white"
+          className={`h-12 w-10 rounded-xl text-center text-lg font-bold outline-none transition-all focus:-translate-y-0.5 focus:border-accent disabled:opacity-50 sm:h-14 sm:w-12 sm:text-xl ${BOX_VARIANTS[variant]}`}
+          style={variant === "glass" ? glassBoxStyle : undefined}
         />
       ))}
     </div>

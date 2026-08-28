@@ -298,15 +298,21 @@ export default function LeadConvert() {
     finally { setSubmitting(false); }
   };
 
+  // The server sends the email itself, best-effort — a failed relay doesn't
+  // fail the conversion (the org/link is still created), so it can't surface
+  // as a caught error. `emailStatus` is how the operator finds out instead of
+  // assuming delivery from the "success" toast alone.
   const submitActivationLink = () => runSubmit(async () => {
     const res = await superadminService.convertLead(id, { mode: "activation_link", ...buildBody() });
-    setResult({ link: res.data.link, resultKind: "activation_link" });
-    toast.success("Activation link sent");
+    setResult({ link: res.data.link, resultKind: "activation_link", emailStatus: res.data.emailStatus });
+    if (res.data.emailStatus === "failed") toast.error(`Link created, but the email to ${adminEmail} failed to send`);
+    else toast.success("Activation link sent");
   });
   const submitComp = () => runSubmit(async () => {
     const res = await superadminService.convertLead(id, { mode: "manual_provision", billingMode: "comp", ...buildBody(), isComp: true, compReason });
-    setResult({ organisation: res.data.organisation, resultKind: "comp" });
-    toast.success("Organisation created");
+    setResult({ organisation: res.data.organisation, resultKind: "comp", emailStatus: res.data.emailStatus });
+    if (res.data.emailStatus === "failed") toast.error(`Organisation created, but the welcome email to ${adminEmail} failed to send`);
+    else toast.success("Organisation created");
   });
   const submitChargeNow = () => runSubmit(async () => {
     const res = await superadminService.convertLead(id, { mode: "manual_provision", billingMode: "charge_now", ...buildBody() });
@@ -314,8 +320,9 @@ export default function LeadConvert() {
   });
   const submitSendLink = () => runSubmit(async () => {
     const res = await superadminService.convertLead(id, { mode: "manual_provision", billingMode: "send_link", ...buildBody() });
-    setResult({ link: res.data.link, resultKind: "send_link" });
-    toast.success("Payment link sent");
+    setResult({ link: res.data.link, resultKind: "send_link", emailStatus: res.data.emailStatus });
+    if (res.data.emailStatus === "failed") toast.error(`Link created, but the email to ${adminEmail} failed to send`);
+    else toast.success("Payment link sent");
   });
   const handlePaid = async () => {
     try { await tenantService.confirmRegistration(chargeState.organisation.slug); } catch { /* webhook is the safety net */ }
@@ -413,6 +420,12 @@ export default function LeadConvert() {
                           ? `${adminEmail} received an email to complete payment — the org is already configured, so they'll land straight on the payment step.`
                           : `${adminEmail} received an email with a pre-filled link to finish setting up their portal.`}
                       </p>
+                      {result.emailStatus === "failed" && (
+                        <div className="mt-4 flex w-full items-start gap-2 border p-3 text-left text-[13px]" style={{ borderColor: "#FDE68A", background: "#FFFBEB", color: "#92400E" }}>
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>The email to {adminEmail} failed to send — copy the link below and share it with them directly.</span>
+                        </div>
+                      )}
                       <div className="mt-5 flex w-full items-center gap-2 border p-3 text-left text-[12.5px]" style={{ borderColor: V.line, color: V.inkSoft }}>
                         <span className="min-w-0 flex-1 truncate">{result.link}</span>
                         <button type="button" onClick={() => { navigator.clipboard.writeText(result.link); toast.success("Copied"); }} className="shrink-0 transition-colors hover:opacity-70" style={{ color: V.primary }} title="Copy link">
@@ -425,8 +438,16 @@ export default function LeadConvert() {
                       <h2 className="text-[clamp(20px,2.2vw,25px)] font-semibold" style={{ color: V.ink }}>Organisation created</h2>
                       <p className="mt-2 max-w-[42ch] text-[14px] leading-relaxed" style={{ color: V.inkSoft }}>
                         <strong style={{ color: V.ink }}>{result.organisation?.name}</strong> is live.{" "}
-                        {result.resultKind === "comp" ? `A "set your password" email was sent to ${adminEmail}.` : "Payment received — a welcome email with a set-password link was sent."}
+                        {result.emailStatus === "failed"
+                          ? `We couldn't send the "set your password" email automatically.`
+                          : result.resultKind === "comp" ? `A "set your password" email was sent to ${adminEmail}.` : "Payment received — a welcome email with a set-password link was sent."}
                       </p>
+                      {result.emailStatus === "failed" && (
+                        <div className="mt-4 flex w-full items-start gap-2 border p-3 text-left text-[13px]" style={{ borderColor: "#FDE68A", background: "#FFFBEB", color: "#92400E" }}>
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <span>Have {adminEmail} use &ldquo;Forgot password&rdquo; on the login page to set their password, or check the server mail logs.</span>
+                        </div>
+                      )}
                       <Link to={`/organisations/${result.organisation?._id}`} className="lc-submit group mt-6 inline-flex items-center gap-2 px-6 py-3 text-[14px] font-semibold text-white" style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})` }}>
                         View organisation <ExternalLink className="h-4 w-4" />
                       </Link>

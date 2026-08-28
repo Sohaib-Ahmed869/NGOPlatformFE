@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { memo, useState, useEffect, useLayoutEffect, useDeferredValue, useMemo, useReducer, useRef, useCallback } from "react";
 import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import Portal from "../../components/Portal";
 import { toast } from "react-hot-toast";
@@ -18,6 +18,8 @@ import {
   MessageSquare,
   CornerUpLeft,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   Users as UsersIcon,
 } from "lucide-react";
 import { TabLoader } from "../../components/TabLoader";
@@ -26,6 +28,9 @@ import { RichTextEditor, sanitizeRichText } from "../../components/RichTextEdito
 import { withMinDelay } from "../../utils/minDelay";
 import { cn } from "../../utils/cn";
 import superadminService from "../../services/superadmin.service";
+import { scrollToTopOf } from "../utils/scrollTo";
+import { PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from "../utils/paging";
+import { getSocketId } from "../../services/socketId";
 import SAErrorState from "../components/SAErrorState";
 import { useAuth } from "../../context/AuthContext";
 import { useSARealtime } from "../context/SARealtimeContext";
@@ -51,6 +56,10 @@ const STATUS_BADGE = {
   closed: "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-white/60",
 };
 const statusLabel = (s) => STATUSES.find((x) => x.value === s)?.label || s;
+// Rows per page. The list is held client-side, so these are a slice, not a
+// request — but the control offers the same choices as every other screen,
+// which is the whole point of taking them from one place.
+const DEFAULT_LIMIT = DEFAULT_PAGE_SIZE;
 
 const fmtDateTime = (d) =>
   d
@@ -107,17 +116,48 @@ const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23),
 /* Stat cell in the attached strip under the hero banner (Organisations look). */
 function HeaderStat({ icon: Icon, label, value, sub, color }) {
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}1a`, color }}>
-        <Icon className="h-[18px] w-[18px]" />
+    <div className="flex items-center gap-2.5 px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl sm:h-9 sm:w-9" style={{ background: `${color}1a`, color }}>
+        <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-lg font-bold leading-none text-gray-900 dark:text-white">{value}</p>
-        <p className="mt-1 truncate text-xs text-gray-400">{label}</p>
-        {sub ? <p className="truncate text-[10px] text-gray-300 dark:text-white/30">{sub}</p> : null}
+        <p className="truncate text-base font-bold leading-none text-gray-900 dark:text-white sm:text-lg">{value}</p>
+        <p className="mt-1 truncate text-[11px] text-gray-400 sm:text-xs">{label}</p>
+        {/* The sub-line is the first thing to go when height is scarce. */}
+        {sub ? <p className="hidden truncate text-[10px] text-gray-300 dark:text-white/30 sm:block">{sub}</p> : null}
       </div>
     </div>
   );
+}
+
+/* The composer's six pieces of state, which only ever move together: opening
+   it picks a mode, sending clears the draft AND collapses AND remounts the
+   editor (nonce). As separate useStates every transition was several setStates
+   that could be observed half-applied. */
+const COMPOSER_INIT = { body: "", kind: "note", mentions: [], nonce: 0, open: false, sending: false };
+function composerReducer(state, action) {
+  switch (action.type) {
+    case "reset": // a different query opened
+      return { ...COMPOSER_INIT, nonce: state.nonce + 1 };
+    case "body":
+      return { ...state, body: action.body };
+    case "mentions":
+      return { ...state, mentions: action.mentions };
+    case "kind":
+      return { ...state, kind: action.kind };
+    case "open":
+      return { ...state, kind: action.kind ?? state.kind, open: true };
+    case "close":
+      return { ...state, open: false };
+    case "sending":
+      return { ...state, sending: true };
+    case "sent": // clears the draft, folds away, remounts the editor
+      return { ...state, body: "", mentions: [], nonce: state.nonce + 1, open: false, sending: false };
+    case "failed":
+      return { ...state, sending: false };
+    default:
+      return state;
+  }
 }
 
 /* ── main ────────────────────────────────────────────────────────────── */
@@ -126,7 +166,7 @@ export default function ContactQueries() {
   const { user } = useAuth();
   // `contactVersion` bumps whenever a contact event lands anywhere — the load
   // effect below uses it as its "something changed" signal.
-  const { refreshContactUnread, contactVersion, socket } = useSARealtime();
+  const { setContactUnread, contactVersion, socket } = useSARealtime();
 
   const myEmail = (user?.email || "").toLowerCase();
   const myId = user?._id || user?.id || null;
@@ -151,18 +191,20 @@ export default function ContactQueries() {
   const [detail, setDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const [composer, setComposer] = useState("");
-  const [composerKind, setComposerKind] = useState("note");
-  const [composerMentions, setComposerMentions] = useState([]);
-  const [composerNonce, setComposerNonce] = useState(0);
-  const [sending, setSending] = useState(false);
+  // The editor is ~230px of chrome. Parked open it left the conversation a
+  // sliver on a laptop — you couldn't read the message you were answering. It
+  // now opens on demand and folds back down once the message is away.
+  const [composer, dispatchComposer] = useReducer(composerReducer, COMPOSER_INIT);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const bottomRef = useRef(null);
+  const threadRef = useRef(null);
+  const composerBoxRef = useRef(null);
+  const railRef = useRef(null);
+  const listScrollYRef = useRef(0);
+  const openTokenRef = useRef(0); // guards against out-of-order conversation responses
   const selectedIdRef = useRef(null);
-  const fetchRef = useRef(null);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
 
   /* data loading — force=true bypasses the cache (manual refresh, sockets, the
@@ -182,16 +224,12 @@ export default function ContactQueries() {
     },
     [],
   );
-  useEffect(() => { fetchRef.current = load; }, [load]);
 
-  // One-time bootstrap. `refreshContactUnread` SETS `unreadContactQueries`, so
-  // it must not live in an effect that depends on it — that fed itself a second
-  // unread-count request on every mount. Sockets keep the badge current after
-  // this; the staff list is session-cached in the service.
+  // One-time bootstrap. No unread-count request here: the realtime provider
+  // already fetches it when the socket connects, and once the list below has
+  // loaded THIS screen is the better source anyway (see the publish effect).
   useEffect(() => {
     superadminService.loadContactStaff().then(setStaff).catch(() => {});
-    refreshContactUnread();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // The list. This used to force a request on EVERY mount, so the cache only
@@ -230,6 +268,17 @@ export default function ContactQueries() {
     superadminService.setContactQueriesCache(queries);
   }, [queries]);
 
+  /* One write path for a single-field edit: the open conversation, the list row
+     and the thread cache move together (the list cache follows via the
+     write-through effect). Pure — callers capture the old value themselves from
+     state they already hold, so rolling back is just patching it back. */
+  const patchQuery = useCallback((id, patch) => {
+    setDetail((d) => (d && d._id === id ? { ...d, ...patch } : d));
+    setQueries((prev) => prev.map((c) => (c._id === id ? { ...c, ...patch } : c)));
+    const cached = superadminService.getCachedContactQuery(id);
+    if (cached) superadminService.setContactQueryCache({ ...cached, ...patch });
+  }, []);
+
   /* real-time — THREAD-level only. The list refetch is driven by
      `contactVersion` from the realtime context; doing it here as well fired a
      second (redundant) request for every event, and could briefly flash the
@@ -239,42 +288,91 @@ export default function ContactQueries() {
     // A thread changed: if it's the one on screen, pull the fresh copy in (this
     // also refreshes its cache); otherwise just flag it so the next open knows
     // to revalidate instead of serving a stale cached conversation.
+    // Our own actions come back to us on the same socket. We already hold the
+    // server's response — re-fetching the thread we just wrote to was a second
+    // round trip for a copy we had.
+    const isEcho = (p) => p?.actorSocketId && p.actorSocketId === getSocketId();
+    // A new message: the thread itself changed, so the open one is re-read.
     const onThreadChange = (p) => {
-      if (!p?.id) return;
+      if (!p?.id || isEcho(p)) return;
       if (selectedIdRef.current === p.id) {
-        superadminService.loadContactQuery(p.id, { force: true }).then(setDetail).catch(() => {});
+        superadminService
+          .loadContactQuery(p.id, { force: true })
+          .then((q) => { if (selectedIdRef.current === p.id) setDetail(q); })
+          .catch(() => {});
       } else {
         superadminService.markContactQueryStale(p.id);
       }
     };
+    // A status change or a reassignment by another operator: exactly one field
+    // moved and the event carries its new value, so this costs no request —
+    // the row, the open conversation and the thread cache are patched in place.
+    const onRowChange = (p) => {
+      if (!p?.id || isEcho(p)) return;
+      const patch = {};
+      if (p.status !== undefined) patch.status = p.status;
+      if (p.assignee !== undefined) patch.assignee = p.assignee || null;
+      if (Object.keys(patch).length) patchQuery(p.id, patch);
+    };
     const onDeleted = (p) => {
-      if (p?.id) superadminService.removeContactQueryCache(p.id);
-      if (p?.id && selectedIdRef.current === p.id) { setDetail(null); setSelectedId(null); }
+      if (!p?.id || isEcho(p)) return;
+      superadminService.removeContactQueryCache(p.id);
+      setQueries((prev) => prev.filter((c) => c._id !== p.id)); // another operator deleted it
+      if (selectedIdRef.current === p.id) { setDetail(null); setSelectedId(null); }
     };
     socket.on("contactQuery:message", onThreadChange);
-    socket.on("contactQuery:updated", onThreadChange);
-    socket.on("contactQuery:assigned", onThreadChange);
+    socket.on("contactQuery:updated", onRowChange);
+    socket.on("contactQuery:assigned", onRowChange);
     socket.on("contactQuery:deleted", onDeleted);
     return () => {
       socket.off("contactQuery:message", onThreadChange);
-      socket.off("contactQuery:updated", onThreadChange);
-      socket.off("contactQuery:assigned", onThreadChange);
+      socket.off("contactQuery:updated", onRowChange);
+      socket.off("contactQuery:assigned", onRowChange);
       socket.off("contactQuery:deleted", onDeleted);
     };
-  }, [socket]);
+  }, [socket, patchQuery]);
 
+  // Leaving a conversation puts you back where you were in the list — losing
+  // your place 400 rows down is the whole reason a full-screen detail view can
+  // feel worse than a split pane.
+  const closeQuery = useCallback(() => {
+    setSelectedId(null);
+    setDetail(null);
+  }, []);
+  useLayoutEffect(() => {
+    // Entering work mode the page shrinks to one viewport, so start at the top;
+    // leaving it, put the overview back exactly where it was.
+    if (selectedId) window.scrollTo({ top: 0 });
+    else if (listScrollYRef.current) window.scrollTo({ top: listScrollYRef.current });
+  }, [selectedId]);
+
+
+  // Scroll the CONVERSATION column, not the element into view: scrollIntoView
+  // walks up and scrolls every ancestor that can move, which yanked the whole
+  // workspace. Opening a thread lands at the bottom instantly; a message that
+  // arrives while you're there glides in.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [detail?.thread?.length, selectedId]);
+    const el = threadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [selectedId]);
+  useEffect(() => {
+    const el = threadRef.current;
+    if (el && detail?.thread?.length) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [detail?.thread?.length]);
 
   /* selection */
   const openQuery = useCallback(
     async (c) => {
+      listScrollYRef.current = window.scrollY;
       setSelectedId(c._id);
-      setComposer("");
-      setComposerKind("note");
-      setComposerMentions([]);
+      dispatchComposer({ type: "reset" });
       setQueries((prev) => prev.map((x) => (x._id === c._id ? { ...x, unread: false } : x)));
+
+      // Every response below is checked against this before it's applied. Walk
+      // the queue quickly (j/k) and a slow response for query #3 could otherwise
+      // land after #5 and put the wrong conversation on screen.
+      const token = ++openTokenRef.current;
+      const isCurrent = () => openTokenRef.current === token;
 
       const cached = superadminService.getCachedContactQuery(c._id);
       // The thread is stale if a socket flagged it, OR the (freshly revalidated)
@@ -290,36 +388,60 @@ export default function ContactQueries() {
         setDetail(cached);
         setLoadingDetail(false);
         if (stale) {
-          superadminService.loadContactQuery(c._id, { force: true }).then(setDetail).catch(() => {});
+          superadminService
+            .loadContactQuery(c._id, { force: true })
+            .then((q) => { if (isCurrent()) setDetail(q); })
+            .catch(() => {});
         }
       } else {
         setLoadingDetail(true);
         try {
-          setDetail(await superadminService.loadContactQuery(c._id));
+          const q = await superadminService.loadContactQuery(c._id);
+          if (isCurrent()) setDetail(q);
         } catch {
-          toast.error("Failed to load conversation");
-          setDetail(null);
+          if (isCurrent()) {
+            toast.error("Failed to load conversation");
+            setDetail(null);
+          }
         } finally {
-          setLoadingDetail(false);
+          if (isCurrent()) setLoadingDetail(false);
         }
       }
-      refreshContactUnread();
+      // No unread-count request: the row was just marked read above, and the
+      // publish effect pushes the new total to the badge.
     },
-    [refreshContactUnread],
+    [],
   );
 
   /* actions */
-  const composerEmpty = useMemo(() => isRichEmpty(composer), [composer]);
+  const composerEmpty = useMemo(() => isRichEmpty(composer.body), [composer.body]);
+
+  // Opening the composer should cost exactly what clicking into a textarea
+  // costs — one click, caret already in it.
+  const openComposer = useCallback((kind) => {
+    dispatchComposer({ type: "open", kind });
+    requestAnimationFrame(() => {
+      const el = composerBoxRef.current?.querySelector('[contenteditable="true"]');
+      if (!el) return;
+      el.focus();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false); // caret at the end, not in front of a draft
+      const caret = window.getSelection(); // not `sel` — that's the open query
+      caret?.removeAllRanges();
+      caret?.addRange(range);
+    });
+  }, []);
 
   const handleSend = async () => {
-    if (composerEmpty || !selectedId || sending) return;
-    const body = sanitizeRichText(composer);
-    setSending(true);
+    if (composerEmpty || !selectedId || composer.sending) return;
+    const body = sanitizeRichText(composer.body);
+    dispatchComposer({ type: "sending" });
     try {
       const res = await superadminService.addContactMessage(selectedId, {
-        kind: composerKind,
+        kind: composer.kind,
         body,
-        mentions: composerKind === "note" ? composerMentions : [],
+        mentions: composer.kind === "note" ? composer.mentions : [],
       });
       setDetail(res.data.query);
       superadminService.setContactQueryCache(res.data.query); // keep the thread cache fresh
@@ -330,47 +452,61 @@ export default function ContactQueries() {
             : c,
         ),
       );
-      setComposer("");
-      setComposerMentions([]);
-      setComposerNonce((n) => n + 1);
-      if (composerKind === "reply") {
+      dispatchComposer({ type: "sent" }); // clears + hands the height back to the thread
+      if (composer.kind === "reply") {
         if (res.data.emailStatus === "failed") toast.error("Note saved, but the email to the submitter failed to send.");
         else toast.success("Reply sent to the submitter");
       }
-      refreshContactUnread();
     } catch (e) {
       toast.error(e.response?.data?.error || "Failed to send message");
-    } finally {
-      setSending(false);
+      dispatchComposer({ type: "failed" }); // keep the draft — it's the user's typing
+    }
+  };
+
+  // ⌘/Ctrl+Enter sends; Escape folds an empty composer away (a draft is never
+  // thrown away by a stray keypress — it just loses focus).
+  const onComposerKeyDown = (e) => {
+    // The editor's @mention menu handles its own Enter/Escape and marks them
+    // handled — don't send a note or fold the box out from under it.
+    if (e.defaultPrevented) return;
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      if (composerEmpty) dispatchComposer({ type: "close" });
+      else e.currentTarget.querySelector('[contenteditable="true"]')?.blur();
     }
   };
 
   const handleSetStatus = async (status) => {
     const id = selectedId;
-    setDetail((d) => (d ? { ...d, status } : d));
-    setQueries((prev) => prev.map((c) => (c._id === id ? { ...c, status } : c)));
-    const cached = superadminService.getCachedContactQuery(id);
-    if (cached) superadminService.setContactQueryCache({ ...cached, status });
+    // Optimistic, then undone locally if the server disagrees. Recovery used to
+    // be a forced refetch of the WHOLE inbox to repair one field.
+    const previous = detail?.status ?? queries.find((c) => c._id === id)?.status ?? "new";
+    patchQuery(id, { status });
     try {
       await superadminService.updateContactQueryStatus(id, { status });
     } catch {
       toast.error("Failed to update status");
-      superadminService.markContactQueryStale(id); // cache may be wrong → revalidate on reopen
-      load({ force: true });
+      patchQuery(id, { status: previous });
     }
   };
 
   const handleAssign = async (val) => {
     const id = selectedId;
+    // Optimistic too, so the select doesn't sit on the old owner for a round
+    // trip. The response is authoritative (its assignee is populated), so it's
+    // applied on top rather than the local guess being trusted.
+    const previous = detail?.assignee ?? queries.find((c) => c._id === id)?.assignee ?? null;
+    const guess = val ? staff.find((s) => String(s._id) === String(val)) : null;
+    patchQuery(id, { assignee: val ? { name: guess?.name || guess?.email || "…", userId: guess || val } : null });
     try {
       const res = await superadminService.assignContactQuery(id, val || null);
-      const assignee = res.data.query.assignee;
-      setDetail((d) => (d ? { ...d, assignee } : d));
-      setQueries((prev) => prev.map((c) => (c._id === id ? { ...c, assignee } : c)));
-      const cached = superadminService.getCachedContactQuery(id);
-      if (cached) superadminService.setContactQueryCache({ ...cached, assignee });
+      patchQuery(id, { assignee: res.data.query.assignee });
     } catch {
       toast.error("Failed to assign");
+      patchQuery(id, { assignee: previous });
     }
   };
 
@@ -384,7 +520,6 @@ export default function ContactQueries() {
       if (selectedId === deleteTarget._id) { setSelectedId(null); setDetail(null); }
       toast.success("Query deleted");
       setDeleteTarget(null);
-      refreshContactUnread();
     } catch (e) {
       toast.error(e.response?.data?.error || "Failed to delete query");
     } finally {
@@ -392,20 +527,130 @@ export default function ContactQueries() {
     }
   };
 
-  /* derived list */
+  /* derived list. The typed value drives the input; the DEFERRED value drives
+     the filtering, so a keystroke paints immediately and the 1000-row re-filter
+     + re-render happens at lower priority instead of blocking it. */
+  const deferredSearch = useDeferredValue(searchTerm);
   const visible = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return queries
-      .filter((r) => {
-        const matchesSearch =
-          !q || r.name?.toLowerCase().includes(q) || r.email?.toLowerCase().includes(q) || r.subject?.toLowerCase().includes(q);
-        const matchesStatus = statusFilter === "all" || (r.status || "new") === statusFilter;
-        return matchesSearch && matchesStatus;
-      })
-      .sort((a, b) => new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt));
-  }, [queries, searchTerm, statusFilter]);
+    const q = deferredSearch.trim().toLowerCase();
+    const rows = queries.filter((r) => {
+      const matchesSearch =
+        !q || r.name?.toLowerCase().includes(q) || r.email?.toLowerCase().includes(q) || r.subject?.toLowerCase().includes(q);
+      const matchesStatus = statusFilter === "all" || (r.status || "new") === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+    // Sort on a cached timestamp: the comparator ran `new Date()` twice per
+    // comparison, i.e. ~2·n·log n Date parses per keystroke.
+    return rows
+      .map((r) => ({ r, t: new Date(r.lastMessageAt || r.createdAt || 0).getTime() }))
+      .sort((a, b) => b.t - a.t)
+      .map((x) => x.r);
+  }, [queries, deferredSearch, statusFilter]);
 
-  const unreadTotal = useMemo(() => queries.filter((c) => c.unread).length, [queries]);
+  // One pass for every count on the screen — these were four separate scans of
+  // `queries`, three of them re-running on every single render because they sat
+  // in the render body (below the early returns, so they couldn't be memoised).
+  const counts = useMemo(() => {
+    let unread = 0;
+    let neu = 0;
+    let inProgress = 0;
+    for (const c of queries) {
+      if (c.unread) unread++;
+      const status = c.status || "new";
+      if (status === "new") neu++;
+      else if (status === "in_progress") inProgress++;
+    }
+    return { unread, new: neu, inProgress, resolved: queries.length - neu - inProgress };
+  }, [queries]);
+  const unreadTotal = counts.unread;
+
+  // While this screen is mounted it holds every query and its unread flag, so
+  // it publishes the badge count instead of the console asking the server after
+  // each open/send/delete. Sockets still refresh it from elsewhere.
+  useEffect(() => {
+    if (!loading) setContactUnread(unreadTotal);
+  }, [unreadTotal, loading, setContactUnread]);
+
+  // Big inboxes: one page of rows in the DOM at a time. The filters above are
+  // the real answer to volume; this keeps the list cheap while you use them.
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const pageCount = Math.max(1, Math.ceil(visible.length / limit));
+  const safePage = Math.min(page, pageCount);
+  const listRows = useMemo(
+    () => visible.slice((safePage - 1) * limit, safePage * limit),
+    [visible, safePage, limit],
+  );
+  // Filtering re-shapes the set under you; start again at the top of it.
+  useEffect(() => { setPage(1); }, [deferredSearch, statusFilter]);
+  // Changing the page size moves the rows regardless, so go back to page 1.
+  const changeLimit = useCallback((next) => {
+    setLimit((cur) => (cur === next ? cur : next));
+    setPage(1);
+  }, []);
+
+  // Paging from the bottom of a page otherwise drops you at the bottom of the
+  // next one, reading its last rows first.
+  const resultsTopRef = useRef(null);
+  const lastPageRef = useRef(safePage);
+  useEffect(() => {
+    if (lastPageRef.current === safePage) return;
+    lastPageRef.current = safePage;
+    if (selectedId) railRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    else scrollToTopOf(resultsTopRef.current);
+  }, [safePage, selectedId]);
+
+  // Queue navigation. Triage is a queue, not a set of destinations — you should
+  // be able to clear it front to back without returning to the list between
+  // every message. Position is taken from the FILTERED list, so "4 of 12" means
+  // what you're actually working through.
+  const currentIndex = useMemo(() => visible.findIndex((q) => q._id === selectedId), [visible, selectedId]);
+  const goRelative = useCallback(
+    (delta) => {
+      if (currentIndex < 0) return;
+      const target = visible[currentIndex + delta];
+      if (!target) return;
+      // Walking off the end of a page turns it, so the rail keeps up with j/k.
+      setPage(Math.floor((currentIndex + delta) / limit) + 1);
+      openQuery(target);
+    },
+    [currentIndex, visible, limit, openQuery],
+  );
+
+  // Keep the open query visible in the rail as you move through the queue.
+  useEffect(() => {
+    if (!selectedId) return;
+    railRef.current?.querySelector(`[data-row-id="${selectedId}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, listRows]);
+
+  // Esc leaves the conversation — the way back out of a full-screen view has to
+  // be reachable without aiming at the arrow. Ignored while the composer has a
+  // draft: it owns Escape then (see onComposerKeyDown, which stops propagation).
+  useEffect(() => {
+    if (!selectedId) return undefined;
+    const onKey = (e) => {
+      if (e.defaultPrevented) return;
+      // Escape belongs to whatever is layered on top first: the delete
+      // confirmation, or an open dropdown (CustomSelect closes itself on the
+      // same key without claiming the event).
+      if (deleteTarget || document.querySelector('[role="listbox"]')) return;
+      const t = e.target;
+      const typing = t?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t?.tagName);
+      if (e.key === "Escape") {
+        // In the rail's search box Escape means "clear the filter" — leaving
+        // the conversation from inside a field you're typing in is a surprise.
+        if (typing) { if (searchTerm) { e.preventDefault(); setSearchTerm(""); } return; }
+        closeQuery();
+        return;
+      }
+      // j/k step through the queue — but never while someone is typing.
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "j" || e.key === "J") { e.preventDefault(); goRelative(1); }
+      else if (e.key === "k" || e.key === "K") { e.preventDefault(); goRelative(-1); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, deleteTarget, closeQuery, goRelative, searchTerm]);
 
   const exportToCSV = () => {
     const header = ["Name", "Email", "Subject", "Status", "Assignee", "Received", "Message"].join(",");
@@ -441,9 +686,7 @@ export default function ContactQueries() {
 
   // Stat strip — the inbox loads the whole list client-side, so these counts are
   // exact (not page-scoped).
-  const newCount = queries.filter((c) => (c.status || "new") === "new").length;
-  const inProgressCount = queries.filter((c) => c.status === "in_progress").length;
-  const resolvedCount = queries.length - newCount - inProgressCount;
+  const { new: newCount, inProgress: inProgressCount, resolved: resolvedCount } = counts;
   const statTiles = [
     { label: "Total queries", value: <AnimatedNumber value={queries.length} />, sub: `${resolvedCount} closed out`, icon: Inbox, color: "#6366f1" },
     { label: "Unread", value: <AnimatedNumber value={unreadTotal} />, sub: unreadTotal > 0 ? "waiting to be opened" : "all read", icon: Mail, color: unreadTotal > 0 ? "#ef4444" : "#9ca3af" },
@@ -456,7 +699,15 @@ export default function ContactQueries() {
     // avatars, bubbles, inputs, modal) for an angular look — matches the
     // Organisations / Audit / Support-session screens — with a gradient hero on top.
     <MotionConfig reducedMotion="user">
-    <div className="flex h-[calc(100vh-7rem)] min-h-[640px] flex-col gap-4 [&_*]:!rounded-none" style={{ "--radius-card": "0.75rem", "--radius-btn": "0.5rem" }}>
+    {/* TWO SEPARATE SECTIONS, never side by side.
+        The inbox is a plain page-flow list — no box within a box to scroll —
+        and opening a query swaps it for the conversation, which then owns the
+        WHOLE workspace: no hero above it and no 320px rail beside it. That is
+        what buys the thread enough height that opening the composer no longer
+        squeezes it to a sliver. */}
+    <div className="flex flex-col gap-3 [&_*]:!rounded-none sm:gap-4" style={{ "--radius-card": "0.75rem", "--radius-btn": "0.5rem" }}>
+      {!selectedId ? (
+      <>
       {/* Hero — gradient banner + attached stat strip (mirrors Organisations) */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -464,7 +715,7 @@ export default function ContactQueries() {
         transition={{ duration: 0.35, ease: "easeOut" }}
         className={`${card} shrink-0 overflow-hidden`}
       >
-        <div className="relative flex flex-wrap items-start justify-between gap-4 overflow-hidden px-6 py-6 sm:px-8" style={{ background: HEADER_GRADIENT }}>
+        <div className="relative flex flex-wrap items-start justify-between gap-4 overflow-hidden px-5 py-4 sm:px-8 sm:py-6" style={{ background: HEADER_GRADIENT }}>
           {/* Editorial corner decoration — SVG circle (so the page-wide sharp-corner
               override can't square it) + dot grid. */}
           <svg aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 text-white" viewBox="0 0 128 128" fill="none">
@@ -474,8 +725,8 @@ export default function ContactQueries() {
           <div aria-hidden className="pointer-events-none absolute bottom-4 right-12 h-10 w-24 opacity-[.20]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.95) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
           <div className="relative z-10 min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Helpdesk</p>
-            <h1 className="mt-1 text-2xl font-bold text-white">Contact Queries</h1>
-            <p className="mt-1 text-sm text-white/80">Messages from your marketing site's contact form — triage, reply and assign.</p>
+            <h1 className="mt-1 text-xl font-bold text-white sm:text-2xl">Contact Queries</h1>
+            <p className="mt-1 hidden text-sm text-white/80 sm:block">Messages from your marketing site's contact form — triage, reply and assign.</p>
           </div>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
@@ -492,16 +743,13 @@ export default function ContactQueries() {
         </div>
       </motion.div>
 
-      {/* Split — inbox list + conversation */}
-      <div className="flex min-h-0 flex-1 gap-4">
-      {/* ── Left: inbox list ── */}
-      <div
-        className={cn(
-          "flex w-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm dark:border-white/10 lg:w-[360px] lg:shrink-0",
-          selectedId && "hidden lg:flex",
-        )}
-      >
-        <div className="shrink-0 border-b border-gray-100 p-4 dark:border-white/10">
+      {/* ── Section 1: the inbox ── full width, scrolls with the PAGE.
+          No `overflow-hidden` here: it would make this box the sticky header's
+          scrollport, and a box that never scrolls never sticks. */}
+      <div className="flex w-full flex-col rounded-token border border-gray-100 bg-white shadow-sm dark:border-white/10">
+        {/* Sticks under the topbar so search and filter stay reachable however
+            far down the list you are. */}
+        <div className="sticky top-16 z-10 border-b border-gray-100 bg-white p-3 dark:border-white/10 dark:bg-[var(--admin-card)] sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="flex items-center gap-1.5 text-sm font-bold text-primary"><Inbox className="h-4 w-4" /> Inbox</h2>
@@ -510,74 +758,169 @@ export default function ContactQueries() {
               </p>
             </div>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => load({ force: true })} disabled={refreshing} title="Refresh" className="grid h-9 w-9 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-50 dark:hover:bg-white/10">
+              <button type="button" onClick={() => load({ force: true })} disabled={refreshing} aria-label="Refresh inbox" title="Refresh" className="grid h-9 w-9 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-50 dark:hover:bg-white/10">
                 <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
               </button>
-              <button type="button" onClick={exportToCSV} disabled={visible.length === 0} title="Export CSV" className="grid h-9 w-9 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-40 dark:hover:bg-white/10">
+              <button type="button" onClick={exportToCSV} disabled={visible.length === 0} aria-label="Export queries as CSV" title="Export CSV" className="grid h-9 w-9 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-40 dark:hover:bg-white/10">
                 <Download className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search name, email, subject…" className="w-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent focus:bg-white dark:border-white/10 dark:bg-white/5" />
+          {/* Full width now, so search and status sit side by side. */}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search name, email, subject…" className="w-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-accent focus:bg-white dark:border-white/10 dark:bg-white/5" />
+            </div>
+            <CustomSelect
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[{ value: "all", label: "All status" }, ...STATUSES]}
+              className="w-full sm:w-[190px] sm:shrink-0"
+              triggerClassName="w-full border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]"
+            />
           </div>
-          <CustomSelect
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[{ value: "all", label: "All status" }, ...STATUSES]}
-            className="mt-2 w-full"
-            triggerClassName="w-full border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]"
-          />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div ref={resultsTopRef}>
           {visible.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <div className="flex flex-col items-center justify-center p-12 text-center">
               <Inbox className="mb-3 h-9 w-9 text-text-muted" />
               <p className="text-sm text-text-muted">{queries.length === 0 ? "No contact queries yet." : "No queries match your filters."}</p>
             </div>
           ) : (
-            visible.map((c) => (
-              <button
-                key={c._id}
-                type="button"
-                onClick={() => openQuery(c)}
-                style={selectedId === c._id ? { backgroundColor: "rgba(var(--tenant-accent-rgb, 16, 185, 129), 0.16)" } : undefined}
-                className={cn(
-                  "relative flex w-full items-start gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors dark:border-white/5",
-                  selectedId !== c._id && "hover:bg-gray-50/70 dark:hover:bg-white/5",
-                )}
-              >
-                {selectedId === c._id ? <span className="absolute inset-y-0 left-0 w-[3px]" style={{ backgroundColor: "var(--tenant-accent, #10b981)" }} aria-hidden="true" /> : null}
-                <Avatar name={c.name} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={cn("truncate text-sm", c.unread ? "font-bold" : "font-semibold", selectedId === c._id ? "text-accent" : "text-primary")}>{c.name}</p>
-                    <span className="shrink-0 text-[10px] text-text-muted">{timeAgo(c.lastMessageAt || c.createdAt)}</span>
-                  </div>
-                  <p className="truncate text-xs text-text-muted">{c.email}</p>
-                  <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">{c.subject}</p>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <StatusBadge status={c.status} />
-                    {c.assignee?.name ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-text-muted">
-                        <Avatar name={c.assignee.name} src={c.assignee.userId?.profileImage} size="xs" />
-                        {(c.assignee.name || "").split(" ")[0]}
-                      </span>
-                    ) : null}
-                  </div>
+            <>
+              {listRows.map((c) => (
+                <QueryRow key={c._id} c={c} selected={selectedId === c._id} onOpen={openQuery} onDelete={setDeleteTarget} />
+              ))}
+              {/* The count shows whether or not there's more than one page —
+                  "9 of 9" is the answer to "is that the whole inbox?" */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-50 px-3 py-2.5 dark:border-white/5 sm:px-4">
+                <span className="font-mono text-[11px] text-text-muted">
+                  {(safePage - 1) * limit + 1}–{(safePage - 1) * limit + listRows.length} of {visible.length}
+                  {pageCount > 1 ? ` · page ${safePage} of ${pageCount}` : ""}
+                </span>
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                    <span className="hidden sm:inline">Rows</span>
+                    <CustomSelect
+                      value={limit}
+                      onChange={(v) => changeLimit(Number(v))}
+                      options={PAGE_SIZE_OPTIONS}
+                      className="w-[68px]"
+                      triggerClassName="w-full border border-gray-200 bg-white px-2 py-1 text-xs outline-none transition-colors hover:border-accent/60 focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]"
+                    />
+                  </span>
+                  {pageCount > 1 ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={safePage === 1}
+                        className="border border-gray-200 px-3 py-1.5 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                        disabled={safePage >= pageCount}
+                        className="border border-gray-200 px-3 py-1.5 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-                {c.unread ? <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" /> : null}
-              </button>
-            ))
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* ── Right: conversation ── */}
-      <div className={cn("min-w-0 flex-1 flex-col", selectedId ? "flex" : "hidden lg:flex")}>
+      </>
+      ) : (
+      /* ── WORK MODE ── the list docks to a rail and the conversation opens
+         beside it. The hero stays behind in the overview: in work mode those
+         180px belong to the thread. Definite height on the split so both
+         columns scroll inside themselves and the composer stays pinned;
+         `max()` keeps a floor on a short window. Below lg there's no room for
+         two columns, so the rail drops out and the back arrow carries you. */
+      <div className="flex h-[max(calc(100dvh-7rem),560px)] flex-col gap-3 sm:gap-4">
+      {/* Work-mode header. The full hero is an overview element — 180px is too
+          much to pay while you're reading — but dropping it entirely took the
+          page's identity and the list-level actions with it. This is the same
+          header at a third of the height, and it keeps refresh/export reachable
+          without going back. */}
+      <div className="flex shrink-0 items-center gap-3 rounded-token border border-gray-100 bg-white px-3 py-2 shadow-sm dark:border-white/10 sm:px-4 sm:py-2.5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center bg-accent/10 text-accent"><Inbox className="h-4 w-4" /></span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">Helpdesk</p>
+          <h1 className="truncate text-sm font-bold text-primary">Contact Queries</h1>
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="hidden items-center gap-3 text-[11px] text-text-muted sm:flex">
+            <span><span className="font-semibold text-primary">{queries.length}</span> total</span>
+            <span aria-hidden>·</span>
+            <span><span className={cn("font-semibold", unreadTotal > 0 ? "text-accent" : "text-primary")}>{unreadTotal}</span> unread</span>
+            <span aria-hidden>·</span>
+            <span><span className="font-semibold text-primary">{newCount}</span> new</span>
+          </span>
+          <button type="button" onClick={() => load({ force: true })} disabled={refreshing} aria-label="Refresh inbox" title="Refresh" className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-50 dark:hover:bg-white/10">
+            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+          </button>
+          <button type="button" onClick={exportToCSV} disabled={visible.length === 0} aria-label="Export queries as CSV" title="Export CSV" className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-40 dark:hover:bg-white/10">
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <aside className="hidden min-h-0 flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm dark:border-white/10 lg:flex">
+        <div className="shrink-0 border-b border-gray-100 p-2.5 dark:border-white/10">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">
+              <Inbox className="h-3.5 w-3.5" /> Inbox · {visible.length}
+            </h2>
+            <button type="button" onClick={closeQuery} className="text-[11px] font-medium text-accent hover:underline">All queries</button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search…" aria-label="Search queries" className="w-full border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-2 text-xs outline-none transition-colors focus:border-accent focus:bg-white dark:border-white/10 dark:bg-white/5" />
+          </div>
+        </div>
+        <div ref={railRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto">
+          {listRows.map((c) => (
+            <QueryRow key={c._id} c={c} selected={selectedId === c._id} dense onOpen={openQuery} />
+          ))}
+        </div>
+        {pageCount > 1 ? (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-gray-100 px-2.5 py-2 dark:border-white/10">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              aria-label="Previous page"
+              className="grid h-6 w-6 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-30 dark:hover:bg-white/10"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <span className="font-mono text-[10px] tabular-nums text-text-muted">{safePage} / {pageCount}</span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={safePage >= pageCount}
+              aria-label="Next page"
+              className="grid h-6 w-6 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-30 dark:hover:bg-white/10"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : null}
+      </aside>
+
+      <div className="flex min-h-0 min-w-0 flex-col">
         {!sel ? (
           <div className="flex h-full flex-col items-center justify-center rounded-token border border-dashed border-gray-200 bg-white/40 text-center dark:border-white/10 dark:bg-white/5">
             {loadingDetail ? (
@@ -585,39 +928,68 @@ export default function ContactQueries() {
             ) : (
               <>
                 <MessageSquare className="mb-3 h-10 w-10 text-text-muted" />
-                <p className="text-sm font-medium text-primary">Select a query</p>
-                <p className="mt-1 max-w-xs text-xs text-text-muted">Open a message to read it, leave internal notes, reply to the sender and assign an owner.</p>
+                <p className="text-sm font-medium text-primary">Opening…</p>
+                <button type="button" onClick={closeQuery} className="mt-3 text-xs text-accent hover:underline">Back to inbox</button>
               </>
             )}
           </div>
         ) : (
           <motion.div key={sel._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex h-full flex-col overflow-hidden rounded-token border border-gray-100 bg-white shadow-sm dark:border-white/10">
-            {/* header */}
-            <div className="shrink-0 border-b border-gray-100 p-4 dark:border-white/10">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <button type="button" onClick={() => { setSelectedId(null); setDetail(null); }} className="grid h-9 w-9 shrink-0 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary lg:hidden dark:hover:bg-white/10">
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                  <Avatar name={sel.name} />
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold text-primary">{sel.name}</h2>
-                    <a href={`mailto:${sel.email}`} className="block truncate text-xs text-accent hover:underline">{sel.email}</a>
-                  </div>
+            {/* header — WHO this is, and where you are in the queue. The two
+                triage selects used to share this row and squeezed the name to
+                "Zknfn F…"; they live on the facts strip below now, where the
+                labels already are. */}
+            <div className="shrink-0 border-b border-gray-100 p-3 dark:border-white/10 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button type="button" onClick={closeQuery} aria-label="Back to inbox" title="Back to inbox (Esc)" className="grid h-9 w-9 shrink-0 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary dark:hover:bg-white/10">
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <Avatar name={sel.name} size="sm" />
+                {/* The SUBJECT is the thread's title — squeezed into a chip on
+                    the strip below it was the first thing to truncate, while
+                    the widest line on the screen said the sender's name twice
+                    (here and in the rail). Sender moves to the sub-line. */}
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-sm font-semibold text-primary sm:text-base" title={sel.subject || ""}>
+                    {sel.subject || "No subject"}
+                  </h2>
+                  <p className="flex min-w-0 items-center gap-1.5 text-xs">
+                    <span className="max-w-[45%] shrink-0 truncate font-medium text-text-muted">{sel.name}</span>
+                    <span className="text-text-muted/60" aria-hidden>·</span>
+                    <a href={`mailto:${sel.email}`} className="min-w-0 truncate text-accent hover:underline" title={sel.email}>{sel.email}</a>
+                  </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <CustomSelect value={sel.status || "new"} onChange={handleSetStatus} options={STATUSES} className="min-w-[130px]" triggerClassName="border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]" />
-                  <button type="button" onClick={() => setDeleteTarget(sel)} title="Delete query" className="grid h-9 w-9 place-items-center text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
 
-              {/* assignment */}
-              <div className="mt-3 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">
-                  <UsersIcon className="h-3.5 w-3.5" /> Assignee
-                </span>
+                {/* Queue position + step. Clearing an inbox is a sequence; this
+                    is what stops it being list → read → back → list → read. */}
+                {currentIndex >= 0 ? (
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button type="button" onClick={() => goRelative(-1)} disabled={currentIndex <= 0} aria-label="Previous query" title="Previous (K)" className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-30 dark:hover:bg-white/10">
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-[3.5rem] text-center text-[11px] tabular-nums text-text-muted">{currentIndex + 1} of {visible.length}</span>
+                    <button type="button" onClick={() => goRelative(1)} disabled={currentIndex >= visible.length - 1} aria-label="Next query" title="Next (J)" className="grid h-8 w-8 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary disabled:opacity-30 dark:hover:bg-white/10">
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null}
+                <button type="button" onClick={() => setDeleteTarget(sel)} aria-label="Delete query" title="Delete query" className="grid h-9 w-9 shrink-0 place-items-center text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Toolbar strip: read-only facts on the left, the two fields you
+                actually change on the right, tinted so it reads as a control
+                bar rather than more content. Wraps instead of truncating. */}
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-gray-100 bg-gray-50/60 px-3 py-2 text-xs dark:border-white/10 sm:px-4">
+              <Meta icon={Clock} label="Received" value={fmtDateTime(sel.createdAt)} />
+              <Meta icon={Mail} label="Replies" value={(sel.thread || []).filter((t) => t.kind === "reply").length} />
+              <div className="ml-auto flex items-center gap-2">
+                <span className="hidden h-4 w-px bg-gray-200 dark:bg-white/10 sm:block" aria-hidden />
+                <label className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                  <UsersIcon className="h-3 w-3" /> <span className="hidden sm:inline">Assignee</span>
+                </label>
                 <CustomSelect
                   value={sel.assignee?.userId?._id || sel.assignee?.userId || ""}
                   onChange={handleAssign}
@@ -625,24 +997,23 @@ export default function ContactQueries() {
                   searchable
                   searchPlaceholder="Search operators…"
                   placeholder="Unassigned"
-                  className="min-w-[170px]"
-                  triggerClassName="border border-gray-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]"
+                  className="w-[150px] shrink-0"
+                  triggerClassName="w-full border border-gray-200 bg-white px-2.5 py-1 text-xs outline-none transition-colors hover:border-accent/60 focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]"
                 />
+                <label className="inline-flex shrink-0 items-center text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">Status</label>
+                <CustomSelect value={sel.status || "new"} onChange={handleSetStatus} options={STATUSES} className="w-[120px] shrink-0" triggerClassName="w-full border border-gray-200 bg-white px-2.5 py-1 text-xs outline-none transition-colors hover:border-accent/60 focus:border-accent dark:border-white/10 dark:bg-[var(--admin-card)]" />
               </div>
             </div>
 
-            {/* conversation */}
-            <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50/40 p-4 dark:bg-transparent">
-              {/* meta */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-token border border-gray-100 bg-white p-3 text-xs dark:border-white/10 sm:grid-cols-3">
-                <Meta icon={FileText} label="Subject" value={sel.subject} />
-                <Meta icon={Clock} label="Received" value={fmtDateTime(sel.createdAt)} />
-                <Meta icon={Mail} label="Replies" value={(sel.thread || []).filter((t) => t.kind === "reply").length} />
-              </div>
-
+            <div ref={threadRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto bg-gray-50/40 p-3 dark:bg-transparent sm:p-4">
+              {/* Bottom-anchored, the way a conversation reads: a two-message
+                  thread sits just above the composer instead of stranding a
+                  screen of emptiness between them. min-h-full + justify-end
+                  keeps a LONG thread scrolling normally from the top. */}
+              <div className="flex min-h-full flex-col justify-end gap-4">
               {/* submitter's original message */}
               <div className="flex justify-start">
-                <div className="max-w-[88%]">
+                <div className="max-w-[92%] sm:max-w-[88%]">
                   <div className="mb-1 flex items-center gap-2 text-[11px] text-text-muted">
                     <Avatar name={sel.name} size="xs" />
                     <span className="font-medium text-primary">{sel.name}</span>
@@ -658,44 +1029,85 @@ export default function ContactQueries() {
               ) : (
                 (sel.thread || []).map((m, i) => <ThreadMessage key={m._id || i} m={m} mine={isMine(m.author)} />)
               )}
-              <div ref={bottomRef} />
+              </div>
             </div>
 
-            {/* composer */}
-            <div className="shrink-0 border-t border-gray-100 p-3 dark:border-white/10">
-              <div className="mb-2 inline-flex overflow-hidden rounded-token-btn border border-gray-200 text-xs dark:border-white/10">
-                <button type="button" onClick={() => setComposerKind("note")} className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors", composerKind === "note" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50 dark:hover:bg-white/5")}>
-                  <Lock className="h-3.5 w-3.5" /> Internal note
-                </button>
-                <button type="button" onClick={() => setComposerKind("reply")} className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors", composerKind === "reply" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50 dark:hover:bg-white/5")}>
-                  <CornerUpLeft className="h-3.5 w-3.5" /> Reply to submitter
-                </button>
-              </div>
-
-              <div>
-                <RichTextEditor
-                  key={`${sel._id}-${composerNonce}`}
-                  value={composer}
-                  onChange={setComposer}
-                  mentionItems={composerKind === "note" ? staff : null}
-                  onMentions={setComposerMentions}
-                  placeholder={composerKind === "reply" ? `Reply — this emails ${sel.email}` : "Write an internal note… use @ to mention an operator"}
-                />
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className="inline-flex items-center gap-1.5 text-[11px] text-text-muted">
-                    {composerKind === "reply" ? (<><Mail className="h-3.5 w-3.5" /> Sent to the submitter by email</>) : (<><Lock className="h-3.5 w-3.5" /> Visible to operators only</>)}
-                  </p>
-                  <button type="button" onClick={handleSend} disabled={composerEmpty || sending} className="inline-flex items-center gap-2 bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    {composerKind === "reply" ? "Send reply" : "Add note"}
+            {/* composer — folded to a single row until you actually write, so
+                the conversation above keeps the height. Both entry points name
+                what they do, so picking note-vs-reply is the same click that
+                opens the editor: no mode to notice afterwards. */}
+            <div ref={composerBoxRef} onKeyDown={onComposerKeyDown} className="shrink-0 border-t border-gray-100 p-3 dark:border-white/10">
+              {!composer.open ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openComposer(composerEmpty ? "note" : composer.kind)}
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-2 border px-3 py-2.5 text-left text-sm transition-colors",
+                      composerEmpty
+                        ? "border-gray-200 text-text-muted hover:border-accent/50 hover:text-primary dark:border-white/10"
+                        : "border-accent/50 text-primary",
+                    )}
+                  >
+                    {composerEmpty ? <Lock className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0 text-accent" />}
+                    <span className="truncate">
+                      {composerEmpty ? "Write an internal note…" : `Unsent ${composer.kind === "reply" ? "reply" : "note"} — pick up where you left off`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openComposer("reply")}
+                    aria-label="Reply to submitter"
+                    className="inline-flex shrink-0 items-center gap-2 bg-accent px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-light sm:px-4"
+                  >
+                    <CornerUpLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Reply</span>
                   </button>
                 </div>
-              </div>
+              ) : (
+                /* Mode switch, hint and send share ONE row under the editor —
+                   it used to have a row of its own above, and every row here
+                   comes straight off the thread's height. */
+                <div>
+                  <RichTextEditor
+                    key={`${sel._id}-${composer.nonce}`}
+                    value={composer.body}
+                    onChange={(v) => dispatchComposer({ type: "body", body: v })}
+                    mentionItems={composer.kind === "note" ? staff : null}
+                    onMentions={(m) => dispatchComposer({ type: "mentions", mentions: m })}
+                    placeholder={composer.kind === "reply" ? `Reply — this emails ${sel.email}` : "Write an internal note… use @ to mention an operator"}
+                    editorClassName="min-h-[84px] max-h-[26vh] overflow-y-auto sm:min-h-[104px]"
+                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex overflow-hidden rounded-token-btn border border-gray-200 text-xs dark:border-white/10">
+                      <button type="button" aria-pressed={composer.kind === "note"} onClick={() => dispatchComposer({ type: "kind", kind: "note" })} className={cn("inline-flex items-center gap-1.5 px-2.5 py-1.5 font-medium transition-colors sm:px-3", composer.kind === "note" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50 dark:hover:bg-white/5")}>
+                        <Lock className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Internal </span>note
+                      </button>
+                      <button type="button" aria-pressed={composer.kind === "reply"} onClick={() => dispatchComposer({ type: "kind", kind: "reply" })} className={cn("inline-flex items-center gap-1.5 px-2.5 py-1.5 font-medium transition-colors sm:px-3", composer.kind === "reply" ? "bg-accent text-white" : "text-text-muted hover:bg-gray-50 dark:hover:bg-white/5")}>
+                        <CornerUpLeft className="h-3.5 w-3.5" /> Reply<span className="hidden sm:inline"> to submitter</span>
+                      </button>
+                    </div>
+                    <p className="hidden items-center gap-1.5 text-[11px] text-text-muted lg:inline-flex">
+                      {composer.kind === "reply" ? (<><Mail className="h-3.5 w-3.5 shrink-0" /> Emails the submitter</>) : (<><Lock className="h-3.5 w-3.5 shrink-0" /> Operators only</>)}
+                      <span className="text-text-muted/70">· ⌘/Ctrl + Enter to send</span>
+                    </p>
+                    <button type="button" onClick={() => dispatchComposer({ type: "close" })} aria-label="Collapse composer" title="Collapse (Esc)" className="ml-auto grid h-9 w-9 shrink-0 place-items-center text-text-muted transition-colors hover:bg-gray-100 hover:text-primary dark:hover:bg-white/10">
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                    <button type="button" onClick={handleSend} disabled={composerEmpty || composer.sending} className="inline-flex items-center gap-2 bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-light disabled:opacity-50">
+                      {composer.sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {composer.kind === "reply" ? "Send reply" : "Add note"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </div>
       </div>
+      </div>
+      )}
 
       {/* delete confirmation — rendered in a Portal (outside the sharp-corner
           wrapper), so it carries its own !rounded-none override. */}
@@ -728,14 +1140,74 @@ export default function ContactQueries() {
 
 /* ── sub-components ───────────────────────────────────────────────────── */
 
-function Meta({ icon: Icon, label, value }) {
+/* One inbox row, in both places it appears: the full-width overview list and
+   the 340px rail beside an open conversation. `dense` drops the e-mail (no
+   room in the rail) and tightens the padding; the row keeps the same two-line
+   shape either way, so docking the list doesn't re-teach it. */
+const QueryRow = memo(function QueryRow({ c, selected, dense, onOpen, onDelete }) {
   return (
-    <div className="min-w-0">
-      <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
-        {Icon ? <Icon className="h-3 w-3" /> : null} {label}
-      </p>
-      <p className="mt-0.5 truncate text-gray-800" title={value != null ? String(value) : ""}>{value || value === 0 ? value : "—"}</p>
+    <div className="group/row relative">
+    <button
+      type="button"
+      data-row-id={c._id}
+      onClick={() => onOpen(c)}
+      title={c.email}
+      aria-current={selected ? "true" : undefined}
+      style={selected ? { backgroundColor: "rgba(var(--tenant-accent-rgb, 16, 185, 129), 0.14)" } : undefined}
+      className={cn(
+        "relative flex w-full items-center gap-3 border-b border-gray-50 text-left transition-colors dark:border-white/5",
+        dense ? "px-2.5 py-2" : "px-3 py-2.5 sm:px-4",
+        onDelete && "pr-11 sm:pr-12",
+        !selected && "hover:bg-gray-50/70 dark:hover:bg-white/5",
+      )}
+    >
+      {selected ? <span className="absolute inset-y-0 left-0 w-[3px]" style={{ backgroundColor: "var(--tenant-accent, #10b981)" }} aria-hidden="true" /> : null}
+      <Avatar name={c.name} size="sm" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className={cn("flex min-w-0 items-center gap-1.5 text-[13px]", c.unread ? "font-bold" : "font-semibold", selected ? "text-accent" : "text-primary")}>
+            {c.unread ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-label="Unread" /> : null}
+            <span className={cn("truncate", !dense && "max-w-[16rem]")}>{c.name}</span>
+          </p>
+          {!dense ? <span className="hidden min-w-0 truncate text-[11px] text-text-muted sm:inline">{c.email}</span> : null}
+          <span className="ml-auto shrink-0 text-[10px] text-text-muted">{timeAgo(c.lastMessageAt || c.createdAt)}</span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-[11px] text-text-muted">{c.subject || c.email}</p>
+          {c.assignee?.name ? <Avatar name={c.assignee.name} src={c.assignee.userId?.profileImage} size="xs" /> : null}
+          <StatusBadge status={c.status} />
+        </div>
+      </div>
+    </button>
+    {/* Delete lives OUTSIDE the row button — nesting one button inside another
+        is invalid and the click would open the query on its way past. Hidden
+        until hover/focus so a destructive action isn't the loudest thing in a
+        list you're only reading, but always reachable by keyboard. */}
+    {onDelete ? (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDelete(c); }}
+        aria-label={`Delete query from ${c.name}`}
+        title="Delete query"
+        className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center text-gray-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 focus-visible:opacity-100 group-hover/row:opacity-100 dark:hover:bg-red-500/10"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    ) : null}
     </div>
+  );
+});
+
+/* One fact on a single line — label then value — so the three of them wrap into
+   a strip instead of a card. `grow` gives the subject the leftover width. */
+function Meta({ icon: Icon, label, value, grow }) {
+  return (
+    <span className={cn("flex min-w-0 items-center gap-1.5", grow && "min-w-[8rem] flex-1")}>
+      <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+        {Icon ? <Icon className="h-3 w-3" /> : null} {label}
+      </span>
+      <span className="truncate text-gray-800" title={value != null ? String(value) : ""}>{value || value === 0 ? value : "—"}</span>
+    </span>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
@@ -21,6 +21,11 @@ import {
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import SASelect from "../components/SASelect";
+import SATableHead from "../components/SATableHead";
+import SAPagination from "../components/SAPagination";
+import { useTableSort } from "../utils/tableSort";
+import { PAGE_SIZES, PAGE_SIZE_OPTIONS, DEFAULT_PAGE_SIZE } from "../utils/paging";
+import { scrollToTopOf } from "../utils/scrollTo";
 import SAErrorState from "../components/SAErrorState";
 import SALoader from "../SALoader";
 import { useConfirm } from "../components/ConfirmProvider";
@@ -59,7 +64,43 @@ const AnimatedNumber = (props) => <AnimatedNumberBase duration={0.8} {...props} 
 const inputCls =
   "w-full border border-gray-200 bg-white py-2.5 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5 dark:text-white/90";
 
-const LIMIT = 50;
+// Rows per page comes from the shared list so every table in the console
+// offers the same choices. The server caps at 500 (input.paging).
+const DEFAULT_LIMIT = DEFAULT_PAGE_SIZE;
+
+/**
+ * Table columns. `key` is a column the SERVER sorts by (SESSION_SORTS in
+ * supportSessionController) — this list is paged, so sorting the rows on
+ * screen would sort a page rather than the set. Surface and Access are
+ * rendered from flags with no single field behind them, and Actions is a
+ * button column; those stay unsortable rather than pretending.
+ */
+const SESSION_COLUMNS = [
+  { label: "Tenant", key: "tenant" },
+  { label: "Operator", key: "operator" },
+  { label: "Acting as", key: "actingAs" },
+  { label: "Surface" },
+  { label: "Access" },
+  { label: "Status", key: "status" },
+  { label: "Actions" },
+  { label: "Started", key: "started", defaultDir: "desc" },
+  { label: "" },
+];
+const SESSION_SORT_KEYS = SESSION_COLUMNS.filter((c) => c.key).map((c) => c.key);
+
+/**
+ * The same columns read off a row in the browser, so a header click re-orders
+ * what's on screen immediately. Tenant reads the populated organisation name
+ * (what the operator sees); the server orders by `orgSlug`, which is derived
+ * from that name — close enough that the two agree in practice.
+ */
+const SESSION_SORT_ACCESSORS = {
+  tenant: (s) => tenantName(s) || s.orgSlug,
+  operator: (s) => s.impersonatorEmail,
+  actingAs: (s) => s.targetEmail,
+  status: (s) => s.status,
+  started: (s) => s.startedAt,
+};
 
 /** Enter/Space activates a row the same way a click does. */
 const onRowKey = (fn) => (e) => {
@@ -82,6 +123,17 @@ export default function SupportSessions() {
   const page = Math.max(1, parseInt(params.get("page"), 10) || 1);
   const view = params.get("view") === "table" ? "table" : "grid";
   const query = (params.get("q") || "").trim();
+  const limit = PAGE_SIZES.includes(Number(params.get("limit"))) ? Number(params.get("limit")) : DEFAULT_LIMIT;
+  // Sort lives in the URL with everything else, so a deep link reproduces the
+  // exact view. The server validates the column against a whitelist and falls
+  // back to "started" for anything it doesn't recognise.
+  const sort = useMemo(
+    () => ({
+      key: SESSION_SORT_KEYS.includes(params.get("sort")) ? params.get("sort") : "started",
+      dir: params.get("dir") === "asc" ? "asc" : "desc",
+    }),
+    [params],
+  );
 
   const setParam = useCallback(
     (next) => {
@@ -127,13 +179,33 @@ export default function SupportSessions() {
   }, []);
 
   /* ── data ─────────────────────────────────────────────────────────────── */
-  const requestParams = { page, limit: LIMIT };
+  const requestParams = { page, limit, sort: sort.key, dir: sort.dir };
   if (status !== "all") requestParams.status = status;
   if (query) requestParams.search = query;
 
+  // A new order makes the old page number meaningless — page 3 of "by tenant"
+  // is a different set of rows from page 3 of "by started".
+  const changeSort = useCallback(
+    (next) => setParam({ sort: next.key, dir: next.dir, page: null }),
+    [setParam],
+  );
+
+  // Identity of the CONTENT, without the ordering or the window into it — so
+  // sorting and paging refresh in place rather than blanking the table.
+  const viewKey = useMemo(() => JSON.stringify([status, query]), [status, query]);
+
   const onBackgroundError = useCallback((message) => toast.error(message), []);
   const { phase, revalidating, sessions, total, summary, serverTime, error, anyLive, refresh, patch } =
-    useSupportSessions({ params: requestParams, version: sessionsVersion, onError: onBackgroundError });
+    useSupportSessions({
+      params: requestParams,
+      viewKey,
+      version: sessionsVersion,
+      onError: onBackgroundError,
+    });
+
+  // Re-ordered in the browser the instant a header is clicked; the server's
+  // answer for the same sort lands behind it.
+  const rows = useTableSort(sessions, sort, SESSION_SORT_ACCESSORS);
 
   // Countdowns tick against server time, and only while something is counting.
   const { now, sync } = useServerClock(anyLive);
@@ -141,7 +213,17 @@ export default function SupportSessions() {
     sync(serverTime);
   }, [serverTime, sync]);
 
-  const pages = Math.max(1, Math.ceil(total / LIMIT) || 1);
+  const pages = Math.max(1, Math.ceil(total / limit) || 1);
+  // Paging from the bottom of a long page otherwise drops you at the bottom of
+  // the next one, reading its last rows first.
+  const resultsTopRef = useRef(null);
+  const lastPageRef = useRef(page);
+  useEffect(() => {
+    if (lastPageRef.current === page) return;
+    lastPageRef.current = page;
+    scrollToTopOf(resultsTopRef.current);
+  }, [page]);
+
   // Revoking the last row of the last page (or a filter change shrinking the
   // set) used to strand the operator on an empty page with no way back.
   useEffect(() => {
@@ -274,9 +356,6 @@ export default function SupportSessions() {
     },
   ];
 
-  const from = (page - 1) * LIMIT + 1;
-  const to = Math.min(total, (page - 1) * LIMIT + sessions.length);
-
   return (
     // Sharp-corner variant of this screen: square every descendant's corners
     // (cards, pills, buttons, inputs, badges, modal) for an angular look — matches
@@ -404,6 +483,7 @@ export default function SupportSessions() {
           </div>
         </div>
 
+        <div ref={resultsTopRef} aria-hidden />
         {phase === "loading" ? (
           <SALoader />
         ) : phase === "error" ? (
@@ -446,7 +526,7 @@ export default function SupportSessions() {
                 transition={{ duration: 0.25 }}
                 aria-busy={revalidating}
               >
-                {sessions.map((s, i) => {
+                {rows.map((s, i) => {
                   const state = effectiveStatus(s, now);
                   const live = state === "active";
                   const SurfIcon = surfaceIcon(s.mode);
@@ -481,9 +561,9 @@ export default function SupportSessions() {
                           </div>
                         </div>
 
-                        {/* identity: initial badge + tenant + reason/surface */}
+                        {/* identity: tenant logo (initial as fallback) + name + reason/surface */}
                         <div className="mb-4 flex items-center gap-3">
-                          <TenantAvatar name={name} status={state} />
+                          <TenantAvatar name={name} org={s.organisationId} status={state} />
                           <div className="min-w-0">
                             <h3 className="flex items-center gap-1.5 truncate text-base font-bold text-gray-900 dark:text-white">
                               <span className="truncate">{name}</span>
@@ -578,17 +658,14 @@ export default function SupportSessions() {
               >
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-100 text-left dark:border-white/10" style={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.14)" }}>
-                        {["Tenant", "Operator", "Acting as", "Surface", "Access", "Status", "Actions", "Started", ""].map((h, i) => (
-                          <th key={h || `spacer-${i}`} className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-white/60">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
+                    <SATableHead
+                      columns={SESSION_COLUMNS}
+                      sort={sort}
+                      onSort={changeSort}
+                      rowStyle={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.14)" }}
+                    />
                     <tbody>
-                      {sessions.map((s) => {
+                      {rows.map((s) => {
                         const state = effectiveStatus(s, now);
                         const live = state === "active";
                         const SurfIcon = surfaceIcon(s.mode);
@@ -605,7 +682,7 @@ export default function SupportSessions() {
                           >
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2.5">
-                                <TenantAvatar name={name} status={state} size="sm" />
+                                <TenantAvatar name={name} org={s.organisationId} status={state} size="sm" />
                                 <span className="text-sm font-medium text-gray-900 dark:text-white">{name}</span>
                               </div>
                             </td>
@@ -649,34 +726,19 @@ export default function SupportSessions() {
           </AnimatePresence>
         )}
 
-        {/* Pagination */}
-        {phase === "ready" && sessions.length > 0 && (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 px-1">
-            <span className="font-mono text-xs text-gray-400">
-              {from}–{to} of {total}
-              {pages > 1 ? ` · page ${page} of ${pages}` : ""}
-            </span>
-            {pages > 1 && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setParam({ page: Math.max(1, page - 1) })}
-                  disabled={page === 1}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white/80"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setParam({ page: Math.min(pages, page + 1) })}
-                  disabled={page >= pages}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white/80"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
+        {/* Pagination — one shared footer, same as every other list screen. */}
+        {phase === "ready" && (
+          <SAPagination
+            className="mt-6"
+            page={page}
+            pages={pages}
+            total={total}
+            limit={limit}
+            shown={rows.length}
+            onPage={(p) => setParam({ page: p })}
+            onLimit={(v) => setParam({ limit: v, page: null })}
+            sizes={PAGE_SIZE_OPTIONS}
+          />
         )}
       </div>
     </MotionConfig>

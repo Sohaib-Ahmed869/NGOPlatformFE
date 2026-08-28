@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Home, Menu, PanelLeftClose, PanelLeftOpen, ChevronDown, LogOut, Sun, Moon, Settings } from "lucide-react";
-import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
 import { cn } from "../../utils/cn";
 import ProfileService from "../../services/profile.service";
+import { ROLE_LABELS } from "../utils/platformRoles";
+import { leaveToAuth } from "../../utils/authTransition";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 // Resolve a stored avatar path (relative upload, absolute URL or data-URI) — mirrors Settings.
@@ -70,7 +71,6 @@ function ThemeToggle() {
 function UserMenu() {
   const [open, setOpen] = useState(false);
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const ref = useRef(null);
   useClickOutside(ref, () => setOpen(false));
 
@@ -85,9 +85,14 @@ function UserMenu() {
   const avatar = resolveAvatar(user?.profileImage || fetchedImg);
 
   const email = user?.email || "";
+  // Every console operator has role "superadmin" -- that is what gets them
+  // past the auth gate, not what they are. What they can actually do is
+  // `platformRole`, and printing the literal "Super Admin" here told an
+  // Admin, a Support Agent and a Billing Operator alike they were the Owner.
+  const roleLabel = ROLE_LABELS[user?.platformRole] || "Operator";
   const name =
     user?.name ||
-    (email ? email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Super Admin");
+    (email ? email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : roleLabel);
 
   const handleLogout = async () => {
     try {
@@ -95,9 +100,11 @@ function UserMenu() {
     } catch {
       /* best-effort */
     }
-    toast.success("Logged out");
     setOpen(false);
-    navigate("/login");
+    // Still a hard document load (see utils/authTransition for why that is the
+    // only way to be sure every module-level cache dies), but faded out into
+    // the sign-in page's own ground colour so the reload doesn't flash white.
+    leaveToAuth("/login");
   };
 
   return (
@@ -121,7 +128,7 @@ function UserMenu() {
         )}
         <div className="hidden min-w-0 text-left leading-tight sm:block">
           <p className="max-w-[150px] truncate text-[13px] font-semibold text-white">{name}</p>
-          <p className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white/40">Super Admin</p>
+          <p className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-white/40">{roleLabel}</p>
         </div>
         <ChevronDown className={cn("hidden h-4 w-4 shrink-0 text-white/40 transition-transform duration-200 sm:block", open && "rotate-180")} />
       </button>
@@ -140,7 +147,10 @@ function UserMenu() {
             )}
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{name}</p>
-              <p className="truncate text-[12px] text-gray-500 dark:text-white/55">{email}</p>
+              <p className="truncate font-mono text-[11px] text-gray-500 dark:text-white/55">{email}</p>
+              <p className="mt-1 truncate text-[11px] font-medium uppercase tracking-[0.1em] text-gray-400 dark:text-white/40">
+                {roleLabel}
+              </p>
             </div>
           </div>
           <Link

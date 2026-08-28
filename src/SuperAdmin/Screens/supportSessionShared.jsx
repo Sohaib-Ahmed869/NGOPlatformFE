@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, Globe, LayoutDashboard, Lock, UserCog, ArrowRight, Radio } from "lucide-react";
 import { cn } from "../../utils/cn";
+import { useAdminUi } from "../../context/AdminUiContext";
 import { accessLabel, avatarGradient, countdown, statusMeta, surfaceLabel } from "./supportSessionUtils";
 
 /**
@@ -108,12 +109,66 @@ export function SurfacePill({ mode, onDark = false }) {
   );
 }
 
-/** Tenant initial badge, tinted by the session's effective status. */
-export function TenantAvatar({ name, status, size = "md" }) {
-  const dims = size === "sm" ? "h-8 w-8 text-[11px]" : "h-12 w-12 text-lg";
+/**
+ * Pick the logo variant that suits the surface it's being drawn on, square mark
+ * before full lockup. Tenants upload two: `logo` is the light/white artwork for
+ * DARK backgrounds, `logoDark` the dark-ink one for LIGHT backgrounds.
+ *
+ * Matching them to the theme is what lets the mark sit directly on the card
+ * with no plate behind it. Only when a tenant has uploaded just one variant,
+ * and it's the wrong one for this surface, does it get a contrasting chip —
+ * better a small plate than an invisible logo.
+ *
+ * @param {object} org        populated organisation (needs `branding`)
+ * @param {"dark"|"light"} surface  the background it will sit on
+ * @returns {{src: string, backdrop: string}} backdrop "" = draw it bare
+ */
+export function tenantLogo(org, surface = "light") {
+  const b = org?.branding || {};
+  const onDark = surface === "dark";
+  const suited = onDark ? [b.iconLogo, b.logo] : [b.iconLogoDark, b.logoDark];
+  const other = onDark ? [b.iconLogoDark, b.logoDark] : [b.iconLogo, b.logo];
+
+  const match = suited.find(Boolean);
+  if (match) return { src: match, backdrop: "" };
+  const fallback = other.find(Boolean);
+  // The only variant they have is drawn for the opposite surface — give it the
+  // background it expects rather than letting it disappear.
+  return fallback ? { src: fallback, backdrop: onDark ? "#ffffff" : "#0f172a" } : { src: "", backdrop: "" };
+}
+
+/**
+ * Tenant badge: the organisation's own logo when it has one, otherwise the
+ * initial on a gradient tinted by the session's effective status. Seeing WHICH
+ * tenant someone is impersonating at a glance is the point of this screen, and
+ * a wall of identical letter tiles doesn't give you that.
+ */
+export function TenantAvatar({ name, org, status, size = "md" }) {
+  const dims = size === "sm" ? "h-8 w-8" : "h-12 w-12";
+  // The card surface follows the console theme, so the logo variant does too.
+  const { theme } = useAdminUi();
+  const { src, backdrop } = tenantLogo(org, theme === "dark" ? "dark" : "light");
+  if (src) {
+    return (
+      <span
+        className={cn("grid shrink-0 place-items-center overflow-hidden", dims, backdrop && "p-1 shadow-sm")}
+        // Inline, not a `bg-*` class: admin-theme.css remaps those in dark mode,
+        // and the whole point of a backdrop is that it does NOT follow the theme.
+        style={backdrop ? { background: backdrop } : undefined}
+        title={name || ""}
+      >
+        {/* Contained, never cropped: these are wordmarks as often as icons. */}
+        <img src={src} alt={name || "Tenant logo"} loading="lazy" className="h-full w-full object-contain" />
+      </span>
+    );
+  }
   return (
     <span
-      className={cn("grid shrink-0 place-items-center font-bold uppercase text-white shadow-sm", dims)}
+      className={cn(
+        "grid shrink-0 place-items-center font-bold uppercase text-white shadow-sm",
+        dims,
+        size === "sm" ? "text-[11px]" : "text-lg",
+      )}
       style={{ background: avatarGradient(statusMeta(status).color) }}
     >
       {String(name || "—").charAt(0)}

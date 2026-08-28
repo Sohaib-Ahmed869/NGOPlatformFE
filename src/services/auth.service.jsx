@@ -1,4 +1,5 @@
 import axios from "./axios";
+import ProfileService from "./profile.service";
 import { getStoragePrefix } from "./axios";
 
 function prefixKey(key) {
@@ -79,6 +80,9 @@ export default {
     localStorage.removeItem(prefixKey("passwordChangeRequired"));
     _mfaStatusCache = null;
     _mfaStatusInFlight = null;
+    // Nothing cached under the old session may outlive it: the next operator
+    // to sign in on this page load must start from an empty profile.
+    ProfileService.clearCache();
   },
 
   getCurrentUser() {

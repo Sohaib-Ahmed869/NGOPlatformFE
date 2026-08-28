@@ -1,4 +1,5 @@
 import axiosInstance from "./axios";
+import { sharedGet as sharedRequestGet } from "./sharedRequest";
 
 // ── Contact-queries session cache ────────────────────────────────────────────
 // The inbox list + staff list are cached per page-load with in-flight de-dupe,
@@ -49,7 +50,11 @@ const _leadDetailStale = new Set();
 // almost every other invalidator below clears the audit cache: the platform
 // audit log is append-only and gains an entry for practically every operator
 // action, so anything that mutates also makes the audit view stale.
+// Keyed by page+filter combo → { data, at }. Bounded, because an operator can
+// page a long way through an append-only log in one session.
 const _auditCache = new Map();
+const _auditInFlight = new Map();
+const AUDIT_CACHE_MAX = 24;
 const invalidateAuditCache = () => _auditCache.clear();
 const _sessionCache = new Map();
 // One support session + its audit trail, keyed by sessionId, so going back to
@@ -57,6 +62,25 @@ const _sessionCache = new Map();
 // served from here (its status, action count and countdown all move on their
 // own) — see `getSupportSessionCached`.
 const _sessionDetailCache = new Map();
+const _sessionInFlight = new Map();
+const _sessionDetailInFlight = new Map();
+const SESSION_CACHE_MAX = 16;
+
+/**
+ * De-duping identical requests is only safe if one caller going away can't
+ * cancel the request the others are still waiting on — React StrictMode makes
+ * that the normal case, not an edge case. The refcounted implementation lives
+ * in ./sharedRequest so the email console shares the same tested one; this
+ * binds it to the axios instance and keeps the call sites below unchanged.
+ *
+ * @param {Map}      store  in-flight registry for this endpoint
+ * @param {string}   key    identity of the request (id, or serialised params)
+ * @param {string}   url
+ * @param {object}   config axios config; its `signal` is the CALLER's
+ * @param {Function} map    runs once, on the shared response (cache writes)
+ */
+const sharedGet = (store, key, url, config = {}, map = (res) => res.data) =>
+  sharedRequestGet(axiosInstance, store, key, url, config, map);
 const invalidateSupportSessionsCache = (sessionId) => {
   _sessionCache.clear();
   if (sessionId) _sessionDetailCache.delete(sessionId);
@@ -223,6 +247,14 @@ const superadminService = {
     return axiosInstance.patch(`/superadmin/organisations/${id}/status`, { action });
   },
 
+  // Soft delete — org is hidden from every console list/stat but its data
+  // (orders, invoices, audit trail) stays in Mongo. Server rejects unless
+  // `confirmName` exactly matches the org's name.
+  deleteOrganisation: (id, confirmName) => {
+    invalidateOrgCaches(id);
+    return axiosInstance.delete(`/superadmin/organisations/${id}`, { data: { confirmName } });
+  },
+
   compOrg: (id, body) => {
     invalidateOrgCaches(id);
     return axiosInstance.post(`/superadmin/organisations/${id}/comp`, body);
@@ -256,10 +288,15 @@ const superadminService = {
 
   // Support-session audit + kill switch (platform operator view)
   getSupportSessionsCached: (params) => _sessionCache.get(JSON.stringify(params)) || null,
+  // De-duped per view. This screen has three things asking it to re-read — a
+  // 15s poll while anything is live, websocket `sessionsVersion` bumps, and the
+  // catch-up when the tab regains focus — so overlapping reads of the SAME view
+  // are routine here, not a StrictMode curiosity.
   loadSupportSessions: (params, { signal } = {}) => {
     const key = JSON.stringify(params);
-    return axiosInstance.get("/superadmin/support-sessions", { params, signal }).then((res) => {
+    return sharedGet(_sessionInFlight, key, "/superadmin/support-sessions", { params, signal }, (res) => {
       _sessionCache.set(key, res.data);
+      if (_sessionCache.size > SESSION_CACHE_MAX) _sessionCache.delete(_sessionCache.keys().next().value);
       return res.data;
     });
   },
@@ -271,9 +308,14 @@ const superadminService = {
     const hit = _sessionDetailCache.get(sessionId);
     return hit && hit.session?.status !== "active" ? hit : null;
   },
+  // Same de-dup for one session's detail — it polls too while the session is
+  // live, and that page is the kill switch.
   loadSupportSession: (sessionId, { signal } = {}) =>
-    axiosInstance.get(`/superadmin/support-sessions/${sessionId}`, { signal }).then((res) => {
+    sharedGet(_sessionDetailInFlight, sessionId, `/superadmin/support-sessions/${sessionId}`, { signal }, (res) => {
       _sessionDetailCache.set(sessionId, res.data);
+      if (_sessionDetailCache.size > SESSION_CACHE_MAX) {
+        _sessionDetailCache.delete(_sessionDetailCache.keys().next().value);
+      }
       return res.data;
     }),
   revokeSupportSession: (sessionId) => {
@@ -289,11 +331,24 @@ const superadminService = {
 
   // Global platform operator audit log
   getAuditLog: (params) => axiosInstance.get("/superadmin/audit", { params }),
-  getAuditLogCached: (params) => _auditCache.get(JSON.stringify(params)) || null,
+  getAuditLogCached: (params) => _auditCache.get(JSON.stringify(params))?.data || null,
+  // How long ago this page/filter combo was fetched, or Infinity if never. The
+  // screen uses it to decide whether a cache hit is fresh enough to stand on
+  // its own or should be revalidated behind the rendered rows: OUR actions
+  // clear this cache, but another operator's writes land in the log unnoticed.
+  getAuditLogAge: (params) => {
+    const hit = _auditCache.get(JSON.stringify(params));
+    return hit ? Date.now() - hit.at : Infinity;
+  },
   loadAuditLog: (params, { signal } = {}) => {
     const key = JSON.stringify(params);
-    return axiosInstance.get("/superadmin/audit", { params, signal }).then((res) => {
-      _auditCache.set(key, res.data);
+    // De-duped per page/filter combo: a mount + a revalidate, or a filter
+    // toggled off and back on, used to fire the same request twice.
+    return sharedGet(_auditInFlight, key, "/superadmin/audit", { params, signal }, (res) => {
+      _auditCache.set(key, { data: res.data, at: Date.now() });
+      // Bounded: paging deep into a long log kept every page's 50 entries for
+      // the whole session. Oldest key out first (Map preserves insertion).
+      if (_auditCache.size > AUDIT_CACHE_MAX) _auditCache.delete(_auditCache.keys().next().value);
       return res.data;
     });
   },

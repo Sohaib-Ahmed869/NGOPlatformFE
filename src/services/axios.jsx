@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getSocketId } from "./socketId";
 import toast from "react-hot-toast";
 
 const baseURL = `${import.meta.env.VITE_API_BASE_URL}/api`;
@@ -32,6 +33,11 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Who is asking, at connection granularity: the server echoes this back on
+    // the socket event it emits, so this tab can skip its own echo.
+    const socketId = getSocketId();
+    if (socketId) config.headers["X-Socket-Id"] = socketId;
 
     // Inject tenant slug header for subdomain-based tenant resolution
     const hostname = window.location.hostname;

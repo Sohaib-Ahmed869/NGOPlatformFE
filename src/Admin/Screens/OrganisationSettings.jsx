@@ -32,6 +32,7 @@ import { toast } from "react-hot-toast";
 import settingsService from "../../services/settings.service";
 import paymentService from "../../services/payment.service";
 import EmailSettings from "./EmailSettings";
+import EmailTemplateSettings from "./EmailTemplateSettings";
 import PaypalSettings from "./PaypalSettings";
 import EventSettings from "./EventSettings";
 import { useTenant } from "../../context/TenantContext";
@@ -99,6 +100,7 @@ const TABS = [
   { id: "paypal", label: "PayPal", desc: "PayPal donations", icon: Wallet },
   { id: "bank", label: "Bank Transfer", desc: "Donor bank details", icon: Landmark },
   { id: "email", label: "Email", desc: "Send from your own SMTP", icon: Mail },
+  { id: "emailTemplates", label: "Email Templates", desc: "What your supporters receive", icon: Mail },
   { id: "events", label: "Events", desc: "Audience labels & colours", icon: CalendarDays },
 ];
 
@@ -854,6 +856,8 @@ export default function OrganisationSettings() {
 
               {/* ── EMAIL (per-tenant SMTP) ── */}
               {activeTab === "email" && <EmailSettings />}
+
+              {activeTab === "emailTemplates" && <EmailTemplateSettings />}
 
               {/* ── EVENTS (public calendar audiences) ── */}
               {activeTab === "events" && <EventSettings />}

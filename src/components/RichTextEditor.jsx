@@ -41,7 +41,7 @@ function ToolBtn({ onMouseDown, active, title, children }) {
  * `onMentions(ids)` reports the set of mentioned ids on every change. When
  * `mentionItems` is omitted the editor behaves exactly as before.
  */
-export function RichTextEditor({ value, onChange, placeholder = "Write…", mentionItems = null, onMentions }) {
+export function RichTextEditor({ value, onChange, placeholder = "Write…", mentionItems = null, onMentions, editorClassName = "" }) {
   const ref = useRef(null);
   const [active, setActive] = useState({});
   const [mention, setMention] = useState({ open: false, items: [], index: 0, rect: null });
@@ -198,7 +198,12 @@ export function RichTextEditor({ value, onChange, placeholder = "Write…", ment
         }}
         onBlur={() => setTimeout(closeMention, 150)}
         data-placeholder={placeholder}
-        className="prose prose-sm min-h-[140px] max-w-none px-3 py-2.5 text-sm text-gray-800 outline-none dark:prose-invert empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)]"
+        className={cn(
+          "prose prose-sm max-w-none px-3 py-2.5 text-sm text-gray-800 outline-none dark:prose-invert empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)]",
+          // Callers in a height-constrained pane pass their own box (e.g. a
+          // shorter min plus a max-h + scroll); everyone else keeps the 140px.
+          editorClassName || "min-h-[140px]",
+        )}
       />
 
       {mention.open && mention.rect ? (

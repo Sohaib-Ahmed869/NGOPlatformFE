@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal, Target, Users } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal, Target, Users, Mail } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
 import { cn } from "../../utils/cn";
@@ -57,6 +56,7 @@ const NAV_GROUPS = [
   {
     label: "Configuration",
     items: [
+      { label: "Emails", path: "/emails", icon: Mail, capability: "ops" },
       { label: "Team", path: "/team", icon: Users, capability: "ops" },
       { label: "Platform", path: "/platform", icon: Globe, capability: "ops" },
       { label: "Settings", path: "/settings", icon: Settings },
@@ -83,7 +83,6 @@ export default function SASidebar() {
     items: g.items.filter((it) => !it.capability || hasCapability(user?.platformRole, it.capability)),
   })).filter((g) => g.items.length > 0);
   const location = useLocation();
-  const navigate = useNavigate();
 
   // The platform's own branding (SuperAdmin → Platform). The sidebar is a DARK
   // surface, so the light logo/icon (the "for dark backgrounds" variants) read
@@ -105,9 +104,11 @@ export default function SASidebar() {
     } catch {
       /* best-effort */
     }
-    toast.success("Logged out");
     closeMobileSidebar();
-    navigate("/login");
+    // Still a hard document load (see utils/authTransition for why that is the
+    // only way to be sure every module-level cache dies), but faded out into
+    // the sign-in page's own ground colour so the reload doesn't flash white.
+    leaveToAuth("/login");
   };
 
   return (

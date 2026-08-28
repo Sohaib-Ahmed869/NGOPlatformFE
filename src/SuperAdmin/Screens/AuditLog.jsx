@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import axios from "axios";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import {
@@ -21,7 +21,13 @@ import {
 import superadminService from "../../services/superadmin.service";
 import SASelect from "../components/SASelect";
 import SAErrorState from "../components/SAErrorState";
+import SATableHead from "../components/SATableHead";
+import SAPagination from "../components/SAPagination";
 import SALoader from "../SALoader";
+import { scrollToTopOf } from "../utils/scrollTo";
+import { useTableSort } from "../utils/tableSort";
+import { PAGE_SIZE_OPTIONS } from "../utils/paging";
+
 import toast from "react-hot-toast";
 
 import AnimatedNumberBase from "../components/AnimatedNumber";
@@ -54,6 +60,44 @@ function timeAgo(d) {
 }
 
 // Common action codes worth filtering on; "all" shows everything.
+// How long a cached page is trusted before it's revalidated behind the rows.
+// The log is append-only and other operators write to it constantly, so this is
+// short by design.
+const AUDIT_MAX_AGE_MS = 30_000;
+
+// Rows per page comes from the shared list so every table in the console
+// offers the same choices. The server caps at 500, so all of them are safe.
+
+/**
+ * Table columns. `key` names a column the SERVER can sort by (AUDIT_SORTS in
+ * supportSessionController); the two without one are derived — Category is
+ * read off the action's prefix, and Detail is composed from several fields, so
+ * neither exists as something the database could order by. They render as
+ * plain labels rather than as buttons that would quietly do nothing.
+ */
+const AUDIT_COLUMNS = [
+  { label: "Action", key: "action" },
+  { label: "Category" },
+  { label: "Operator", key: "operator" },
+  { label: "Tenant", key: "tenant" },
+  { label: "Detail" },
+  { label: "When", key: "when", defaultDir: "desc" },
+];
+
+/**
+ * The same columns read off a row in the browser, so clicking a header
+ * re-orders the loaded entries immediately. Tenant sorts by the populated
+ * organisation's NAME here, which is what the operator sees; the server orders
+ * by organisationId (it can't reach the name without a $lookup), so on a
+ * multi-page log the two can disagree slightly for that one column.
+ */
+const AUDIT_SORT_ACCESSORS = {
+  action: (a) => a.action,
+  operator: (a) => a.actorEmail,
+  tenant: (a) => a.organisationId?.name,
+  when: (a) => a.createdAt,
+};
+
 const ACTION_OPTIONS = [
   { value: "all", label: "All actions" },
   { value: "support.action", label: "Support write actions" },
@@ -107,6 +151,77 @@ function HeaderStat({ icon: Icon, label, value, sub, color }) {
   );
 }
 
+/* One audit entry in the timeline. Memoised: entries are immutable server rows,
+   so a row only re-renders when its own entry changes. */
+const TimelineRow = memo(function TimelineRow({ a, i }) {
+  const cat = categoryOf(a.action);
+  const Icon = cat.icon;
+  const detail = detailOf(a);
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: Math.min(i * 0.02, 0.3), ease: [0.2, 0.7, 0.2, 1] }}
+      className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-gray-50/70 dark:hover:bg-white/5"
+    >
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `${cat.color}1a`, color: cat.color }}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-sm font-semibold text-gray-900 dark:text-white">{prettyAction(a.action)}</span>
+          <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: `${cat.color}14`, color: cat.color }}>{cat.label}</span>
+          <span className="font-mono text-[10px] text-gray-400">{a.action}</span>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+          <span className="inline-flex items-center gap-1.5"><UserCog className="h-3.5 w-3.5 shrink-0 text-gray-400" />{a.actorEmail || "system"}</span>
+          <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />{a.organisationId?.name || "Platform"}</span>
+          {detail !== "—" && (
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-gray-600"><Info className="h-3.5 w-3.5 shrink-0 text-gray-400" /><span className="truncate">{detail}</span></span>
+          )}
+          {a.ip && (
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-gray-400"><Globe className="h-3 w-3 shrink-0" />{a.ip}</span>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-[11px] font-medium text-gray-500">{timeAgo(a.createdAt)}</p>
+        <p className="mt-0.5 text-[10px] text-gray-400">{fmt(a.createdAt)}</p>
+      </div>
+    </motion.li>
+  );
+});
+
+/* The same entry in table view. */
+const AuditTableRow = memo(function AuditTableRow({ a }) {
+  const cat = categoryOf(a.action);
+  const Icon = cat.icon;
+  return (
+    <tr key={a._id} className="border-t border-gray-100 transition-colors hover:bg-gray-50/70 dark:hover:bg-white/5">
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-8 w-8 shrink-0 place-items-center" style={{ background: `${cat.color}1a`, color: cat.color }}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{prettyAction(a.action)}</p>
+            <p className="font-mono text-[10px] text-gray-400">{a.action}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <span className="px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cat.color}14`, color: cat.color }}>{cat.label}</span>
+      </td>
+      <td className="px-4 py-3 text-xs text-gray-600 dark:text-white/70">{a.actorEmail || "system"}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500"><Building2 className="h-3 w-3 shrink-0 text-gray-400" />{a.organisationId?.name || "Platform"}</div>
+      </td>
+      <td className="px-4 py-3 text-xs text-gray-600 dark:text-white/70">{detailOf(a)}</td>
+      <td className="px-4 py-3 text-xs text-gray-400" title={fmt(a.createdAt)}>{timeAgo(a.createdAt)}</td>
+    </tr>
+  );
+});
+
 export default function AuditLog() {
   const [entries, setEntries] = useState([]);
   const [total, setTotal] = useState(0);
@@ -115,7 +230,11 @@ export default function AuditLog() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState("timeline"); // "timeline" | "table"
   const [page, setPage] = useState(1);
-  const limit = 50;
+  const [limit, setLimit] = useState(50);
+  // Sorting is a SERVER concern here: this list is paged, so reordering the 50
+  // rows on screen would reorder a page, not the log. The key is a column name
+  // the server maps to a field — see AUDIT_SORTS in supportSessionController.
+  const [sort, setSort] = useState({ key: "when", dir: "desc" });
 
   const [error, setError] = useState(null);
   const [revalidating, setRevalidating] = useState(false);
@@ -136,37 +255,62 @@ export default function AuditLog() {
   }, [search, debouncedSearch]);
 
   const lastKeyRef = useRef(null);
+  const lastViewKeyRef = useRef(null);
 
-  const apply = useCallback((data, key) => {
+  const apply = useCallback((data, key, view) => {
     setEntries(data.entries || []);
     setTotal(data.total || 0);
     setSummary(data.summary || { operators: 0, tenants: 0, latestAt: null });
     setError(null);
     lastKeyRef.current = key;
+    // Recording the VIEW too is what lets the next sort or page turn refresh
+    // in place. Declaring this ref and never assigning it left it permanently
+    // null, so the same-view check could never pass and the table kept
+    // blanking for the full-screen loader on every header click.
+    lastViewKeyRef.current = view;
   }, []);
 
   // Cache-first + abortable, matching the other list screens. A page/filter
   // combo already viewed this session renders with NO request; any audited
   // action clears the cache in the service, so the log can't go stale.
   const buildParams = useCallback(() => {
-    const params = { page, limit };
+    const params = { page, limit, sort: sort.key, dir: sort.dir };
     if (action !== "all") params.action = action;
     if (debouncedSearch) params.search = debouncedSearch;
     return params;
-  }, [page, action, debouncedSearch]);
+  }, [page, limit, sort, action, debouncedSearch]);
+
+  // A new sort re-orders the whole result set, so page 4 of the old order is
+  // meaningless in the new one. Both setters batch into one render → one fetch.
+  const changeSort = useCallback((next) => {
+    setSort(next);
+    setPage(1);
+  }, []);
+
+  // Identity of the CONTENT — the filters — without the ordering or the page.
+  // Sorting or paging the same filtered log is navigation within one view.
+  const viewKey = useMemo(() => JSON.stringify([action, debouncedSearch]), [action, debouncedSearch]);
 
   useEffect(() => {
     const params = buildParams();
     const key = JSON.stringify(params);
 
+    // Cache hit → render it now. But a hit only means WE haven't written to the
+    // log since; another operator's actions land in it unannounced, and an
+    // audit view that quietly omits them is the one thing this screen can't do.
+    // So a stale-but-shown page revalidates behind the rows it's already
+    // displaying (the `revalidating` spinner, not the full loader).
     const cached = superadminService.getAuditLogCached(params);
+    const fresh = superadminService.getAuditLogAge(params) < AUDIT_MAX_AGE_MS;
     if (cached) {
-      apply(cached, key);
+      apply(cached, key, viewKey);
       setLoading(false);
-      return undefined;
+      if (fresh) return undefined;
     }
 
-    const sameView = lastKeyRef.current === key;
+    // Sorting or paging the same filtered log is navigation, not a different
+    // view: it must never blank the table for the full-screen loader.
+    const sameView = cached || lastViewKeyRef.current === viewKey || lastKeyRef.current === key;
     const controller = new AbortController();
     let alive = true;
     (async () => {
@@ -175,7 +319,7 @@ export default function AuditLog() {
       try {
         const data = await superadminService.loadAuditLog(params, { signal: controller.signal });
         if (!alive) return;
-        apply(data, key);
+        apply(data, key, viewKey);
       } catch (err) {
         if (!alive || axios.isCancel(err)) return;
         // An audit log that silently shows "No audit entries" on failure is
@@ -194,7 +338,20 @@ export default function AuditLog() {
       alive = false;
       controller.abort();
     };
-  }, [buildParams, apply, refreshKey]);
+  }, [buildParams, apply, refreshKey, viewKey]);
+
+  // Warm the next page when the pointer lands on "Next" (or it's tabbed to).
+  // Prefetching on load would add a request to every visit; nearly all of them
+  // never leave page 1. On intent it costs nothing until you're about to page.
+  const prefetchPage = useCallback(
+    (target) => {
+      if (target < 1) return;
+      const params = { ...buildParams(), page: target };
+      if (superadminService.getAuditLogCached(params)) return;
+      superadminService.loadAuditLog(params).catch(() => {});
+    },
+    [buildParams],
+  );
 
   // Manual refresh bypasses the cache for the current view.
   const fetchEntries = useCallback(() => {
@@ -204,7 +361,31 @@ export default function AuditLog() {
   }, [buildParams]);
 
   const pages = Math.ceil(total / limit) || 1;
+  // Paging from the bottom of a long page otherwise drops you at the bottom of
+  // the next one, reading its last rows first.
+  const resultsTopRef = useRef(null);
+  const lastPageRef = useRef(page);
+  useEffect(() => {
+    if (lastPageRef.current === page) return;
+    lastPageRef.current = page;
+    scrollToTopOf(resultsTopRef.current);
+  }, [page]);
+
+  // A background revalidate can shrink the set under you (entries aged out of a
+  // filter, a narrower window): don't leave the operator on a page that no
+  // longer exists.
+  useEffect(() => {
+    if (!loading && page > pages) setPage(pages);
+  }, [loading, page, pages]);
   const hasFilters = Boolean(search.trim() || debouncedSearch || action !== "all");
+  // Changing the page size returns to page 1: a smaller page can strand you
+  // past the end, and the rows you were looking at have moved regardless.
+  const changeLimit = (next) => {
+    if (next === limit) return;
+    setLimit(next);
+    setPage(1);
+  };
+
   const clearFilters = () => {
     setSearch("");
     setDebouncedSearch("");
@@ -213,16 +394,20 @@ export default function AuditLog() {
   };
 
   // The server searches now, so the rows ARE the result set.
-  const visible = entries;
+  // Re-ordered in the browser the instant a header is clicked, so the table
+  // responds without waiting on the server. The request still goes out — only
+  // the server can order entries that aren't on this page — and lands behind
+  // the rows already on screen rather than replacing them with a loader.
+  const visible = useTableSort(entries, sort, AUDIT_SORT_ACCESSORS);
 
   // Every figure describes the whole filtered set — Operators and Tenants used
   // to be counted from the 50 rows on screen, beside a server-wide total.
-  const statTiles = [
+  const statTiles = useMemo(() => [
     { label: hasFilters ? "Events (filtered)" : "Total events", value: <AnimatedNumber value={total} />, sub: hasFilters ? "matching your filters" : "all time", icon: ScrollText, color: "#6366f1" },
     { label: "Operators", value: <AnimatedNumber value={summary.operators} />, sub: "distinct actors", icon: UserCog, color: "#10b981" },
     { label: "Tenants touched", value: <AnimatedNumber value={summary.tenants} />, sub: "distinct organisations", icon: Building2, color: "#f59e0b" },
     { label: "Latest event", value: timeAgo(summary.latestAt || entries[0]?.createdAt), sub: "most recent action", icon: Clock, color: "#06b6d4" },
-  ];
+  ], [hasFilters, total, summary, entries]);
 
   return (
     // Sharp-corner variant of this screen: square every descendant's corners
@@ -316,6 +501,7 @@ export default function AuditLog() {
         </div>
       </div>
 
+      <div ref={resultsTopRef} aria-hidden />
       {loading ? (
         <SALoader />
       ) : error ? (
@@ -355,45 +541,9 @@ export default function AuditLog() {
               transition={{ duration: 0.25 }}
             >
               <ul className="divide-y divide-gray-100 dark:divide-white/10">
-                {visible.map((a, i) => {
-                  const cat = categoryOf(a.action);
-                  const Icon = cat.icon;
-                  const detail = detailOf(a);
-                  return (
-                    <motion.li
-                      key={a._id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: Math.min(i * 0.02, 0.3), ease: [0.2, 0.7, 0.2, 1] }}
-                      className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-gray-50/70 dark:hover:bg-white/5"
-                    >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ background: `${cat.color}1a`, color: cat.color }}>
-                        <Icon className="h-[18px] w-[18px]" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold text-gray-900 dark:text-white">{prettyAction(a.action)}</span>
-                          <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: `${cat.color}14`, color: cat.color }}>{cat.label}</span>
-                          <span className="font-mono text-[10px] text-gray-400">{a.action}</span>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
-                          <span className="inline-flex items-center gap-1.5"><UserCog className="h-3.5 w-3.5 shrink-0 text-gray-400" />{a.actorEmail || "system"}</span>
-                          <span className="inline-flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />{a.organisationId?.name || "Platform"}</span>
-                          {detail !== "—" && (
-                            <span className="inline-flex min-w-0 items-center gap-1.5 text-gray-600"><Info className="h-3.5 w-3.5 shrink-0 text-gray-400" /><span className="truncate">{detail}</span></span>
-                          )}
-                          {a.ip && (
-                            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-gray-400"><Globe className="h-3 w-3 shrink-0" />{a.ip}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-[11px] font-medium text-gray-500">{timeAgo(a.createdAt)}</p>
-                        <p className="mt-0.5 text-[10px] text-gray-400">{fmt(a.createdAt)}</p>
-                      </div>
-                    </motion.li>
-                  );
-                })}
+                {visible.map((a, i) => (
+                  <TimelineRow key={a._id} a={a} i={i} />
+                ))}
               </ul>
             </motion.div>
           ) : (
@@ -407,42 +557,16 @@ export default function AuditLog() {
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100 text-left" style={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.14)" }}>
-                      {["Action", "Category", "Operator", "Tenant", "Detail", "When"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
+                  <SATableHead
+                    columns={AUDIT_COLUMNS}
+                    sort={sort}
+                    onSort={changeSort}
+                    rowStyle={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.14)" }}
+                  />
                   <tbody>
-                    {visible.map((a) => {
-                      const cat = categoryOf(a.action);
-                      const Icon = cat.icon;
-                      return (
-                        <tr key={a._id} className="border-t border-gray-100 transition-colors hover:bg-gray-50/70 dark:hover:bg-white/5">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2.5">
-                              <span className="grid h-8 w-8 shrink-0 place-items-center" style={{ background: `${cat.color}1a`, color: cat.color }}>
-                                <Icon className="h-4 w-4" />
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{prettyAction(a.action)}</p>
-                                <p className="font-mono text-[10px] text-gray-400">{a.action}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${cat.color}14`, color: cat.color }}>{cat.label}</span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-600 dark:text-white/70">{a.actorEmail || "system"}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500"><Building2 className="h-3 w-3 shrink-0 text-gray-400" />{a.organisationId?.name || "Platform"}</div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-gray-600 dark:text-white/70">{detailOf(a)}</td>
-                          <td className="px-4 py-3 text-xs text-gray-400" title={fmt(a.createdAt)}>{timeAgo(a.createdAt)}</td>
-                        </tr>
-                      );
-                    })}
+                    {visible.map((a) => (
+                      <AuditTableRow key={a._id} a={a} />
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -451,29 +575,21 @@ export default function AuditLog() {
         </AnimatePresence>
       )}
 
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="mt-6 flex items-center justify-between px-1">
-          <span className="font-mono text-xs text-gray-400">Page {page} of {pages} · {total} total</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page >= pages}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-white/10"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+      {/* Pagination — the count and the page size show whether or not there is
+          more than one page; "40 of 40" is the answer to "is that all of them?" */}
+      {!loading && !error && (
+        <SAPagination
+          className="mt-6"
+          page={page}
+          pages={pages}
+          total={total}
+          limit={limit}
+          shown={entries.length}
+          onPage={setPage}
+          onLimit={changeLimit}
+          onPrefetch={prefetchPage}
+          sizes={PAGE_SIZE_OPTIONS}
+        />
       )}
     </div>
     </MotionConfig>
