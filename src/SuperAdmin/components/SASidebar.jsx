@@ -8,6 +8,7 @@ import useLogoFit from "../../hooks/useLogoFit";
 import platformService from "../../services/platform.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import { hasCapability } from "../utils/platformRoles";
+import { leaveToAuth } from "../../utils/authTransition";
 
 // Logically grouped nav. The first group is `flat` (no header) for the overview;
 // the rest are collapsible sections (collapsedGroups/toggleGroup from useAdminUi).
