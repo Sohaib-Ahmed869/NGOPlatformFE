@@ -38,7 +38,7 @@ const TEAM_COLUMNS = [
   { label: "Status", key: "status" },
   { label: "MFA", key: "mfa" },
   { label: "Last login", key: "lastLogin", defaultDir: "desc" },
-  { label: "" },
+  { label: "Actions", align: "right" },
 ];
 
 const TEAM_SORT_ACCESSORS = {
@@ -77,7 +77,9 @@ const TENANT_COLUMNS = [
   { label: "2FA", key: "mfa" },
   { label: "Last login", key: "lastLogin", defaultDir: "desc" },
   { label: "Added", key: "createdAt", defaultDir: "desc" },
-  { label: "" },
+  // Labelled, not blank. Half these actions are icon-only, and a column of
+  // unexplained glyphs under an empty header reads as decoration.
+  { label: "Actions", align: "right" },
 ];
 
 const TENANT_SORT_ACCESSORS = {

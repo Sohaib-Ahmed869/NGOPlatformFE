@@ -4,13 +4,22 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "react-hot-toast";
 import OtpInput from "../../components/OtpInput";
 import AuthService from "../../services/auth.service";
+import { cn } from "../../utils/cn";
 
 /**
  * The "not enrolled yet" → QR-scan → verify flow for TOTP 2FA. Extracted out
  * of Settings.jsx's Security tab so the mandatory-MFA gate (MfaSetupRequired)
  * can reuse the exact same enrollment UI instead of a second copy.
  */
-export default function MfaEnrollPanel({ onEnabled }) {
+export default function MfaEnrollPanel({
+  onEnabled,
+  // The "not started yet" state carries its own icon + heading + blurb, which
+  // is right inside a Security tab and duplicated wording inside a full-page
+  // gate that has already said all three. A host with its own header passes
+  // `showIntro={false}` and gets just the button.
+  showIntro = true,
+  description = "Protect your operator account with an authenticator app. You'll enter a rotating 6-digit code each time you sign in.",
+}) {
   const [mfaSetup, setMfaSetup] = useState(null); // { secret, otpauthUrl }
   const [mfaCode, setMfaCode] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
@@ -50,20 +59,36 @@ export default function MfaEnrollPanel({ onEnabled }) {
 
   if (!mfaSetup) {
     return (
-      <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-8 text-center dark:border-white/10 dark:bg-white/5 sm:p-12">
+      <div
+        className={cn(
+          "text-center",
+          // The tinted, generously padded card is the right frame for an
+          // opt-in sitting inside a Security tab. With the intro suppressed it
+          // is a large empty box around one button, so the host's own card
+          // becomes the frame instead.
+          showIntro
+            ? "rounded-2xl border border-gray-100 bg-gray-50/60 p-8 dark:border-white/10 dark:bg-white/5 sm:p-12"
+            : "py-1",
+        )}
+      >
         <div className="mx-auto max-w-md">
-          <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">
-            <ShieldCheck className="h-7 w-7" />
-          </span>
-          <h4 className="text-base font-semibold text-gray-900 dark:text-white">Add an extra layer of security</h4>
-          <p className="mt-1 text-sm text-gray-500">
-            Protect your operator account with an authenticator app. You'll enter a rotating 6-digit code each time you sign in.
-          </p>
+          {showIntro && (
+            <>
+              <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">
+                <ShieldCheck className="h-7 w-7" />
+              </span>
+              <h4 className="text-base font-semibold text-gray-900 dark:text-white">Add an extra layer of security</h4>
+              <p className="mt-1 text-sm text-gray-500">{description}</p>
+            </>
+          )}
           <button
             type="button"
             onClick={startMfaSetup}
             disabled={mfaBusy}
-            className="mx-auto mt-5 inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-light disabled:opacity-50"
+            className={cn(
+              "mx-auto inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-light disabled:opacity-50",
+              showIntro && "mt-5",
+            )}
           >
             {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Enable 2FA
           </button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTenant } from "../../context/TenantContext";
 import { V, PageStyle, Reveal, PageHero } from "./ui";
 
@@ -12,8 +12,23 @@ const LAST_UPDATED = "18 June 2026";
 
 const css = `
 .saas-page h1,.saas-page h2,.saas-page h3,.saas-page h4,.saas-page h5,.saas-page h6{font-family:var(--font-heading,'Outfit',system-ui,sans-serif)!important}
-.legal-toc a{transition:color .25s,border-color .25s}
-.legal-toc a:hover{color:var(--tenant-accent,#047857);border-color:rgba(var(--tenant-accent-rgb),.4)}
+/* Table of contents: one continuous hairline rail down the list, with the
+   active item claiming a solid 2px segment of it. No pill, no tinted fill —
+   the emphasis lives in the TEXT (accent colour, weight, and a soft accent
+   bloom behind the glyphs), so the list still reads as a list rather than a
+   stack of boxes. A filled chip here competes with the document beside it. */
+.legal-toc-list{border-left:1px solid ${V.line}}
+.legal-toc a{position:relative;display:block;padding:.45rem 0 .45rem .95rem;color:${V.inkSoft};
+  transition:color .22s ease,text-shadow .22s ease}
+.legal-toc a::before{content:"";position:absolute;left:-1px;top:0;bottom:0;width:2px;background:var(--tenant-accent,#047857);
+  transform:scaleY(.35);opacity:0;transform-origin:center;transition:opacity .22s ease,transform .22s ease}
+.legal-toc a:hover{color:${V.ink}}
+.legal-toc a:hover::before{opacity:.28;transform:scaleY(1)}
+.legal-toc a[aria-current="true"]{color:var(--tenant-accent,#047857);font-weight:600;
+  text-shadow:0 0 18px rgba(var(--tenant-accent-rgb), .38), 0 0 6px rgba(var(--tenant-accent-rgb), .22)}
+.legal-toc a[aria-current="true"]::before{opacity:1;transform:scaleY(1)}
+.legal-toc a:focus-visible{outline:2px solid var(--tenant-accent,#047857);outline-offset:2px;border-radius:4px}
+@media(prefers-reduced-motion:reduce){.legal-toc a,.legal-toc a::before{transition:none}}
 .legal-body p{margin-top:.85rem;line-height:1.75}
 .legal-body ul{margin-top:.85rem;display:flex;flex-direction:column;gap:.55rem}
 .legal-body li{display:flex;gap:.6rem;line-height:1.65}
@@ -21,11 +36,25 @@ const css = `
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 `;
 
+/* Sections live inside <Reveal>, which slides them 24px on entrance, so a
+   getBoundingClientRect() reading is wrong for anything not yet revealed.
+   offsetTop is a pure layout value and ignores transforms. */
+function docTop(el) {
+  let y = 0;
+  for (let n = el; n; n = n.offsetParent) y += n.offsetTop;
+  return y;
+}
+
+// Height of the band under the sticky navbar that a heading must clear.
+const SPY_BAND = 140;
+const SCROLL_OFFSET = 110;
+
 /* ── Shared legal page layout: ambient hero + sticky table of contents + body.
    `sections` is [{ id, title, paras?: string[], bullets?: string[] }]. ── */
 function LegalLayout({ title, intro, updated, sections }) {
   const [activeId, setActiveId] = useState(sections[0]?.id);
   const idsKey = sections.map((s) => s.id).join("|");
+  const navRef = useRef(null);
 
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -33,27 +62,51 @@ function LegalLayout({ title, intro, updated, sections }) {
   // above the band just under the navbar.
   useEffect(() => {
     const ids = idsKey.split("|");
-    const onScroll = () => {
+    let frame = 0;
+
+    const measure = () => {
+      frame = 0;
+      const y = window.scrollY + SPY_BAND;
+      // At the very bottom the final sections can never reach the band, so the
+      // last one wins outright — otherwise it could never highlight.
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
       let current = ids[0];
       for (const id of ids) {
         const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= 140) current = id;
+        if (el && docTop(el) <= y) current = id;
       }
-      setActiveId(current);
+      setActiveId(atBottom ? ids[ids.length - 1] : current);
     };
-    onScroll();
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
+
+    measure();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
   }, [idsKey]);
 
-  const goTo = (id) => {
+  // Keep the active link visible inside the TOC's own scroller (15 sections
+  // overflow it on a short viewport) without dragging the page along.
+  useEffect(() => {
+    const nav = navRef.current;
+    const link = nav?.querySelector(`[data-toc-id="${activeId}"]`);
+    if (!nav || !link) return;
+    const top = link.offsetTop;
+    const bottom = top + link.offsetHeight;
+    if (top < nav.scrollTop) nav.scrollTop = top - 8;
+    else if (bottom > nav.scrollTop + nav.clientHeight) nav.scrollTop = bottom - nav.clientHeight + 8;
+  }, [activeId]);
+
+  const goTo = useCallback((id) => {
     const el = document.getElementById(id);
-    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 110, behavior: "smooth" });
-  };
+    if (!el) return;
+    setActiveId(id);            // paint the click immediately; the spy confirms it
+    window.scrollTo({ top: Math.max(0, docTop(el) - SCROLL_OFFSET), behavior: "smooth" });
+  }, []);
 
   return (
     <div className="saas-page" style={{ fontFamily: font, background: V.bg, color: V.ink, minHeight: "100vh", position: "relative" }}>
@@ -79,22 +132,17 @@ function LegalLayout({ title, intro, updated, sections }) {
         <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[230px_1fr]">
           {/* Table of contents */}
           <aside className="hidden lg:block">
-            <nav className="legal-toc sticky top-28 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
+            <nav ref={navRef} className="legal-toc sticky top-28 max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
               <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: V.inkFaint }}>On this page</div>
-              <div className="flex flex-col">
-                {sections.map((s) => {
-                  const on = s.id === activeId;
-                  return (
-                    <a key={s.id} href={`#${s.id}`}
-                      onClick={(e) => { e.preventDefault(); goTo(s.id); }}
-                      className="rounded-lg border-l-2 py-1.5 pl-3 text-[13.5px] transition-all duration-300"
-                      style={on
-                        ? { borderColor: V.primary, color: V.primary, fontWeight: 600, background: "rgba(var(--tenant-accent-rgb), .07)" }
-                        : { borderColor: V.line, color: V.inkSoft }}>
-                      {s.title}
-                    </a>
-                  );
-                })}
+              <div className="legal-toc-list flex flex-col">
+                {sections.map((s) => (
+                  <a key={s.id} href={`#${s.id}`} data-toc-id={s.id}
+                    aria-current={s.id === activeId ? "true" : undefined}
+                    onClick={(e) => { e.preventDefault(); goTo(s.id); }}
+                    className="text-[13.5px] leading-snug">
+                    {s.title}
+                  </a>
+                ))}
               </div>
             </nav>
           </aside>

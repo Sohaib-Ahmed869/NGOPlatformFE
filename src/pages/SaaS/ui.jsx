@@ -53,11 +53,12 @@ export const fadeUpChild = {
   visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: REVEAL, delay: i * 0.1, ease: EASE } }),
 };
 
-export function Reveal({ children, delay = 0, className = "", style = {} }) {
+export function Reveal({ children, id, delay = 0, className = "", style = {} }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, amount: 0.12 });
+  // `id` is forwarded so callers can anchor scroll-spy / in-page links to a Reveal.
   return (
-    <motion.div ref={ref} className={className} style={style}
+    <motion.div ref={ref} id={id} className={className} style={style}
       initial={{ opacity: 0, y: RISE }}
       animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: RISE }}
       transition={{ duration: REVEAL, delay, ease: EASE }}>
@@ -243,15 +244,16 @@ export const pageCss = `
 .saas-logotrack{display:flex;width:max-content;align-items:center;will-change:transform}
 /* Duration is not a taste setting — it is derived. The loop distance is one
    half of the track, so the row drifts at (half width / duration) px/s, and the
-   pace this band was tuned to is ~73px/s. One half currently measures ~4386px,
-   hence 60s. Anything that changes the row's WIDTH changes that speed: adding
-   or cutting marks, and equally just growing --tool-size, since the gaps scale
-   with it. Both have moved it more than once already — dropping nine marks at
-   the old 103s left the row crawling at 42px/s. Re-measure and re-divide.
-   The other constraint: one half must stay wider than the widest viewport you
-   care about or the loop shows a gap. With 13 marks it is ~4386px against a
-   3440px ultrawide — still clear, but that is the floor. Cut many more and the
-   halves need a third pass of the list, not just a new duration. */
+   pace this band was tuned to is ~73px/s. One half currently measures ~4277px,
+   hence 60s (71px/s). Anything that changes the row's WIDTH changes that speed:
+   adding or cutting marks, and equally just growing --tool-size, since the gaps
+   scale with it. Both have moved it more than once — dropping nine marks at the
+   old 103s left the row crawling at 42px/s. Re-measure and re-divide.
+   The other constraint — one half must out-measure the widest viewport or the
+   loop shows a gap — is no longer yours to police by hand. TRACK_PASSES in
+   SaaSHome.jsx repeats the list enough times to clear an ultrawide whatever its
+   length, which is why a five-mark list still fills this band. Width still
+   moves the SPEED though, so a list edit is still a re-measure. */
 .saas-logotrack--l{animation:saas-logorow-l 60s linear infinite}
 /* The row DOES stop, but only while the pointer is actually on a mark — never
    on bare band. That distinction is the whole rule: parking a cursor mid-

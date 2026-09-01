@@ -271,6 +271,7 @@ export default function Coupons() {
     if (form.duration === "repeating") {
       const months = Number(form.durationInMonths);
       if (!form.durationInMonths || !Number.isFinite(months) || months < 1) return "Repeating coupons need a month count of 1 or more";
+      if (months > 36) return "A repeating discount can run for at most 36 months";
     }
     if (form.maxRedemptions !== "") {
       const max = Number(form.maxRedemptions);
@@ -661,7 +662,16 @@ export default function Coupons() {
                   </div>
                   <div>
                     <label className={labelCls}>{form.type === "percent" ? "Percent off" : "Amount off ($)"}</label>
-                    <input type="number" min="0" className={inputCls} value={form.value} onChange={(e) => setField("value", e.target.value)} placeholder={form.type === "percent" ? "20" : "50"} />
+                    {/* max only binds for percent — a fixed amount has no ceiling.
+                        The save-time check still runs; this stops the value being
+                        typed at all, which is where 554% came from. */}
+                    <input
+                      type="number" min="1" step={form.type === "percent" ? "1" : "0.01"}
+                      max={form.type === "percent" ? 100 : undefined}
+                      className={inputCls} value={form.value}
+                      onChange={(e) => setField("value", e.target.value)}
+                      placeholder={form.type === "percent" ? "20" : "50"}
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>Duration</label>
@@ -670,17 +680,17 @@ export default function Coupons() {
                   {form.duration === "repeating" && (
                     <div>
                       <label className={labelCls}>Months</label>
-                      <input type="number" min="1" className={inputCls} value={form.durationInMonths} onChange={(e) => setField("durationInMonths", e.target.value)} placeholder="3" />
+                      <input type="number" min="1" max="36" step="1" className={inputCls} value={form.durationInMonths} onChange={(e) => setField("durationInMonths", e.target.value)} placeholder="3" />
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelCls}>Max redemptions</label>
-                      <input type="number" min="0" className={inputCls} value={form.maxRedemptions} onChange={(e) => setField("maxRedemptions", e.target.value)} placeholder="∞" />
+                      <input type="number" min="1" step="1" className={inputCls} value={form.maxRedemptions} onChange={(e) => setField("maxRedemptions", e.target.value)} placeholder="∞" />
                     </div>
                     <div>
                       <label className={labelCls}>Expires</label>
-                      <input type="date" className={inputCls} value={form.redeemBy} onChange={(e) => setField("redeemBy", e.target.value)} />
+                      <input type="date" min={new Date().toISOString().slice(0, 10)} className={inputCls} value={form.redeemBy} onChange={(e) => setField("redeemBy", e.target.value)} />
                     </div>
                   </div>
                   {/* Plan whitelist — enforced by the coupon validator, not by

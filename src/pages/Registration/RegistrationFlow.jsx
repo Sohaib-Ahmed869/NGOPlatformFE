@@ -136,6 +136,11 @@ const STRENGTH = [
   { label: "Good", color: "#10B981" },
   { label: "Strong", color: "#059669" },
 ];
+// Mirrors SLUG_RESERVED in NGOPlatformBE/controllers/saas/registrationController.js.
+// Duplicated deliberately: the check-slug round trip is debounced, so without a
+// local copy the applicant can reach the next step before the answer lands.
+const RESERVED_SLUGS = ["admin", "www", "api", "app", "mail", "ftp", "localhost"];
+
 function pwScore(pw) {
   if (!pw) return 0;
   let s = 0;
@@ -260,6 +265,10 @@ export default function RegistrationFlow() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [slugStatus, setSlugStatus] = useState(null);
+  // The server says WHY a slug is unusable — taken, reserved, or malformed.
+  // Without carrying that, every one of them rendered as "Already taken", so
+  // typing "admin" claimed someone else owned it.
+  const [slugReason, setSlugReason] = useState("");
   const [emailStatus, setEmailStatus] = useState(null);
   const [activeCat, setActiveCat] = useState("warm");
   const [showPw, setShowPw] = useState(false);
@@ -425,11 +434,14 @@ export default function RegistrationFlow() {
     setForm((p) => ({ ...p, orgName: v, slug: s }));
   };
   useEffect(() => {
-    if (!form.slug || form.slug.length < 3) { setSlugStatus(null); return; }
+    if (!form.slug || form.slug.length < 3) { setSlugStatus(null); setSlugReason(""); return; }
     setSlugStatus("checking");
     const t = setTimeout(async () => {
-      try { const r = await tenantService.checkSlug(form.slug); setSlugStatus(r.data.available ? "ok" : "taken"); }
-      catch { setSlugStatus(null); }
+      try {
+        const r = await tenantService.checkSlug(form.slug);
+        setSlugStatus(r.data.available ? "ok" : "bad");
+        setSlugReason(r.data.available ? "" : r.data.reason || "Already taken");
+      } catch { setSlugStatus(null); setSlugReason(""); }
     }, 300);
     return () => clearTimeout(t);
   }, [form.slug]);
@@ -451,8 +463,18 @@ export default function RegistrationFlow() {
     if (step === 0) {
       if (!form.orgName.trim()) e.orgName = "Required";
       if (!form.slug.trim()) e.slug = "Required";
-      if (slugStatus === "taken") e.slug = "Already taken";
+      if (slugStatus === "bad") e.slug = slugReason || "Not available";
       if (form.slug.length < 3) e.slug = "Min 3 characters";
+      // Format, mirroring SLUG_RE in the backend's registrationController. The
+      // input filter below strips illegal CHARACTERS but cannot police
+      // placement, so "-hope", "hope-" and "my--charity" all typed cleanly and
+      // were only refused by the server on the final submit — four steps and a
+      // card form later. Checked here so it fails on the step that owns it.
+      else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug)) {
+        e.slug = "Use letters and numbers, with single hyphens between them";
+      } else if (RESERVED_SLUGS.includes(form.slug)) {
+        e.slug = "This subdomain is reserved";
+      }
     }
     if (step === 2) {
       if (!form.adminName.trim()) e.adminName = "Required";
@@ -622,8 +644,10 @@ export default function RegistrationFlow() {
                         <div className="mt-1.5 h-4 text-xs">
                           {slugStatus === "checking" && <span className="inline-flex items-center gap-1" style={{ color: V.inkFaint }}><Loader2 className="h-3 w-3 animate-spin" /> Checking…</span>}
                           {slugStatus === "ok" && <span className="inline-flex items-center gap-1 font-medium" style={{ color: V.success }}><Check className="h-3 w-3" /> Available</span>}
-                          {slugStatus === "taken" && <span className="text-red-500">Already taken</span>}
-                          {errors.slug && !slugStatus && <span className="text-red-500">{errors.slug}</span>}
+                          {slugStatus === "bad" && <span className="text-red-500">{slugReason}</span>}
+                          {errors.slug && slugStatus !== "bad" && slugStatus !== "checking" && (
+                            <span className="text-red-500">{errors.slug}</span>
+                          )}
                         </div>
                       </div>
 

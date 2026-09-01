@@ -3,6 +3,7 @@ import { ShieldCheck, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import AuthService from "../services/auth.service";
 import MfaEnrollPanel from "../SuperAdmin/components/MfaEnrollPanel";
+import { AdminUiProvider, useAdminUi } from "../context/AdminUiContext";
 
 /**
  * The wall a tenant admin hits when the platform team has made two-factor
@@ -25,8 +26,23 @@ import MfaEnrollPanel from "../SuperAdmin/components/MfaEnrollPanel";
  * for any signed-in account, so a second copy would only be a second thing to
  * keep in step.
  */
+/**
+ * Wrapped in AdminUiProvider and stamped with `data-admin-theme` for the same
+ * reason AdminShell is: `bg-accent` and the rest of the token classes only
+ * resolve inside the admin theme. Rendered outside it, the enrolment panel came
+ * out in the console's default blue on a charity's own portal.
+ */
 export default function MfaRequiredGate() {
+  return (
+    <AdminUiProvider>
+      <GateBody />
+    </AdminUiProvider>
+  );
+}
+
+function GateBody() {
   const { user, setUser } = useAuth();
+  const { theme } = useAdminUi();
 
   // Clear the flag locally the moment enrolment succeeds. The stored user is
   // the source of truth until the next sign-in, so it has to be updated in both
@@ -41,6 +57,7 @@ export default function MfaRequiredGate() {
 
   return (
     <div
+      data-admin-theme={theme}
       className="flex min-h-screen items-center justify-center px-4 py-10"
       style={{ backgroundColor: "var(--tenant-bg, #FAF7F2)" }}
     >
@@ -62,7 +79,9 @@ export default function MfaRequiredGate() {
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/5">
-          <MfaEnrollPanel onEnabled={onEnabled} />
+          {/* No intro of its own — the header above already says all of it,
+              and its default blurb is written for platform operators. */}
+          <MfaEnrollPanel onEnabled={onEnabled} showIntro={false} />
         </div>
 
         {/* A way out that is not "clear your site data". Someone who cannot

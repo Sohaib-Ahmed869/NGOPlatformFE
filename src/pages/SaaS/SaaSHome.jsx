@@ -19,8 +19,6 @@ import {
    footer.jsx already does, and Rollup tree-shakes the rest of the set out. */
 import {
   SiStripe, SiPaypal, SiAmazonwebservices, SiAmazoncloudwatch, SiMongodb,
-  SiNodedotjs, SiExpress, SiSocketdotio, SiReact, SiTailwindcss, SiMui,
-  SiFramer, SiGreensock,
 } from "react-icons/si";
 import HeroScene, { StepSetup, StepBrand, StepReceive } from "./scenes";
 import ProductTour from "./ProductTour";
@@ -255,15 +253,25 @@ const toolLogos = [
   { name: "AWS", Icon: SiAmazonwebservices, brand: "#FF9900" },
   { name: "CloudWatch", Icon: SiAmazoncloudwatch, brand: "#FF4F8B" },
   { name: "MongoDB Atlas", Icon: SiMongodb, brand: "#47A248" },
-  { name: "Node.js", Icon: SiNodedotjs, brand: "#5FA04E" },
-  { name: "Express", Icon: SiExpress, brand: "#000000" },
-  { name: "Socket.IO", Icon: SiSocketdotio, brand: "#010101" },
-  { name: "React", Icon: SiReact, brand: "#61DAFB" },
-  { name: "Tailwind CSS", Icon: SiTailwindcss, brand: "#06B6D4" },
-  { name: "MUI", Icon: SiMui, brand: "#007FFF" },
-  { name: "Framer Motion", Icon: SiFramer, brand: "#0055FF" },
-  { name: "GSAP", Icon: SiGreensock, brand: "#0AE448" },
 ];
+
+/* How many times the list repeats inside ONE half of the track.
+   The -50% loop translates by exactly one half, so a half NARROWER than the
+   viewport leaves visible empty band at the wrap. Two passes carried a
+   thirteen-mark list; at five it measures about a third of that and would have
+   torn a hole in the row on anything wider than a laptop. Derived rather than
+   hardcoded so the next edit to the list cannot reintroduce that. */
+const ULTRAWIDE_PX = 3440; // widest viewport worth guaranteeing
+// A mark, its label and the gap after it. This must be a LOW estimate: the
+// division below turns it into a pass count, so guessing an item narrower than
+// it really is buys extra passes, while guessing wide leaves a gap. Measured at
+// ~171px on a 1440 viewport; 150 keeps the rounding on the safe side and covers
+// a shorter list of short labels, where the average drops.
+const APPROX_ITEM_PX = 150;
+const TRACK_PASSES = Math.max(
+  2,
+  Math.ceil(ULTRAWIDE_PX / (toolLogos.length * APPROX_ITEM_PX)),
+);
 
 /* ── The headline's rotating last line — a slot-machine roll.
    The outgoing phrase leaves through the top of `.saas-hero-mask` while the
@@ -741,8 +749,8 @@ function PricingCards() {
 
    Each item is a mark AND its name, where the charity wall was marks alone.
    Those were wordmarks that read at a glance; a Simple Icons glyph is a bare
-   monochrome symbol, and a good part of this list (CloudWatch, Socket.IO, MUI,
-   GSAP) is unrecognisable without the label beside it.
+   monochrome symbol, and CloudWatch's in particular is unrecognisable without
+   the label beside it.
 
    No `saas-seam`: the dark story band directly above IS the separator, and a
    hairline drawn a pixel under a colour block reads as an artefact. The
@@ -764,12 +772,12 @@ function ToolStack() {
         <div className="saas-logorow">
           <div className="saas-logotrack saas-logotrack--l">
             {[0, 1].map((half) => (
-              /* Two halves, each holding the list twice, so one half always
-                 overflows even an ultrawide viewport and the -50% loop never
-                 shows a gap. Only the first pass of the first half is exposed
-                 to assistive tech; the other three exist purely to fill it. */
+              /* Two halves, each holding TRACK_PASSES copies of the list, so one
+                 half always out-measures the viewport and the -50% loop never
+                 shows a gap. Only the first pass of the first half is exposed to
+                 assistive tech; the rest exist purely to fill the band. */
               <div key={half} className="flex shrink-0 items-center" aria-hidden={half === 1}>
-                {[...toolLogos, ...toolLogos].map(({ name, Icon, brand }, i) => (
+                {Array.from({ length: TRACK_PASSES }, () => toolLogos).flat().map(({ name, Icon, brand }, i) => (
                   <span key={`${half}-${i}`} className="saas-tool" style={{ "--tool-brand": brand }}
                     aria-hidden={half === 0 && i < toolLogos.length ? undefined : true}>
                     <Icon aria-hidden="true" focusable="false" />

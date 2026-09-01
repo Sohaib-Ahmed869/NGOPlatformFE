@@ -17,7 +17,7 @@ const faqs = [
   { q: "How do my donors pay?", a: "Supporters can give by credit or debit card, Apple Pay, Google Pay, PayPal and bank transfer, all handled securely through Stripe." },
   { q: "How does the branded portal work?", a: "When you register, you choose a subdomain (e.g. yourcharity.ourplatform.com). Your donors visit this URL to see your organisation's donation pages, campaigns and events, fully branded with your identity." },
   { q: "Do you support recurring donations and installments?", a: "Yes — donors can set up a recurring donation or split a donation into installments, and everything is billed automatically from then on." },
-  { q: "Can I offer Zakat, Sadaqah or other faith-based giving categories?", a: "Yes. Islamic giving pages and donation types can be switched on per organisation, alongside the standard one-off, monthly and instalment options." },
+  { q: "Can I set up my own giving categories?", a: "Yes. You decide the categories supporters choose from — specific appeals, funds, sponsorships or anything else your cause runs on — alongside the standard one-off, monthly and instalment options." },
   { q: "Can I cancel anytime?", a: "Yes. There are no lock-in contracts. You can cancel your subscription at any time and your portal stays active until the end of your current billing period." },
   { q: "Is my donor data safe?", a: "Absolutely. Each organisation's data is fully isolated, encrypted in transit and at rest, with role-based access and audit logs. Payment processing is handled by Stripe's PCI-compliant infrastructure." },
   { q: "Do I need technical skills to set this up?", a: "Not at all. Your portal, branding and campaigns are set up through simple forms, and most charities are live within minutes." },
