@@ -53,7 +53,9 @@ function SATableHead({ columns, sort, onSort, className, rowStyle, rowClassName 
 
           return (
             <th
-              key={col.key || col.label || `col-${i}`}
+              // A label may be an element rather than a string (a select-all
+              // checkbox, say), and an object makes a useless React key.
+              key={col.key || (typeof col.label === "string" && col.label) || `col-${i}`}
               scope="col"
               aria-sort={active ? (activeDir === "asc" ? "ascending" : "descending") : sortable ? "none" : undefined}
               className={cn(TH_BASE, alignCls, col.className)}

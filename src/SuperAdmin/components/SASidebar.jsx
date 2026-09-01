@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal, Target, Users, Mail } from "lucide-react";
+import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal, Target, Users, Mail, ListChecks, Gauge } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
 import { cn } from "../../utils/cn";
@@ -20,7 +20,11 @@ const NAV_GROUPS = [
   { flat: true, items: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }] },
   {
     label: "Sales",
-    items: [{ label: "Leads", path: "/leads", icon: Target, capability: "tenants" }],
+    items: [
+      { label: "CRM", path: "/crm", icon: Gauge, capability: "tenants" },
+      { label: "Leads", path: "/leads", icon: Target, capability: "tenants" },
+      { label: "Tasks", path: "/tasks", icon: ListChecks, capability: "tenants" },
+    ],
   },
   {
     label: "Tenants",
@@ -74,7 +78,7 @@ const activeItemStyle = {
 export default function SASidebar() {
   const { logout, user } = useAuth();
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar, collapsedGroups, toggleGroup } = useAdminUi();
-  const { unreadContactQueries, pendingBrandingRequests, newLeadsCount } = useSARealtime();
+  const { unreadContactQueries, pendingBrandingRequests, newLeadsCount, myTasksDue } = useSARealtime();
 
   // Nav-hiding only — the backend capability guard is the real boundary. A
   // group with nothing left after filtering (e.g. Billing for a Support Agent)
@@ -206,7 +210,9 @@ export default function SASidebar() {
                             ? pendingBrandingRequests
                             : item.path === "/leads"
                               ? newLeadsCount
-                              : 0;
+                              : item.path === "/tasks"
+                                ? myTasksDue
+                                : 0;
                       return (
                         <li key={item.path}>
                           <NavLink

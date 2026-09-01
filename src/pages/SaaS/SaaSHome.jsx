@@ -11,6 +11,7 @@ import {
   Users, ArrowRight, Check,
   Palette, Target, CreditCard, Calendar,
   BarChart3,
+  Landmark, MoveRight, Minus, Plus,
   X as XIcon,
 } from "lucide-react";
 /* Brand marks for <ToolStack/>. Simple Icons ships one monochrome path per
@@ -19,6 +20,7 @@ import {
    footer.jsx already does, and Rollup tree-shakes the rest of the set out. */
 import {
   SiStripe, SiPaypal, SiAmazonwebservices, SiAmazoncloudwatch, SiMongodb,
+  SiVisa, SiMastercard, SiAmericanexpress,
 } from "react-icons/si";
 import HeroScene, { StepSetup, StepBrand, StepReceive } from "./scenes";
 import ProductTour from "./ProductTour";
@@ -75,142 +77,6 @@ const steps = [
   { n: "3", title: "Start receiving donations", desc: "Share your page. Donations arrive securely, receipts go out automatically, and supporters stay updated." },
 ];
 
-
-/* ── Safeguards — the section that replaced the testimonial marquee.
-
-   What was here was eight invented charities saying flattering things, with
-   stock avatars and a specific number ("donations grew 40%") nobody could
-   check. Directly before the price is the worst possible place for that: it is
-   exactly where a buyer stops being persuaded and starts being sceptical, and
-   the questions in their head are not "do others like it" but "who touches my
-   donors' cards, where does the money land, and who can read this".
-
-   Every line is a fact about the build rather than a claim about it — the card
-   column really is four characters wide, the keys really are AES-256-GCM, the
-   audit log really is append-only. That constraint IS the section: anything we
-   cannot point at in the codebase does not go in it. `artefact` is the thing
-   itself, set in mono, because an identifier in mono reads as a specification
-   and a sentence about it reads as marketing.
-
-   ── On the shape, which took three goes ─────────────────────────────────
-   It is NOT a card grid. A tinted round icon chip, a staggered fade-up per
-   item, an accent seam lit across a card's top edge and a glow on hover are
-   the four things that make a section look auto-generated, and a 3×2 of them
-   is the single most template-looking block on the internet. <FeatureCards/>
-   above already spends that pattern; a second one directly before the price
-   made the page look assembled rather than designed.
-
-   It is also not the thin two-column list that replaced it first — sober is
-   not the same as plain, and that version left half the width empty.
-
-   What it is: one alignment spine. The heading holds the left column and stays
-   put while the evidence scrolls past it; every row hangs off a single rule
-   with its index, claim, mechanism and artefact in a fixed vertical order, so
-   the rhythm comes from type and spacing rather than from decoration. No
-   chips, no seams, no hover lift, no per-item motion. ── */
-const safeguards = [
-  {
-    claim: "Card details never reach us",
-    how: "Your donor's browser tokenises the card directly with Stripe. The only card field in our database is four characters wide — the last four digits, so a donor can recognise their own card.",
-    artefact: "•••• •••• •••• 4242",
-    label: "Stripe Elements",
-  },
-  {
-    claim: "Donations settle into your account",
-    how: "Payments go to your charity's own Stripe and PayPal accounts. We never take custody of your money, and we never take a percentage of a donation.",
-    artefact: "0.00%",
-    label: "Our cut of a donation",
-  },
-  {
-    claim: "Your data is yours alone",
-    how: "Every record is stamped with your organisation and every query is scoped to it before it runs — the same rule for search, exports and reporting as for the donor list.",
-    artefact: "organisationId",
-    label: "Scoped on every read",
-  },
-  {
-    claim: "Keys are encrypted before they are stored",
-    how: "Payment and email credentials are sealed on the way into the database, under a key that is not kept in it.",
-    artefact: "AES-256-GCM",
-    label: "Secrets at rest",
-  },
-  {
-    claim: "Support cannot look without your say-so",
-    how: "A support session is time-limited and view-only unless you widen it, and you can revoke it from your own screen while it is still running.",
-    artefact: "Revoke · anytime",
-    label: "Your kill switch",
-  },
-  {
-    claim: "Every operator action is on the record",
-    how: "Two-factor sign-in and IP allowlisting guard the platform console, and an append-only log keeps the account, address and time behind every change.",
-    artefact: "append-only",
-    label: "Audit log",
-  },
-];
-
-function Safeguards() {
-  return (
-    /* 28rem, not less: .saas-h2 is a 40-50px clamp at this breakpoint, and in a
-       narrower column "The parts you can't" broke into three ragged lines with
-       an orphan. The column is sized to the type, not the other way round. */
-    <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] xl:gap-x-24">
-      {/* The heading is the left column, not a centred banner above — it stays
-          beside the evidence instead of scrolling away from it, and the section
-          fills its width instead of leaving half of it empty. */}
-      <div className="lg:sticky lg:top-28 lg:self-start">
-        <Reveal>
-          <h2 id="saas-safeguards-title" className="saas-h2 font-bold" style={{ color: V.ink }}>
-            The parts you can&rsquo;t<br />afford to get wrong.
-          </h2>
-          <p className="mt-4 text-[15.5px] leading-relaxed" style={{ color: V.inkSoft }}>
-            {/* Not "opposite": below lg this column stacks ABOVE the list. */}
-            Your donors&rsquo; money, their data, and who is allowed near either. Every line here is
-            a fact about how it is built, not a promise about how we behave.
-          </p>
-          <Link to="/contact"
-            className="mt-6 inline-flex items-center gap-2 text-[14px] font-semibold"
-            style={{ color: V.primary }}>
-            Ask us anything about it
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Reveal>
-      </div>
-
-      <Reveal delay={0.08}>
-        <ul>
-          {safeguards.map((s, i) => (
-            <li key={s.claim}
-              className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-4 py-7 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:gap-x-6"
-              /* The rule sits between rows and closes the list, so the block
-                 reads as one object rather than six loose ones. */
-              style={{ borderTop: `1px solid ${V.line}`, ...(i === safeguards.length - 1 ? { borderBottom: `1px solid ${V.line}` } : {}) }}>
-              <span aria-hidden className="pt-[3px] font-mono text-[12px] tabular-nums" style={{ color: V.inkFaint }}>
-                {String(i + 1).padStart(2, "0")}
-              </span>
-
-              <div className="min-w-0">
-                <h3 className="text-[18px] font-semibold leading-snug sm:text-[19px]" style={{ color: V.ink }}>
-                  {s.claim}
-                </h3>
-                <p className="mt-2 max-w-[54ch] text-[14.5px] leading-relaxed" style={{ color: V.inkSoft }}>
-                  {s.how}
-                </p>
-
-                {/* The evidence, as the thing itself. A masked card number and
-                    "0.00%" say what a sentence about them cannot. */}
-                <p className="mt-3.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                  <span className="font-mono text-[13px] font-medium tracking-tight" style={{ color: V.ink }}>
-                    {s.artefact}
-                  </span>
-                  <span className="text-[12px]" style={{ color: V.inkFaint }}>{s.label}</span>
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Reveal>
-    </div>
-  );
-}
 
 const pricingPlans = [
   { tier: "Essentials", desc: "New and small charities. Core fundraising, one branded site, standard support.", priceNum: 499, annualNum: 399, annualTotal: 4790, features: ["Up to 3 campaigns", "Donation processing", "Donor management", "Your branded portal", "Admin dashboard"] },
@@ -793,6 +659,477 @@ function ToolStack() {
   );
 }
 
+/* ══════════════════ WAYS TO GIVE ══════════════════
+   A working donation plan, not a picture of one. The reader sets the amount and
+   the plan; the schedule on the right recalculates with real dates and real
+   figures. It demonstrates itself once through the three plans, then hands over
+   the moment anyone touches a control and never moves on its own again.
+
+   Every number is the product's, not a brochure's:
+     the three plans are Order.paymentType's enum, "single" | "recurring" |
+       "installments" (NGOPlatformBE/models/order.js)
+     recurring really does offer daily, weekly, monthly and yearly, plus a
+       billing day and an optional end date (checkout/constants.js FREQ_OPTIONS
+       and PaymentPlanSelector.jsx), and the backend validates that same list
+     instalments really are equal monthly payments with the first taken today,
+       and the 1 to 12 bound is enforced server side in orderContrller.js
+   If any of those change, this section is wrong and has to move with them. The
+   standing rule for it: nothing goes in that cannot be pointed at in the code.
+
+   Spelling is "instalment", Australian English (DESIGN_GUIDELINES 11.3), which
+   matches <FeatureCards/> above. FAQPage.jsx still says "installments", as does
+   the donor checkout. Worth aligning, but not from here. ── */
+
+const money = (n) => `$${n.toLocaleString("en-AU", {
+  minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2,
+})}`;
+
+/* Add whole months without the end-of-month trap: setMonth(+1) from the 31st
+   lands in the month AFTER next (31 Jan + 1 = 3 Mar), which silently drops a
+   month out of the schedule for three days of every month. Building the date
+   from parts and clamping the day is the only version that survives that. */
+const addMonths = (base, n) => {
+  const y = base.getFullYear();
+  const m = base.getMonth() + n;
+  const lastDayOfTarget = new Date(y, m + 1, 0).getDate();
+  return new Date(y, m, Math.min(base.getDate(), lastDayOfTarget));
+};
+
+const TODAY = new Date();
+const RAIL_MONTHS = 12;
+/* The rail is twelve months starting with the CURRENT one, so the schedule on
+   screen is the schedule a donor would get if they set it up today. */
+const MONTHS = Array.from({ length: RAIL_MONTHS }, (_, i) => addMonths(TODAY, i));
+const shortMonth = (d) => d.toLocaleDateString("en-AU", { month: "short" });
+// Twelve "Sept"/"Mar" labels collide below about 500px of rail. Both forms are
+// rendered and CSS picks one, which is cheaper and steadier than measuring.
+const initial = (d) => d.toLocaleDateString("en-AU", { month: "narrow" });
+const fullDate = (d) => d.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+const dayMonth = (d) => d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+
+/* perYear is how many charges land inside the twelve-month window, which is
+   what the rail draws. Past twelve there are more charges than columns, so the
+   marks stop being dots and become a comb (see .saas-give__comb). */
+const FREQS = [
+  { id: "day", label: "day", perYear: 365 },
+  { id: "week", label: "week", perYear: 52 },
+  { id: "month", label: "month", perYear: 12 },
+  { id: "year", label: "year", perYear: 1 },
+];
+
+const PLANS = [
+  { id: "single", label: "All at once" },
+  { id: "recurring", label: "On a schedule" },
+  { id: "installments", label: "Split it up" },
+];
+
+const MIN_SPLIT = 2;   // one instalment is just a one-off; the backend allows it, a demo of it says nothing
+const MAX_SPLIT = 12;  // the server-side bound in orderContrller.js
+const DWELL_MS = 5600; // the dwell the --p clock in ui.jsx is a view of
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function GivingModes() {
+  const reduced = useReducedMotion();
+  const [amount, setAmount] = useState(600);
+  const [text, setText] = useState("600");     // what is actually in the field
+  const [plan, setPlan] = useState("single");
+  const [freq, setFreq] = useState("month");
+  const [split, setSplit] = useState(6);
+  const [hover, setHover] = useState(null);    // rail column under the pointer
+  // Set by the first interaction and never unset. Once a reader has started
+  // driving this, moving it under them is the rudest thing it could do.
+  const [pinned, setPinned] = useState(false);
+
+  const rootRef = useRef(null);
+  const railRef = useRef(null);
+  const optsRef = useRef([]);
+  const pausedRef = useRef(false);
+  const progRef = useRef(0);
+  const dragRef = useRef(false);
+
+  /* One rAF loop drives both the dwell and the rule that shows it, by writing
+     --p on the root and reading it back in CSS. A CSS keyframe clock can be
+     paused by the pointer but cannot be RESTARTED from where JS thinks it is,
+     so the two drifted apart after the first hover; with the progress held here
+     there is one clock and the rule is a view of it.
+     Reduced motion removes the loop rather than speeding it up. A panel that
+     rearranges itself on a timer is precisely what that setting asks us not to
+     do. */
+  useEffect(() => {
+    if (reduced || pinned) return undefined;
+    const el = rootRef.current;
+    let raf;
+    let last = performance.now();
+    const tick = (now) => {
+      const dt = now - last;
+      last = now;
+      if (!pausedRef.current) {
+        progRef.current += dt / DWELL_MS;
+        if (progRef.current >= 1) {
+          // Zero the rule in the SAME frame we advance, or the incoming row
+          // inherits a full one for a frame and it reads as a stutter.
+          progRef.current = 0;
+          el?.style.setProperty("--p", "0");
+          setPlan((p) => PLANS[(PLANS.findIndex((x) => x.id === p) + 1) % PLANS.length].id);
+        } else {
+          el?.style.setProperty("--p", String(progRef.current));
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [reduced, pinned]);
+
+  const pin = () => {
+    if (pinned) return;
+    setPinned(true);
+    progRef.current = 0;
+    rootRef.current?.style.setProperty("--p", "0");
+  };
+
+  const choose = (id) => { setPlan(id); pin(); };
+
+  // Roving tabindex with automatic selection, the radiogroup pattern the rest
+  // of the site follows (DESIGN_GUIDELINES 10).
+  const onKeyDown = (e) => {
+    const at = PLANS.findIndex((p) => p.id === plan);
+    const last = PLANS.length - 1;
+    const to = {
+      ArrowDown: at === last ? 0 : at + 1, ArrowRight: at === last ? 0 : at + 1,
+      ArrowUp: at === 0 ? last : at - 1, ArrowLeft: at === 0 ? last : at - 1,
+      Home: 0, End: last,
+    }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    choose(PLANS[to].id);
+    optsRef.current[to]?.focus();
+  };
+
+  const onAmount = (e) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 7);
+    setText(digits);
+    setAmount(digits ? parseInt(digits, 10) : 0);
+    pin();
+  };
+  // An empty or zero field would print "$0 today" and divide by nothing, so the
+  // field takes itself back to something sensible when the reader leaves it.
+  const onAmountBlur = () => {
+    if (amount >= 1) { setText(String(amount)); return; }
+    setAmount(50);
+    setText("50");
+  };
+
+  const bumpSplit = (by) => {
+    setSplit((n) => Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, n + by)));
+    pin();
+  };
+
+  /* ── what the plan actually is ── */
+  const freqDef = FREQS.find((f) => f.id === freq);
+  const charges = plan === "single" ? 1 : plan === "recurring" ? freqDef.perYear : split;
+  const perCharge = plan === "installments" ? amount / split : amount;
+  const asDots = charges <= RAIL_MONTHS;   // past twelve there are more charges than columns
+  const openEnded = plan === "recurring";  // no end date unless the donor sets one
+
+  const summary = plan === "single"
+    ? `One payment of ${money(amount)}, today.`
+    : plan === "recurring"
+      ? `${money(amount)} every ${freqDef.label}, for as long as they choose.`
+      : `${money(perCharge)} a month for ${plural(split, "month")}. ${money(amount)} in total.`;
+
+  const footnote = plan === "single"
+    ? "Nothing else is scheduled. The receipt goes out on its own."
+    : plan === "recurring"
+      ? `${plural(charges, "payment")} in the first year. They pick the billing day, and they can change or stop it whenever they like.`
+      : `Paid in full on ${fullDate(addMonths(TODAY, split - 1))}. Any number of monthly payments up to ${MAX_SPLIT}.`;
+
+  // What each lit dot is worth. The three plans deliberately say three different
+  // things: a one-off shows the whole gift, a schedule repeats the same figure
+  // (every third dot, because twelve identical labels is noise rather than
+  // information), and a split plan counts UP to the total, which is the one
+  // thing the dots alone cannot tell you.
+  const dotAmount = (i) => {
+    if (i >= charges) return null;
+    if (plan === "installments") return money(perCharge * (i + 1));
+    if (plan === "recurring") return i % 3 === 0 ? money(perCharge) : null;
+    return money(perCharge);
+  };
+
+  const colFromX = (clientX) => {
+    const r = railRef.current?.getBoundingClientRect();
+    if (!r || !r.width) return 0;
+    const t = (clientX - r.left) / r.width;
+    return Math.min(RAIL_MONTHS - 1, Math.max(0, Math.floor(t * RAIL_MONTHS)));
+  };
+
+  /* Dragging the rail sets the number of instalments. It is a pointer-only
+     nicety on top of the stepper, which is the control that actually carries
+     the semantics: the rail is aria-hidden, so nothing here is the only way to
+     reach the value. */
+  const canDrag = plan === "installments";
+  const onRailDown = (e) => {
+    if (!canDrag) return;
+    dragRef.current = true;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setSplit(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, colFromX(e.clientX) + 1)));
+    pin();
+  };
+  const onRailMove = (e) => {
+    const col = colFromX(e.clientX);
+    setHover(col);
+    if (dragRef.current) setSplit(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, col + 1)));
+  };
+  const endDrag = () => { dragRef.current = false; };
+
+  // framer-motion animates inline styles from JS, which the page-wide
+  // prefers-reduced-motion reset in ui.jsx cannot reach: that block only
+  // neutralises CSS animation and transition. Every transition here opts out of
+  // its own accord.
+  const dur = (s) => (reduced ? 0 : s);
+
+  return (
+    <div
+      ref={rootRef}
+      className="saas-give mt-[clamp(32px,3.4vw,52px)] rounded-[24px]"
+      data-pinned={pinned || reduced ? "true" : "false"}
+      style={{ background: V.surface, border: `1px solid ${V.line}` }}
+      onPointerEnter={() => { pausedRef.current = true; }}
+      onPointerLeave={() => { pausedRef.current = false; }}
+      onFocusCapture={() => { pausedRef.current = true; }}
+      onBlurCapture={() => { pausedRef.current = false; }}
+    >
+      {/* ── the form ── */}
+      <div>
+        <label className="saas-give__lbl" htmlFor="saas-give-amount">A donor gives</label>
+        <div className="saas-give__amt">
+          <span className="saas-give__cur" aria-hidden="true">$</span>
+          <input
+            id="saas-give-amount"
+            className="saas-give__amtin rounded-none"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label="Donation amount in dollars"
+            value={text}
+            onChange={onAmount}
+            onBlur={onAmountBlur}
+            /* Sized from the value so the rule underneath tracks the number
+               rather than sitting under empty space. */
+            style={{ width: `${Math.max(2, text.length)}ch` }}
+          />
+        </div>
+
+        <div className="saas-give__opts" role="radiogroup"
+          aria-label="How the donation is paid" onKeyDown={onKeyDown}>
+          {PLANS.map((p, i) => {
+            const on = p.id === plan;
+            return (
+              <div key={p.id} className="saas-give__row" data-on={on ? "true" : "false"}>
+                <button
+                  ref={(el) => { optsRef.current[i] = el; }}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  tabIndex={on ? 0 : -1}
+                  className="saas-give__opt rounded-none"
+                  onClick={() => choose(p.id)}
+                >
+                  {p.label}
+                </button>
+                <span aria-hidden="true" className="saas-give__clock"><i /></span>
+
+                {on && p.id === "recurring" && (
+                  <span className="saas-give__sub">
+                    Every
+                    <span className="saas-give__freq">
+                      {FREQS.map((f) => (
+                        <button key={f.id} type="button" className="saas-give__freqbtn rounded-full"
+                          aria-pressed={f.id === freq}
+                          onClick={() => { setFreq(f.id); pin(); }}>
+                          {f.label}
+                        </button>
+                      ))}
+                    </span>
+                  </span>
+                )}
+
+                {on && p.id === "installments" && (
+                  <span className="saas-give__sub">
+                    <button type="button" className="saas-give__stepbtn rounded-full"
+                      onClick={() => bumpSplit(-1)} disabled={split <= MIN_SPLIT}
+                      aria-label="One fewer payment">
+                      <Minus aria-hidden="true" />
+                    </button>
+                    <span className="saas-give__stepval" aria-live="polite">{split}</span>
+                    <button type="button" className="saas-give__stepbtn rounded-full"
+                      onClick={() => bumpSplit(1)} disabled={split >= MAX_SPLIT}
+                      aria-label="One more payment">
+                      <Plus aria-hidden="true" />
+                    </button>
+                    payments
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── what that produces ── */}
+      <div className="saas-give__out">
+        {/* Keyed on everything that can change it, so React swaps the line
+            outright and framer plays an ENTRANCE only. An AnimatePresence exit
+            would leave the row visibly empty mid-swap, the same trap
+            <RotatingPhrase/> fell into. */}
+        <motion.p key={`${plan}-${freq}-${split}-${amount}`} className="saas-give__sum"
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: dur(0.35), ease: EASE }}>
+          {summary}
+        </motion.p>
+
+        {/* The rail is a picture of the sentence above it, so it is hidden from
+            assistive tech entirely: twelve dots and twelve month names read
+            aloud is noise, and the two lines around it already say the same
+            thing in words. */}
+        <div ref={railRef} className="saas-give__rail" aria-hidden="true"
+          data-drag={canDrag ? "true" : "false"}
+          onPointerDown={onRailDown} onPointerMove={onRailMove} onPointerUp={endDrag}
+          onPointerCancel={endDrag} onPointerLeave={() => { endDrag(); setHover(null); }}>
+          <div className="saas-give__marks">
+            <span className="saas-give__line" />
+
+            {/* The keys are load-bearing. Without them React reconciles these
+                two as the same motion.span, framer keeps the motion values it
+                already had, and the comb inherited the rule's scaleX: a one-off
+                plan leaves it at 0, so switching to weekly drew a comb exactly
+                zero pixels wide. */}
+            {asDots ? (
+              <motion.span key="span" className="saas-give__span"
+                initial={false}
+                animate={{ scaleX: openEnded ? 1 : (charges - 1) / (RAIL_MONTHS - 1) }}
+                transition={{ duration: dur(0.7), ease: EASE }} />
+            ) : (
+              <motion.span key="comb" className="saas-give__comb"
+                /* A 1px tooth every ~3px is a beat pattern, not a comb: at
+                   1x the ink lands on pixel N for some periods and N+1 for the
+                   next, and the row bands. A fractional tooth is antialiased
+                   per period and the banding goes with it. */
+                style={{ "--comb-gap": `${100 / charges}%`, "--comb-ink": charges > 60 ? "1.6px" : "1px" }}
+                initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+                transition={{ duration: dur(0.7), ease: EASE }} />
+            )}
+
+            {asDots && MONTHS.map((d, i) => {
+              const lit = i < charges;
+              return (
+                /* Lit dots arrive left to right behind the rule drawing under
+                   them; unlit ones drop out at once, so a shorter plan reads as
+                   "it stops here" rather than as a row quietly dimming. */
+                <motion.span key={`mark-${i}`} className="saas-give__mark"
+                  initial={false}
+                  animate={{
+                    scale: lit ? 1 : 0.5,
+                    backgroundColor: lit ? V.primary : "rgba(0,0,0,0)",
+                    boxShadow: lit ? "inset 0 0 0 0px rgba(0,0,0,0)" : `inset 0 0 0 1px ${V.line}`,
+                  }}
+                  transition={{ duration: dur(0.32), delay: dur(lit ? i * 0.045 : 0), ease: EASE }} />
+              );
+            })}
+
+            {openEnded && (
+              <motion.span className="saas-give__more"
+                initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: dur(0.4), delay: dur(0.45), ease: EASE }}>
+                <MoveRight />
+              </motion.span>
+            )}
+
+            {hover !== null && asDots && hover < charges && (
+              <span className="saas-give__tip rounded-full"
+                style={{ left: `${((hover + 0.5) / RAIL_MONTHS) * 100}%` }}>
+                {dayMonth(addMonths(TODAY, hover))} · {money(perCharge)}
+              </span>
+            )}
+          </div>
+
+          <div className="saas-give__amounts">
+            {MONTHS.map((d, i) => {
+              const label = asDots ? dotAmount(i) : null;
+              return (
+                <motion.span key={`amt-${i}`}
+                  initial={false} animate={{ opacity: label ? 1 : 0 }}
+                  transition={{ duration: dur(0.28), delay: dur(label ? i * 0.045 : 0) }}>
+                  {label || " "}
+                </motion.span>
+              );
+            })}
+          </div>
+          <div className="saas-give__months">
+            {MONTHS.map((d, i) => (
+              <span key={`mon-${i}`} data-on={hover === i ? "true" : "false"}>
+                <b>{shortMonth(d)}</b><i>{initial(d)}</i>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <p className="saas-give__foot">
+          {footnote}
+          {canDrag && <span className="saas-give__hint"> Drag along the schedule to change it.</span>}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── How the money reaches you.
+   The honest list, which is shorter than the one a payments page usually
+   carries: a card (Stripe Elements, so whatever Stripe accepts, of which Visa,
+   Mastercard and Amex are the three worth naming), a card the donor has already
+   saved, and a bank transfer that shows them the charity's own BSB. There is no
+   Apple Pay or Google Pay anywhere in the checkout and the PayPal donor button
+   is not built yet, so neither appears here. A strip of wallet marks we cannot
+   honour is a lie told in logos.
+
+   --tool-brand is the mark's official hex, used only on hover: the row runs in
+   mono ink until you point at one, exactly like <ToolStack/>, whose .saas-tool
+   this reuses outright. The two lucide glyphs have no brand of their own, so
+   they borrow the tenant accent for that hover. ── */
+const payMarks = [
+  { name: "Visa", Icon: SiVisa, brand: "#1434CB" },
+  { sep: true },
+  { name: "Mastercard", Icon: SiMastercard, brand: "#EB001B" },
+  { sep: true },
+  { name: "Bank transfer", Icon: Landmark, brand: "var(--tenant-accent, #047857)" },
+];
+
+function PayRow() {
+  return (
+    <Reveal delay={0.12} className="mt-[clamp(36px,4vw,60px)]">
+      <div className="saas-pay">
+        <p className="text-[13px] font-medium" style={{ color: V.inkFaint }}>
+          How the money reaches you
+        </p>
+        <ul className="saas-pay__row">
+          {payMarks.map((m, i) => (m.sep
+            ? <li key={`sep-${i}`} aria-hidden="true" className="saas-pay__sep" />
+            : (
+              <li key={m.name} className="saas-tool" style={{ "--tool-brand": m.brand }}>
+                <m.Icon aria-hidden="true" focusable="false" />
+                <span>{m.name}</span>
+              </li>
+            )))}
+        </ul>
+        <p className="saas-pay__foot">
+          Cards are charged through Stripe, in your charity&apos;s own account.
+        </p>
+      </div>
+    </Reveal>
+  );
+}
+
 /* ═══════════════ MAIN ═══════════════ */
 export default function SaaSHome() {
   // Honour a "/#section" hash arriving from another page (e.g. the navbar's
@@ -878,13 +1215,20 @@ export default function SaaSHome() {
         </div>
       </section>
 
-      {/* ══ SAFEGUARDS — the last thing before the price ══
-          Deliberately here and not earlier. This is where a reader stops being
-          persuaded and starts being sceptical, and the questions in their head
-          are about custody of money and data, not about who else likes us. ══ */}
-      <section id="safeguards" aria-labelledby="saas-safeguards-title" className="saas-section saas-seam">
+      {/* ══ WAYS TO GIVE ══
+          The last thing before the price, which is where a reader stops being
+          persuaded and starts working out whether this fits their fundraising.
+          It answers that with the schedule itself rather than another claim,
+          and it lands after "how it works" so the sequence reads: here is the
+          software, here is what you get set up, here is what a donor can
+          actually do with it, here is what it costs. ══ */}
+      <section id="giving" aria-labelledby="saas-giving-title" className="saas-section saas-seam">
         <div className="saas-shell">
-          <Safeguards />
+          <SectionHead center id="saas-giving-title"
+            title="One form.<br/>Three ways to give."
+            subtitle="Set an amount and pick a plan. This is the same choice your donor gets at checkout, and the same schedule they agree to." />
+          <GivingModes />
+          <PayRow />
         </div>
       </section>
 

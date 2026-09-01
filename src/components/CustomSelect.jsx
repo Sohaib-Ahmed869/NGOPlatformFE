@@ -198,8 +198,13 @@ export function CustomSelect({
             // Hidden for the frame before `place()` has measured it.
             visibility: pos ? "visible" : "hidden",
           }}
+          // z-110 sits ABOVE the dialog layer (modals are 70–90, the confirm
+          // dialog is 100). A menu is always opened from something, so it has
+          // to paint over whatever that something is — at z-60 a select inside
+          // any modal opened its list underneath the modal's own backdrop,
+          // where it was both invisible and unclickable.
           className={cn(
-            "z-[60] flex w-max flex-col overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-white/10 dark:bg-[var(--admin-elevated)]",
+            "z-[110] flex w-max flex-col overflow-hidden border border-gray-100 bg-white shadow-xl dark:border-white/10 dark:bg-[var(--admin-elevated)]",
             menuClassName,
           )}
           role="listbox"

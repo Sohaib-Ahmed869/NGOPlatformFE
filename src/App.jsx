@@ -144,6 +144,13 @@ const ContactQueries = lazy(() => import("./SuperAdmin/Screens/ContactQueries"))
 const Leads = lazy(() => import("./SuperAdmin/Screens/Leads"));
 const LeadDetail = lazy(() => import("./SuperAdmin/Screens/LeadDetail"));
 const LeadConvert = lazy(() => import("./SuperAdmin/Screens/LeadConvert"));
+const LeadEditor = lazy(() => import("./SuperAdmin/Screens/LeadEditor"));
+const LeadTasks = lazy(() => import("./SuperAdmin/Screens/LeadTasks"));
+const LeadTimeline = lazy(() => import("./SuperAdmin/Screens/LeadTimeline"));
+const CrmOverview = lazy(() => import("./SuperAdmin/Screens/CrmOverview"));
+const Tasks = lazy(() => import("./SuperAdmin/Screens/Tasks"));
+const TaskDetail = lazy(() => import("./SuperAdmin/Screens/TaskDetail"));
+const TaskEditor = lazy(() => import("./SuperAdmin/Screens/TaskEditor"));
 const SASettings = lazy(() => import("./SuperAdmin/Screens/Settings"));
 const PlatformSettings = lazy(() => import("./SuperAdmin/Screens/PlatformSettings"));
 const SupportSessions = lazy(() => import("./SuperAdmin/Screens/SupportSessions"));
@@ -385,8 +392,21 @@ const SuperAdminRoutes = () => (
       <Route path="coupons" element={<Coupons />} />
       <Route path="branding-requests" element={<BrandingRequests />} />
       <Route path="contact-queries" element={<ContactQueries />} />
+      <Route path="crm" element={<CrmOverview />} />
       <Route path="leads" element={<Leads />} />
+      {/* Every CRM surface is its own page, editors included — the forms are a
+          capped, centred column rather than a dialog. Static segments are
+          listed ahead of the dynamic ones; React Router ranks them that way
+          regardless, but the order says so plainly. */}
+      <Route path="leads/new" element={<LeadEditor />} />
       <Route path="leads/:id" element={<LeadDetail />} />
+      <Route path="leads/:id/edit" element={<LeadEditor />} />
+      <Route path="leads/:id/tasks" element={<LeadTasks />} />
+      <Route path="leads/:id/timeline" element={<LeadTimeline />} />
+      <Route path="tasks" element={<Tasks />} />
+      <Route path="tasks/new" element={<TaskEditor />} />
+      <Route path="tasks/:id" element={<TaskDetail />} />
+      <Route path="tasks/:id/edit" element={<TaskEditor />} />
       <Route path="support-sessions" element={<SupportSessions />} />
       <Route path="support-sessions/:sessionId" element={<SupportSessionDetail />} />
       <Route path="audit" element={<AuditLog />} />

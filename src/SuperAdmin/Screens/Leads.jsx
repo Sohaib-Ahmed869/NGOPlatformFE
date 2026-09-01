@@ -18,6 +18,9 @@ import {
   Trash2,
   Building2,
   Globe,
+  Plus,
+  AlarmClock,
+  ListChecks,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
@@ -31,6 +34,8 @@ import SALoader from "../SALoader";
 import LostReasonModal from "../components/LostReasonModal";
 import { useConfirm } from "../components/ConfirmProvider";
 import { cn } from "../../utils/cn";
+import { dueMeta } from "../../config/taskOptions";
+import { fmtMoney } from "./leadShared";
 
 import AnimatedNumberBase from "../components/AnimatedNumber";
 
@@ -50,6 +55,10 @@ const LEAD_COLUMNS = [
   { label: "Organisation", key: "org", className: LEAD_TH },
   { label: "Contact", key: "contact", className: LEAD_TH },
   { label: "Stage", key: "stage", className: LEAD_TH },
+  { label: "Value", key: "value", defaultDir: "desc", className: LEAD_TH },
+  // Joined server-side from the task collection (see taskSummaryForLeads), so
+  // there is no path on the lead document to order by — a plain label.
+  { label: "Follow-up", className: LEAD_TH },
   { label: "Assignee", className: LEAD_TH },
   { label: "Last activity", key: "activity", defaultDir: "desc", className: LEAD_TH },
   { label: "", className: LEAD_TH },
@@ -65,6 +74,10 @@ const LEAD_SORT_ACCESSORS = {
   contact: (l) => l.contactName || l.contactEmail,
   stage: (l) => l.stage,
   activity: (l) => l.lastMessageAt || l.createdAt,
+  // 0 rather than undefined: a lead with no value entered is worth nothing yet,
+  // not "unknown", and useTableSort sinks blanks to the bottom in BOTH
+  // directions — which would hide the un-priced leads when sorting ascending.
+  value: (l) => Number(l.dealValue || 0),
 };
 const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
 
@@ -97,6 +110,37 @@ function StageBadge({ stage }) {
     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${m.color}1a`, color: m.color }}>
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: m.color }} />
       {m.label}
+    </span>
+  );
+}
+
+/**
+ * What is outstanding on a lead, as one cell.
+ *
+ * The three states are genuinely different and must not read alike: nothing
+ * scheduled (a gap in the pipeline — the row that needs a decision), something
+ * scheduled and on time, and something already missed. "Nothing" is drawn as
+ * plain grey text rather than an em dash, because an operator scanning this
+ * column is looking for the leads that have gone quiet and a dash reads as
+ * "not applicable".
+ */
+function FollowUp({ tasks }) {
+  const open = tasks?.open || 0;
+  const overdue = tasks?.overdue || 0;
+  if (!open) return <span className="text-xs text-gray-400 dark:text-white/30">None scheduled</span>;
+  if (overdue) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+        <AlarmClock className="h-3.5 w-3.5 shrink-0" />
+        {overdue} overdue
+      </span>
+    );
+  }
+  const next = tasks?.nextDueAt;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-white/70">
+      <ListChecks className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+      {open} open{next ? ` · ${dueMeta(next).text}` : ""}
     </span>
   );
 }
@@ -375,10 +419,32 @@ export default function Leads() {
   const lostCount = boardTotals.lost || 0;
   const openCount = boardLoaded ? totalLeads - wonCount - lostCount : Math.max(0, totalLeads - newCount);
 
+  /**
+   * Annualised value of everything still in play.
+   *
+   * Only computable once the BOARD has loaded, because that is the only
+   * response carrying every lead — the list is one page of 25, and summing a
+   * page would report a pipeline that changes when you turn to page two. Left
+   * out entirely until then rather than shown wrong.
+   */
+  const openPipelineValue = useMemo(() => {
+    if (!boardLoaded) return null;
+    return ACTIVE_ORDER.reduce(
+      (sum, stage) => sum + (board[stage] || []).reduce((s, l) => s + Number(l.dealValue || 0), 0),
+      0,
+    );
+  }, [board, boardLoaded]);
+
   const statTiles = [
     { label: "Total leads", value: <AnimatedNumber value={totalLeads} />, sub: "captured", icon: Inbox, color: "#6366f1" },
     { label: "New", value: <AnimatedNumber value={newCount} />, sub: "not yet triaged", icon: Target, color: newCount > 0 ? "#f59e0b" : "#9ca3af" },
-    { label: "Open pipeline", value: <AnimatedNumber value={openCount} />, sub: "in progress", icon: TrendingUp, color: "#0ea5e9" },
+    {
+      label: "Open pipeline",
+      value: <AnimatedNumber value={openCount} />,
+      sub: openPipelineValue ? `${fmtMoney(openPipelineValue)} a year` : "in progress",
+      icon: TrendingUp,
+      color: "#0ea5e9",
+    },
     { label: "Won", value: <AnimatedNumber value={wonCount} />, sub: "converted to tenants", icon: DollarSign, color: "#10b981" },
   ];
 
@@ -403,8 +469,15 @@ export default function Leads() {
           <div className="relative z-10 min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Sales</p>
             <h1 className="mt-1 text-2xl font-bold text-white">Leads</h1>
-            <p className="mt-1 text-sm text-white/80">Every “Express interest” submission, tracked from first contact to converted tenant.</p>
+            <p className="mt-1 text-sm text-white/80">Every enquiry and every prospect you’ve added by hand, from first contact to converted tenant.</p>
           </div>
+          <button
+            type="button"
+            onClick={() => navigate("/leads/new")}
+            className="relative z-10 inline-flex shrink-0 items-center gap-2 bg-white/95 px-4 py-2.5 text-sm font-semibold text-gray-900 transition-colors hover:bg-white"
+          >
+            <Plus className="h-4 w-4" /> New lead
+          </button>
         </div>
         <div className="grid grid-cols-2 divide-x divide-y divide-gray-100 dark:divide-white/10 sm:grid-cols-4 sm:divide-y-0">
           {statTiles.map((t, i) => (
@@ -478,6 +551,10 @@ export default function Leads() {
                           <p className="truncate text-xs text-gray-400">{l.contactEmail}</p>
                         </td>
                         <td className="px-5 py-3.5"><StageBadge stage={l.stage} /></td>
+                        <td className="px-5 py-3.5 tabular-nums text-gray-700 dark:text-white/80">
+                          {l.dealValue > 0 ? fmtMoney(l.dealValue, l.currency) : <span className="text-gray-300 dark:text-white/25">—</span>}
+                        </td>
+                        <td className="px-5 py-3.5"><FollowUp tasks={l.tasks} /></td>
                         <td className="px-5 py-3.5 text-gray-600 dark:text-white/70">{l.assignee?.name || <span className="text-gray-300">Unassigned</span>}</td>
                         <td className="px-5 py-3.5 text-xs text-gray-400">{timeAgo(l.lastMessageAt || l.createdAt)}</td>
                         <td className="px-5 py-3.5 text-right">
@@ -571,6 +648,19 @@ export default function Leads() {
                             <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
                           </div>
                           <p className="truncate text-xs text-gray-500 dark:text-white/60">{l.contactName}</p>
+                          {l.dealValue > 0 || l.tasks?.overdue ? (
+                            <div className="mt-1.5 flex items-center gap-2">
+                              {l.dealValue > 0 ? (
+                                <span className="text-[11px] font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{fmtMoney(l.dealValue, l.currency)}</span>
+                              ) : null}
+                              {l.tasks?.overdue ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-500" title={`${l.tasks.overdue} overdue task(s)`}>
+                                  <AlarmClock className="h-3 w-3" />
+                                  {l.tasks.overdue}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
                           <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-gray-100 pt-2 text-[10px] text-gray-400 dark:border-white/10">
                             <span>{timeAgo(l.lastMessageAt || l.createdAt)}</span>
                             {l.assignee?.name ? <span className="truncate">{l.assignee.name.split(" ")[0]}</span> : null}

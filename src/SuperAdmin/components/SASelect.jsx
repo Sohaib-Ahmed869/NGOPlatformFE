@@ -143,7 +143,10 @@ export default function SASelect({
               // Hidden for the first frame, before `place()` has measured it.
               visibility: pos ? "visible" : "hidden",
             }}
-            className="scroll-slim z-[60] max-h-64 overflow-auto border border-gray-100 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)]"
+            // z-110 is above the dialog layer (modals 70–90, confirm 100) —
+            // see the same note in components/CustomSelect. A menu opened from
+            // inside a modal must paint over it, not under its backdrop.
+            className="scroll-slim z-[110] max-h-64 overflow-auto border border-gray-100 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-[var(--admin-elevated)]"
           >
             {opts.map((o, i) => {
               const sel = String(o.value) === String(value);

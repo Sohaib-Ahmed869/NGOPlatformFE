@@ -36,6 +36,12 @@ export function SARealtimeProvider({ children }) {
   // this to revalidate after a socket event; the badge count is separate
   // (newLeadsCount) since a stage change or assignment doesn't move it.
   const [leadsVersion, setLeadsVersion] = useState(0);
+  // CRM tasks. `myTasksDue` drives the sidebar badge and counts only what the
+  // SIGNED-IN operator owes today or has already missed — a team-wide open
+  // count there would never reach zero, and a badge that is always lit is a
+  // badge nobody reads.
+  const [tasksVersion, setTasksVersion] = useState(0);
+  const [myTasksDue, setMyTasksDue] = useState(0);
   const [platformVersion, setPlatformVersion] = useState(0);
   // Support-impersonation sessions. This one is not a nicety: the Support
   // Sessions screen is the kill switch, so a session started, ended or revoked
@@ -77,6 +83,17 @@ export function SARealtimeProvider({ children }) {
     }
   }, []);
 
+  // The task stats endpoint answers the badge and the Tasks screen's header
+  // tiles in one query, so this refresh warms both.
+  const refreshMyTasksDue = useCallback(async () => {
+    try {
+      const stats = await superadminService.loadTaskStats({ force: true });
+      setMyTasksDue(stats?.mineDue || 0);
+    } catch {
+      /* non-fatal — keep the last known value */
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return undefined;
     const s = getSocket();
@@ -84,6 +101,7 @@ export function SARealtimeProvider({ children }) {
     refreshContactUnread();
     refreshBrandingPending();
     refreshNewLeadsCount();
+    refreshMyTasksDue();
 
     // The inbox list is session-cached; flag it so its next mount revalidates
     // even if the event arrived while we were on another screen. `contactVersion`
@@ -122,6 +140,20 @@ export function SARealtimeProvider({ children }) {
       refreshNewLeadsCount();
       clearTimeout(leadTimer);
       leadTimer = setTimeout(() => setLeadsVersion((v) => v + 1), 400);
+    };
+    // A task was created, edited, moved, assigned, commented on or deleted.
+    // Tasks surface on the leads table and pipeline board too (the follow-up
+    // column is joined server-side), so both of those are flagged stale here —
+    // closing a lead's last open task has to stop its row claiming one is owed.
+    let taskTimer = null;
+    const onTask = (p) => {
+      if (p?.id) superadminService.markTaskStale(p.id);
+      superadminService.markTaskBoardStale();
+      superadminService.markLeadsStale();
+      superadminService.markLeadBoardStale();
+      refreshMyTasksDue();
+      clearTimeout(taskTimer);
+      taskTimer = setTimeout(() => setTasksVersion((v) => v + 1), 400);
     };
     // Org changed somewhere (operator action, Stripe webhook, activation):
     // invalidate the caches immediately, then nudge screens once per burst
@@ -196,6 +228,7 @@ export function SARealtimeProvider({ children }) {
       refreshContactUnread();
       refreshBrandingPending();
       refreshNewLeadsCount();
+      refreshMyTasksDue();
       if (hadConnected) {
         // treat everything as possibly stale
         onOrgUpdated({});
@@ -207,6 +240,7 @@ export function SARealtimeProvider({ children }) {
         onPlatformUpdated();
         onSupportSession();
         onLead();
+        onTask({});
       }
       hadConnected = true;
     };
@@ -233,6 +267,7 @@ export function SARealtimeProvider({ children }) {
     s.on("lead:updated", onLead);
     s.on("lead:deleted", onLead);
     s.on("lead:converted", onLead);
+    s.on("task:updated", onTask);
 
     return () => {
       clearTimeout(orgTimer);
@@ -243,6 +278,7 @@ export function SARealtimeProvider({ children }) {
       clearTimeout(contactTimer);
       clearTimeout(platformTimer);
       clearTimeout(leadTimer);
+      clearTimeout(taskTimer);
       s.off("connect", onConnect);
       s.off("contactQuery:new", onContact);
       s.off("contactQuery:message", onContact);
@@ -266,8 +302,9 @@ export function SARealtimeProvider({ children }) {
       s.off("lead:updated", onLead);
       s.off("lead:deleted", onLead);
       s.off("lead:converted", onLead);
+      s.off("task:updated", onTask);
     };
-  }, [user, refreshContactUnread, refreshBrandingPending, refreshNewLeadsCount]);
+  }, [user, refreshContactUnread, refreshBrandingPending, refreshNewLeadsCount, refreshMyTasksDue]);
 
   // Tear the socket down on logout so a new login reconnects with a fresh token.
   useEffect(() => {
@@ -283,9 +320,11 @@ export function SARealtimeProvider({ children }) {
       unreadContactQueries,
       pendingBrandingRequests,
       newLeadsCount,
+      myTasksDue,
       refreshContactUnread,
       refreshBrandingPending,
       refreshNewLeadsCount,
+      refreshMyTasksDue,
       setContactUnread,
       orgsVersion,
       plansVersion,
@@ -294,15 +333,16 @@ export function SARealtimeProvider({ children }) {
       ticketsVersion,
       contactVersion,
       leadsVersion,
+      tasksVersion,
       platformVersion,
       sessionsVersion,
       socket,
     }),
     [
-      unreadContactQueries, pendingBrandingRequests, newLeadsCount,
-      refreshContactUnread, refreshBrandingPending, refreshNewLeadsCount, setContactUnread,
+      unreadContactQueries, pendingBrandingRequests, newLeadsCount, myTasksDue,
+      refreshContactUnread, refreshBrandingPending, refreshNewLeadsCount, refreshMyTasksDue, setContactUnread,
       orgsVersion, plansVersion, couponsVersion, invoicesVersion, ticketsVersion,
-      contactVersion, leadsVersion, platformVersion, sessionsVersion, socket,
+      contactVersion, leadsVersion, tasksVersion, platformVersion, sessionsVersion, socket,
     ],
   );
 
@@ -315,9 +355,11 @@ export function useSARealtime() {
       unreadContactQueries: 0,
       pendingBrandingRequests: 0,
       newLeadsCount: 0,
+      myTasksDue: 0,
       refreshContactUnread: () => {},
       refreshBrandingPending: () => {},
       refreshNewLeadsCount: () => {},
+      refreshMyTasksDue: () => {},
       orgsVersion: 0,
       plansVersion: 0,
       couponsVersion: 0,
@@ -325,6 +367,7 @@ export function useSARealtime() {
       ticketsVersion: 0,
       contactVersion: 0,
       leadsVersion: 0,
+      tasksVersion: 0,
       platformVersion: 0,
       sessionsVersion: 0,
       socket: null,

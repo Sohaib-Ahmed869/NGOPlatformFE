@@ -46,6 +46,42 @@ const _leadDetailCache = new Map();
 const _leadDetailInFlight = new Map();
 const _leadDetailStale = new Set();
 
+// ── CRM tasks session cache ──────────────────────────────────────────────────
+// Board + stats + per-task detail. The LIST is deliberately not cached: unlike
+// the leads table, a task list is almost never viewed unfiltered — every visit
+// carries a status/assignee/due combination — so a single-slot cache would miss
+// on nearly every mount while still costing the staleness bookkeeping.
+let _taskBoardCache = null;
+let _taskBoardInFlight = null;
+let _taskBoardStale = false;
+let _taskStatsCache = null;
+let _taskStatsInFlight = null;
+let _taskStatsStale = false;
+const _taskDetailCache = new Map();
+const _taskDetailInFlight = new Map();
+const _taskDetailStale = new Set();
+
+// Everything a task mutation makes untrue. Tasks show up on the leads table and
+// the pipeline board too (the follow-up column is joined server-side), so a
+// status change has to invalidate those as well — otherwise closing the last
+// open task leaves the lead row still claiming one is outstanding.
+const invalidateTaskViews = () => {
+  _taskBoardStale = true;
+  _taskStatsStale = true;
+  _leadsStale = true;
+  _leadBoardStale = true;
+};
+
+/**
+ * The browser's UTC offset, sent with every task query.
+ *
+ * "Due today" and "overdue" are questions about the operator's wall clock, and
+ * the server runs in UTC — ten hours away from the Australian team this is
+ * built for. Without this the day boundary would be wrong for most of the day,
+ * every day. See localDayBounds() in crmTaskController.
+ */
+const tzOffset = () => new Date().getTimezoneOffset();
+
 // Audit log + support sessions — params-keyed caches. Declared up here because
 // almost every other invalidator below clears the audit cache: the platform
 // audit log is append-only and gains an entry for practically every operator
@@ -973,6 +1009,176 @@ const superadminService = {
     _leadsStale = true;
     _leadBoardStale = true;
     return axiosInstance.delete(`/superadmin/leads/${id}`);
+  },
+  createLead: (data) => {
+    _leadsStale = true;
+    _leadBoardStale = true;
+    return axiosInstance.post("/superadmin/leads", data);
+  },
+  // Light list for the "which lead is this task about?" picker.
+  getLeadOptions: (search = "") =>
+    axiosInstance.get("/superadmin/leads/options", { params: search ? { search } : {} }),
+
+  /* ── CRM ───────────────────────────────────────────────────────────────── */
+
+  // The overview is one query answering a whole screen, and every number on it
+  // has to agree with the others — so it is never cached. A stale pipeline
+  // total beside a live task count is exactly the disagreement the single
+  // endpoint exists to prevent.
+  loadCrmOverview: ({ signal } = {}) =>
+    axiosInstance
+      .get("/superadmin/crm/overview", { params: { tzOffset: tzOffset() }, signal })
+      .then((res) => res.data.overview),
+
+  /* ── CRM tasks ─────────────────────────────────────────────────────────── */
+
+  // Uncached by design — see the note beside _taskBoardCache. Always passes the
+  // caller's timezone so "today" and "overdue" mean their day, not the server's.
+  loadTasks: (params = {}, { signal } = {}) =>
+    axiosInstance
+      .get("/superadmin/tasks", { params: { ...params, tzOffset: tzOffset() }, signal })
+      .then((res) => res.data),
+
+  getTaskBoardCached: () => _taskBoardCache,
+  isTaskBoardStale: () => _taskBoardStale,
+  markTaskBoardStale: () => { _taskBoardStale = true; },
+  loadTaskBoard: (params = {}, { force = false } = {}) => {
+    // Only the DEFAULT board is cached. A filtered board is a different set of
+    // columns; storing it in the same slot would serve one operator's filter to
+    // the next visit as though it were everything.
+    const isDefault = !Object.values(params).some(Boolean);
+    if (isDefault && _taskBoardCache && !force && !_taskBoardStale) return Promise.resolve(_taskBoardCache);
+    if (isDefault && _taskBoardInFlight) return _taskBoardInFlight;
+    if (isDefault) _taskBoardStale = false;
+    const p = axiosInstance
+      .get("/superadmin/tasks/board", { params: { ...params, tzOffset: tzOffset() } })
+      .then((res) => {
+        const board = res.data.board || {};
+        if (isDefault) {
+          _taskBoardCache = board;
+          _taskBoardInFlight = null;
+        }
+        return board;
+      })
+      .catch((err) => {
+        if (isDefault) _taskBoardInFlight = null;
+        throw err;
+      });
+    if (isDefault) _taskBoardInFlight = p;
+    return p;
+  },
+  setTaskBoardCache: (next) => {
+    if (_taskBoardCache === null) return;
+    _taskBoardCache = next;
+  },
+
+  getTaskStatsCached: () => _taskStatsCache,
+  loadTaskStats: ({ force = false } = {}) => {
+    if (_taskStatsCache && !force && !_taskStatsStale) return Promise.resolve(_taskStatsCache);
+    if (_taskStatsInFlight) return _taskStatsInFlight;
+    _taskStatsStale = false;
+    _taskStatsInFlight = axiosInstance
+      .get("/superadmin/tasks/stats", { params: { tzOffset: tzOffset() } })
+      .then((res) => {
+        _taskStatsCache = res.data.stats || null;
+        _taskStatsInFlight = null;
+        return _taskStatsCache;
+      })
+      .catch((err) => {
+        _taskStatsInFlight = null;
+        throw err;
+      });
+    return _taskStatsInFlight;
+  },
+  markTaskStatsStale: () => { _taskStatsStale = true; },
+
+  // Reuses the leads staff list: both screens ask the same question ("which
+  // operators hold the tenants capability?") of the same endpoint shape, so a
+  // second cache would only mean a second identical request.
+  loadTaskStaff: ({ force = false } = {}) => superadminService.loadLeadStaff({ force }),
+
+  getCachedTask: (id) => (id ? _taskDetailCache.get(String(id)) || null : null),
+  isTaskStale: (id) => _taskDetailStale.has(String(id)),
+  markTaskStale: (id) => { if (id) _taskDetailStale.add(String(id)); },
+  loadTask: (id, { force = false } = {}) => {
+    const key = String(id);
+    if (!force && _taskDetailCache.has(key) && !_taskDetailStale.has(key)) return Promise.resolve(_taskDetailCache.get(key));
+    if (!force && _taskDetailInFlight.has(key)) return _taskDetailInFlight.get(key);
+    const p = axiosInstance
+      .get(`/superadmin/tasks/${id}`)
+      .then((res) => {
+        const task = res.data.task;
+        _taskDetailCache.set(key, task);
+        _taskDetailStale.delete(key);
+        _taskDetailInFlight.delete(key);
+        return task;
+      })
+      .catch((err) => {
+        _taskDetailInFlight.delete(key);
+        throw err;
+      });
+    _taskDetailInFlight.set(key, p);
+    return p;
+  },
+  setTaskCache: (task) => {
+    if (task?._id) {
+      _taskDetailCache.set(String(task._id), task);
+      _taskDetailStale.delete(String(task._id));
+    }
+  },
+  removeTaskCache: (id) => {
+    const key = String(id);
+    _taskDetailCache.delete(key);
+    _taskDetailInFlight.delete(key);
+    _taskDetailStale.delete(key);
+  },
+
+  // Mutations. Every one invalidates the board, the stats and the two lead
+  // views, because all four render some consequence of a task's state.
+  createTask: (data) => {
+    invalidateTaskViews();
+    return axiosInstance.post("/superadmin/tasks", data);
+  },
+  updateTask: (id, data) => {
+    invalidateTaskViews();
+    return axiosInstance.patch(`/superadmin/tasks/${id}`, data);
+  },
+  changeTaskStatus: (id, data) => {
+    invalidateTaskViews();
+    return axiosInstance.patch(`/superadmin/tasks/${id}/status`, data);
+  },
+  assignTask: (id, userId) => {
+    invalidateTaskViews();
+    return axiosInstance.patch(`/superadmin/tasks/${id}/assign`, { userId });
+  },
+  addTaskComment: (id, body) => {
+    _taskStatsStale = true;
+    return axiosInstance.post(`/superadmin/tasks/${id}/comments`, body);
+  },
+  addTaskChecklistItem: (id, text) => axiosInstance.post(`/superadmin/tasks/${id}/checklist`, { text }),
+  updateTaskChecklistItem: (id, itemId, data) => axiosInstance.patch(`/superadmin/tasks/${id}/checklist/${itemId}`, data),
+  removeTaskChecklistItem: (id, itemId) => axiosInstance.delete(`/superadmin/tasks/${id}/checklist/${itemId}`),
+  bulkTasks: (data) => {
+    invalidateTaskViews();
+    return axiosInstance.post("/superadmin/tasks/bulk", data);
+  },
+  deleteTask: (id) => {
+    invalidateTaskViews();
+    superadminService.removeTaskCache(id);
+    return axiosInstance.delete(`/superadmin/tasks/${id}`);
+  },
+
+  // Drop every task cache — dev hot-reload only, like clearLeadsCache above.
+  clearTasksCache: () => {
+    _taskBoardCache = null;
+    _taskBoardInFlight = null;
+    _taskBoardStale = false;
+    _taskStatsCache = null;
+    _taskStatsInFlight = null;
+    _taskStatsStale = false;
+    _taskDetailCache.clear();
+    _taskDetailInFlight.clear();
+    _taskDetailStale.clear();
   },
 };
 

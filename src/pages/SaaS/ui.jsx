@@ -300,6 +300,193 @@ export const pageCss = `
 .saas-prog-shine{animation:saas-prog-shine 2.8s ease-in-out infinite}
 @keyframes saas-pop-in{0%{transform:scale(0) rotate(-30deg);opacity:0}60%{transform:scale(1.15) rotate(0)}100%{transform:scale(1);opacity:1}}
 
+/* ---------- Ways to give ----------
+   Not a display panel with three tabs on it. The reader sets an amount and a
+   plan and the schedule redraws underneath, which is the only honest way to
+   answer "what is my donor actually agreeing to". Two columns: the form on the
+   left, what it produces on the right.
+
+   The rail is a 12-column grid, one column per month, and EVERY layer sits on
+   that same grid so nothing needs measuring in JS:
+     .saas-give__line    the full-width hairline (twelve months, unlit)
+     .saas-give__span    the accent rule over the months that get charged
+     .saas-give__comb    the same thing when the charges outnumber the months
+                         (a weekly plan is 52 of them, a daily one 365), drawn
+                         as a repeating gradient rather than as 365 DOM nodes
+     .saas-give__mark    the dots, one per column, justify-self:center
+   A dot is centred in its column, so the first sits at 1/24 of the width and
+   the last at 23/24. The accent rule is inset by that same 1/24 at both ends
+   and its scaleX is (charges - 1) / 11, NOT charges / 12. Get that wrong and
+   the rule overshoots the dot it is meant to stop on.
+
+   --p is dwell progress, written every frame by the rAF loop in SaaSHome.jsx
+   and read back by the fill under the selected row. One clock, two views of
+   it. The pill radii below are explicit for the same reason the square ones
+   are: index.css:210 shapes every bare control on this site to --radius-btn,
+   and only an element carrying its own radius class escapes it. */
+.saas-give{
+  --rail-months: 12;
+  --mark: clamp(9px, .8vw, 11px);
+  --p: 0;
+  display:grid; gap:clamp(28px,3vw,44px);
+  padding:clamp(24px,2.8vw,40px);
+}
+@media (min-width:900px){
+  .saas-give{ grid-template-columns:minmax(0,290px) minmax(0,1fr); gap:clamp(40px,4.4vw,72px) }
+}
+
+/* ---- the form ---- */
+/* Sentence case, no letterspacing, no uppercase micro-label. A tracked-out
+   all-caps eyebrow over every block is the single most template-looking thing
+   a marketing page can wear, and this section wore two of them. */
+.saas-give__lbl{ font-size:13px; font-weight:500; color:rgba(var(--tenant-primary-rgb),.45) }
+.saas-give__amt{ display:flex; align-items:baseline; gap:5px; width:max-content; max-width:100%;
+  margin-top:6px; padding-bottom:5px;
+  border-bottom:2px solid rgba(var(--tenant-accent-rgb),.32);
+  transition:border-color .25s var(--ease,ease) }
+.saas-give__amt:hover{ border-bottom-color:rgba(var(--tenant-accent-rgb),.6) }
+.saas-give__amt:focus-within{ border-bottom-color:var(--tenant-accent,#047857) }
+.saas-give__cur{ font-size:clamp(19px,1.8vw,24px); font-weight:600;
+  color:rgba(var(--tenant-primary-rgb),.35) }
+/* The field carries no box of its own: the rule under it is the affordance, and
+   it is the one place on the page besides the primary button that wears the
+   accent. Width is set inline from the value length so the rule tracks the
+   number instead of sitting under empty space. */
+.saas-give__amtin{ min-width:2ch; padding:0; border:0; outline:none; background:transparent;
+  font:inherit; font-size:clamp(34px,3.6vw,50px); font-weight:700; line-height:1;
+  letter-spacing:-.03em; color:var(--tenant-primary,#102A23);
+  font-variant-numeric:tabular-nums }
+.saas-give__amtin::-webkit-outer-spin-button,
+.saas-give__amtin::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0 }
+
+.saas-give__opts{ margin-top:clamp(24px,2.6vw,34px) }
+.saas-give__row{ position:relative; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:2px 12px; padding:0 2px 0 16px;
+  border-top:1px solid rgba(var(--tenant-primary-rgb),.09) }
+.saas-give__row:last-child{ border-bottom:1px solid rgba(var(--tenant-primary-rgb),.09) }
+/* The selection marker is a rule down the left edge of the row, drawn from the
+   top. No tinted panel, no chip, no tick: the row it marks is already the only
+   one in ink. */
+.saas-give__row::before{ content:""; position:absolute; left:0; top:-1px; bottom:0; width:2px;
+  background:var(--tenant-accent,#047857); transform:scaleY(0); transform-origin:top;
+  transition:transform .34s var(--ease,ease) }
+.saas-give__row[data-on="true"]::before{ transform:scaleY(1) }
+/* The 16px inset lives on the ROW, not here: a sub-control that wraps to a
+   second line has to start on the same left edge as the label above it, and
+   when the padding sat on the button the wrapped line began under the accent
+   rule instead, with its first word half cut off. */
+.saas-give__opt{ flex:1 1 auto; padding:14px 0; text-align:left;
+  font-size:15px; font-weight:600; color:rgba(var(--tenant-primary-rgb),.5);
+  transition:color .3s var(--ease,ease) }
+.saas-give__row:hover .saas-give__opt,
+.saas-give__row[data-on="true"] .saas-give__opt{ color:var(--tenant-primary,#102A23) }
+/* The dwell clock. It only exists while the section is still demonstrating
+   itself; the first time the reader touches anything it is pinned and the rule
+   goes away rather than sitting there full. */
+.saas-give__clock{ position:absolute; left:0; right:0; bottom:-1px; height:1px; opacity:0 }
+.saas-give__row[data-on="true"] .saas-give__clock{ opacity:1 }
+.saas-give__clock i{ display:block; height:100%; transform-origin:left;
+  transform:scaleX(var(--p)); background:rgba(var(--tenant-accent-rgb),.5) }
+.saas-give[data-pinned="true"] .saas-give__clock{ opacity:0 }
+
+.saas-give__sub{ display:inline-flex; align-items:center; gap:6px; padding:0 0 12px;
+  font-size:13px; color:rgba(var(--tenant-primary-rgb),.45) }
+.saas-give__freq{ display:inline-flex; flex-wrap:wrap; gap:2px }
+.saas-give__freqbtn{ padding:4px 9px; font-size:12.5px; font-weight:600;
+  color:rgba(var(--tenant-primary-rgb),.45);
+  transition:color .22s ease, background .22s ease }
+.saas-give__freqbtn:hover{ color:var(--tenant-primary,#102A23);
+  background:rgba(var(--tenant-primary-rgb),.05) }
+.saas-give__freqbtn[aria-pressed="true"]{ color:#fff; background:var(--tenant-accent,#047857) }
+.saas-give__stepbtn{ width:25px; height:25px; display:grid; place-items:center;
+  border:1px solid rgba(var(--tenant-primary-rgb),.15); color:rgba(var(--tenant-primary-rgb),.55);
+  transition:color .22s ease, border-color .22s ease }
+.saas-give__stepbtn:hover:not(:disabled){ color:var(--tenant-accent,#047857);
+  border-color:var(--tenant-accent,#047857) }
+.saas-give__stepbtn:disabled{ opacity:.3 }
+.saas-give__stepbtn svg{ width:12px; height:12px }
+.saas-give__stepval{ min-width:2.2ch; text-align:center; font-size:14px; font-weight:700;
+  font-variant-numeric:tabular-nums; color:var(--tenant-primary,#102A23) }
+
+/* ---- what it produces ---- */
+.saas-give__out{ display:flex; flex-direction:column; justify-content:center }
+.saas-give__sum{ font-size:clamp(18px,1.6vw,22px); line-height:1.4; font-weight:600;
+  letter-spacing:-.01em; color:var(--tenant-primary,#102A23) }
+
+/* Top margin leaves room for the hover chip, which escapes upward out of the
+   marks row. Cut it and the chip lands on the summary line. */
+.saas-give__rail{ position:relative; margin-top:clamp(34px,3.6vw,50px) }
+.saas-give__rail[data-drag="true"]{ cursor:ew-resize; touch-action:none }
+.saas-give__marks{ position:relative; display:grid;
+  grid-template-columns:repeat(var(--rail-months),1fr); align-items:center; height:var(--mark) }
+.saas-give__line,.saas-give__span,.saas-give__comb{ position:absolute; top:50% }
+.saas-give__line{ inset-inline:0; height:1px; margin-top:-.5px;
+  background:rgba(var(--tenant-primary-rgb),.12) }
+/* Two weights, not two colours: months with nothing on them stay a hairline,
+   months with a charge get a drawn rule. At a shared 1px the accent vanished
+   between the dots and the rail read as twelve unconnected marks. */
+.saas-give__span{ left:calc(100% / 24); right:calc(100% / 24); height:2px; margin-top:-1px;
+  transform-origin:left; background:var(--tenant-accent,#047857) }
+/* --comb-gap is set inline as 100/charges percent, so the teeth thin out as the
+   plan gets more frequent: twelve monthly charges are dots, fifty-two weekly
+   ones are a comb, three hundred and sixty-five daily ones are very nearly a
+   solid bar. The density IS the information. */
+.saas-give__comb{ left:calc(100% / 24); right:calc(100% / 24); height:11px; margin-top:-5.5px;
+  transform-origin:left;
+  background-image:repeating-linear-gradient(90deg,
+    var(--tenant-accent,#047857) 0 var(--comb-ink,1px),
+    transparent var(--comb-ink,1px) var(--comb-gap,8%)) }
+.saas-give__mark{ justify-self:center; width:var(--mark); height:var(--mark); border-radius:999px }
+/* The "and it keeps going" arrowhead, on a plan with no end date. It hangs off
+   the right edge rather than sitting in month twelve: the point is that the
+   schedule leaves the picture. */
+.saas-give__more{ position:absolute; top:50%; right:-3px; translate:0 -50%;
+  display:flex; color:var(--tenant-accent,#047857) }
+.saas-give__more svg{ width:15px; height:15px }
+.saas-give__tip{ position:absolute; bottom:calc(100% + 11px); translate:-50% 0;
+  padding:5px 10px; white-space:nowrap; font-size:11.5px; font-weight:600;
+  color:#fff; background:var(--tenant-primary,#102A23); pointer-events:none }
+/* Amounts under the dots. Twelve will not fit a phone, and they are the layer
+   the rail can lose without losing its meaning: the dots and the months still
+   carry the shape of the schedule. */
+.saas-give__amounts,.saas-give__months{ display:grid;
+  grid-template-columns:repeat(var(--rail-months),1fr); text-align:center }
+.saas-give__amounts{ margin-top:11px; font-size:11px; font-weight:600;
+  font-variant-numeric:tabular-nums; color:rgba(var(--tenant-primary-rgb),.5) }
+@media (max-width:640px){ .saas-give__amounts{ display:none } }
+.saas-give__months{ margin-top:7px; font-size:11px; font-weight:600;
+  color:rgba(var(--tenant-primary-rgb),.3) }
+.saas-give__months span{ transition:color .2s ease }
+.saas-give__months span[data-on="true"]{ color:var(--tenant-primary,#102A23) }
+.saas-give__months i{ display:none; font-style:normal }
+/* 640px is where the amounts row drops out; the rail keeps its full width for
+   a while after that, so the initials only take over once the names really do
+   run into each other. */
+@media (max-width:820px){
+  .saas-give__months b{ display:none }
+  .saas-give__months i{ display:inline }
+}
+.saas-give__foot{ margin-top:clamp(20px,2.2vw,28px); font-size:13px; line-height:1.6;
+  color:rgba(var(--tenant-primary-rgb),.5) }
+.saas-give__hint{ color:rgba(var(--tenant-primary-rgb),.38) }
+@media (hover:none){ .saas-give__hint{ display:none } }
+
+/* ---------- How the money reaches you ----------
+   The marks reuse .saas-tool wholesale, same sizing and the same mono-ink-until-
+   hovered bargain as the tool stack, so the two rows on this page cannot drift
+   apart. The only thing overridden is the marquee's right margin, which a
+   wrapping flex row replaces with a real gap. */
+.saas-pay{ display:flex; flex-direction:column; align-items:center; text-align:center;
+  gap:clamp(13px,1.5vw,18px) }
+.saas-pay__row{ --tool-size:clamp(22px,1.6vw,26px);
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+  gap:clamp(16px,2.2vw,30px); margin:0; padding:0; list-style:none }
+.saas-pay__row .saas-tool{ margin-right:0 }
+.saas-pay__sep{ width:1px; height:20px; background:rgba(var(--tenant-primary-rgb),.14) }
+@media (max-width:520px){ .saas-pay__sep{ display:none } }
+.saas-pay__foot{ max-width:66ch; font-size:13px; line-height:1.6;
+  color:rgba(var(--tenant-primary-rgb),.5) }
+
 /* ---------- Reduced motion (§7.7) ----------
    Two levels now that the scroll-lock is gone: CSS motion is neutralised here,
    and JS-driven motion checks useReducedMotion() and never subscribes. */

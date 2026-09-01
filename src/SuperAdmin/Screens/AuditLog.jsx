@@ -17,6 +17,8 @@ import {
   Globe,
   RefreshCw,
   X,
+  Target,
+  ListChecks,
 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import SASelect from "../components/SASelect";
@@ -116,6 +118,8 @@ const CATEGORIES = {
   plan: { label: "Plans", color: "#10b981", icon: Layers },
   coupon: { label: "Billing", color: "#f59e0b", icon: Ticket },
   org: { label: "Tenant", color: "#ef4444", icon: Building2 },
+  lead: { label: "Sales", color: "#0ea5e9", icon: Target },
+  task: { label: "Sales", color: "#0ea5e9", icon: ListChecks },
   default: { label: "System", color: "#6366f1", icon: Activity },
 };
 const categoryOf = (action = "") => CATEGORIES[action.split(".")[0]] || CATEGORIES.default;
