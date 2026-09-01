@@ -225,11 +225,15 @@ export function SARealtimeProvider({ children }) {
     // "connect" we observe is by definition a reconnect.
     let hadConnected = s.connected;
     const onConnect = () => {
-      refreshContactUnread();
-      refreshBrandingPending();
-      refreshNewLeadsCount();
-      refreshMyTasksDue();
+      // Only a RE-connect needs a sweep. The first `connect` lands a moment
+      // after the mount fetches above, so refreshing here unconditionally sent
+      // all four counts twice on every full page load — the duplicate was
+      // invisible because both answers agreed.
       if (hadConnected) {
+        refreshContactUnread();
+        refreshBrandingPending();
+        refreshNewLeadsCount();
+        refreshMyTasksDue();
         // treat everything as possibly stale
         onOrgUpdated({});
         onPlanUpdated();

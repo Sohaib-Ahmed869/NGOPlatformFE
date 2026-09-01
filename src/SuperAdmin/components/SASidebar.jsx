@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Building2, Layers, CreditCard, Receipt, Ticket, LifeBuoy, KanbanSquare, Paintbrush, MessageSquare, LogOut, HeartHandshake, Settings, Globe, ChevronDown, ShieldCheck, ScrollText, SlidersHorizontal, Target, Users, Mail, ListChecks, Gauge } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminUi } from "../../context/AdminUiContext";
+import { useTenant } from "../../context/TenantContext";
 import { cn } from "../../utils/cn";
 import useLogoFit from "../../hooks/useLogoFit";
-import platformService from "../../services/platform.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import { hasCapability } from "../utils/platformRoles";
 import { leaveToAuth } from "../../utils/authTransition";
@@ -92,10 +91,13 @@ export default function SASidebar() {
   // The platform's own branding (SuperAdmin → Platform). The sidebar is a DARK
   // surface, so the light logo/icon (the "for dark backgrounds" variants) read
   // best — fall back to the dark variants, then to the icon + name.
-  const [brand, setBrand] = useState(null);
-  useEffect(() => {
-    platformService.getPublic().then((res) => setBrand(res.data)).catch(() => {});
-  }, []);
+  //
+  // Read from TenantContext rather than fetching a private copy: the provider
+  // already loads /platform/public on every console boot, so the second request
+  // bought nothing — and worse, a private copy never saw `refreshPlatform()`,
+  // so saving new branding updated the tab and loader instantly while this
+  // sidebar kept the old logo until a reload.
+  const { platform: brand } = useTenant();
   const brandName = brand?.name || "NGO Platform";
   const expandedLogo = brand?.logo || brand?.logoDark || "";
   const collapsedIcon = brand?.iconLogo || brand?.iconLogoDark || "";

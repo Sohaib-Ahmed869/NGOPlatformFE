@@ -29,12 +29,19 @@ const selectTrigger = "w-full border border-gray-200 bg-white px-3 py-2 text-sm 
 
 const blank = (list) => [{ value: "", label: "Not stated" }, ...list.map((o) => ({ value: o.value, label: o.label }))];
 
-function Field({ label, hint, children, className }) {
+function Field({ label, hint, error, children, className }) {
   return (
     <div className={cn("min-w-0", className)}>
       <label className={labelCls}>{label}</label>
       {children}
-      {hint ? <p className="mt-1 text-[11px] text-gray-400">{hint}</p> : null}
+      {/* An error REPLACES the hint rather than stacking under it — the hint
+          explains what the field is for, which is not what you need to read
+          once the thing is wrong. */}
+      {error ? (
+        <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{error}</p>
+      ) : hint ? (
+        <p className="mt-1 text-[11px] text-gray-400">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -201,11 +208,39 @@ export default function LeadEditor() {
   const setContact = (i, patch) =>
     set({ contacts: form.contacts.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
 
-  const invalid = !form.orgName.trim() || !form.contactName.trim() || !form.contactEmail.trim();
+  // Deliberately the same loose shape the server enforces (leadController's
+  // EMAIL_RE) — the job is to catch "priya@" and "priya.org", the typos that
+  // make a Reply go nowhere, not to adjudicate RFC 5322. Presence alone is not
+  // enough: the bar below promises "a valid email", so enabling Save on a
+  // malformed one just moves the rejection to a toast after the round trip.
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail.trim());
+
+  // The same four rules dealValueField() applies on the server, so the form
+  // refuses what the API would refuse instead of letting the round trip come
+  // back as a toast. Blank is legitimate and means 0 — a lead nobody has priced
+  // yet is not an error.
+  const dealValueError = useMemo(() => {
+    const raw = String(form.dealValue ?? "").trim();
+    if (!raw) return "";
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return "Annual value must be a number.";
+    if (n < 0) return "Annual value can’t be negative.";
+    if (n > 100000000) return "Annual value can’t be more than 100,000,000.";
+    if (Math.round(n * 100) !== n * 100) return "Annual value can’t have fractions of a cent.";
+    return "";
+  }, [form.dealValue]);
+
+  const missingRequired = !form.orgName.trim() || !form.contactName.trim() || !emailOk;
+  const invalid = missingRequired || !!dealValueError;
+  // Name the ACTUAL blocker. "…a valid email is required" while the real
+  // problem is a negative figure three panels up is worse than saying nothing.
+  const blockedBecause = missingRequired
+    ? "Organisation, contact name and a valid email are required."
+    : dealValueError;
 
   const submit = async (e) => {
     e.preventDefault();
-    if (invalid) { toast.error("Organisation, contact name and email are required"); return; }
+    if (invalid) { toast.error(blockedBecause); return; }
     setSaving(true);
     try {
       const payload = {
@@ -407,15 +442,18 @@ export default function LeadEditor() {
         </section>
 
         <Panel title="The deal" icon={DollarSign} hint="What it is worth, when it might land, and how hard to push.">
-          <Field label="Annual value" hint="What it's worth per year if it closes.">
+          <Field label="Annual value" hint="What it's worth per year if it closes." error={dealValueError}>
             <input
               type="number"
               min="0"
-              step="1"
+              max="100000000"
+              // Cents are allowed, so the spinner must step in cents too —
+              // step="1" made the browser call a legitimate 12.34 a bad step.
+              step="0.01"
               value={form.dealValue}
               onChange={(e) => set({ dealValue: e.target.value })}
               placeholder="10788"
-              className={inputCls}
+              className={cn(inputCls, dealValueError && "border-red-300 dark:border-red-500/50")}
             />
           </Field>
           <Field label="Expected close">
@@ -549,7 +587,7 @@ export default function LeadEditor() {
             negative margins matching the layout's own padding (px-4 / lg:px-6). */}
         <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 lg:-mx-6 lg:px-6 dark:border-white/10" style={{ backgroundColor: "var(--tenant-bg)" }}>
           <p className="min-w-0 text-xs text-gray-400">
-            {invalid ? "Organisation, contact name and a valid email are required." : isEdit ? "Changes apply as soon as you save." : "You can edit everything afterwards."}
+            {invalid ? blockedBecause : isEdit ? "Changes apply as soon as you save." : "You can edit everything afterwards."}
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <button

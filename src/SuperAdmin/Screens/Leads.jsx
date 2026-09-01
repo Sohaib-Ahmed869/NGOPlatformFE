@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence, LayoutGroup, MotionConfig } from "framer-motion";
 import { toast } from "react-hot-toast";
@@ -164,7 +164,44 @@ export default function Leads() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const { leadsVersion } = useSARealtime();
-  const [tab, setTab] = useState("list"); // "list" | "pipeline"
+  const [params, setParams] = useSearchParams();
+
+  // View, filters, sort and page live in the URL — the same contract as the
+  // Tasks list. Both are lists an operator sends to a colleague and comes back
+  // to after opening a row; in component state, the filter and the page you
+  // were on are gone the moment you hit Back or reload.
+  const tab = params.get("view") === "pipeline" ? "pipeline" : "list";
+  const stageFilter = params.get("stage") || "all";
+  const assigneeFilter = params.get("assignee") || "all";
+  const page = Math.max(1, parseInt(params.get("page"), 10) || 1);
+  const limit = Math.max(1, parseInt(params.get("limit"), 10) || DEFAULT_PAGE_SIZE);
+  const sortKey = params.get("sort") || "activity";
+  const sortDir = params.get("dir") === "asc" ? "asc" : "desc";
+  // Memoised: this object is an effect dependency, so a fresh identity on
+  // every render would refetch the list forever.
+  const sort = useMemo(() => ({ key: sortKey, dir: sortDir }), [sortKey, sortDir]);
+
+  const updateParams = useCallback(
+    (patch) => {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          Object.entries(patch).forEach(([k, v]) => {
+            if (v === null || v === undefined || v === "") next.delete(k);
+            else next.set(k, v);
+          });
+          // Any filter change re-shapes the result set, so the page number
+          // stops meaning anything.
+          if (!("page" in patch)) next.delete("page");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+  const setTab = (next) => updateParams({ view: next === "pipeline" ? "pipeline" : null });
+  const setPage = useCallback((next) => updateParams({ page: next > 1 ? String(next) : null }), [updateParams]);
 
   const [staff, setStaff] = useState([]);
   useEffect(() => {
@@ -179,13 +216,8 @@ export default function Leads() {
   const [listLoading, setListLoading] = useState(!cachedList);
   const [revalidating, setRevalidating] = useState(false);
   const [listError, setListError] = useState(null);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [stageFilter, setStageFilter] = useState("all");
-  const [assigneeFilter, setAssigneeFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  const [sort, setSort] = useState({ key: "activity", dir: "desc" });
+  const [search, setSearch] = useState(params.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(params.get("search") || "");
   const [refreshKey, setRefreshKey] = useState(0);
   const lastParamsKeyRef = useRef(null);
   const lastViewKeyRef = useRef(null);
@@ -193,9 +225,12 @@ export default function Leads() {
   useEffect(() => {
     const next = search.trim();
     if (next === debouncedSearch) return undefined;
-    const t = setTimeout(() => { setDebouncedSearch(next); setPage(1); }, 300);
+    const t = setTimeout(() => {
+      setDebouncedSearch(next);
+      updateParams({ search: next || null });
+    }, 300);
     return () => clearTimeout(t);
-  }, [search, debouncedSearch]);
+  }, [search, debouncedSearch, updateParams]);
 
   useEffect(() => {
     if (tab !== "list") return undefined;
@@ -234,21 +269,22 @@ export default function Leads() {
       }
     })();
     return () => { alive = false; controller.abort(); };
-  }, [tab, page, limit, sort, debouncedSearch, stageFilter, assigneeFilter, refreshKey, leadsVersion]);
+  }, [tab, page, limit, sort, debouncedSearch, stageFilter, assigneeFilter, refreshKey, leadsVersion, setPage]);
 
   // Re-ordered in the browser the instant a header is clicked; the server's
   // answer for the same sort lands behind it.
   const sortedLeads = useTableSort(leads, sort, LEAD_SORT_ACCESSORS);
 
-  // Both re-shape the result set, so the page number stops meaning anything.
-  const changeSort = useCallback((next) => {
-    setSort(next);
-    setPage(1);
-  }, []);
-  const changeLimit = useCallback((next) => {
-    setLimit((cur) => (cur === next ? cur : next));
-    setPage(1);
-  }, []);
+  // Both re-shape the result set, so the page number stops meaning anything —
+  // updateParams drops `page` for any patch that doesn't name it.
+  const changeSort = useCallback(
+    (next) => updateParams({ sort: next.key === "activity" ? null : next.key, dir: next.dir === "desc" ? null : next.dir }),
+    [updateParams],
+  );
+  const changeLimit = useCallback(
+    (next) => updateParams({ limit: next === DEFAULT_PAGE_SIZE ? null : String(next) }),
+    [updateParams],
+  );
 
   useEffect(() => {
     superadminService.setLeadsCache({ leads, pagination, newCount });
@@ -505,8 +541,8 @@ export default function Leads() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search org, contact, email…" className="w-full border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5 dark:text-white/85 sm:w-56" />
             </div>
-            <CustomSelect value={stageFilter} onChange={(v) => { setStageFilter(v); setPage(1); }} options={stageOptions} className="min-w-[150px]" triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-white/5" />
-            <CustomSelect value={assigneeFilter} onChange={(v) => { setAssigneeFilter(v); setPage(1); }} options={assigneeOptions} className="min-w-[150px]" triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-white/5" />
+            <CustomSelect value={stageFilter} onChange={(v) => updateParams({ stage: v === "all" ? null : v })} options={stageOptions} className="min-w-[150px]" triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-white/5" />
+            <CustomSelect value={assigneeFilter} onChange={(v) => updateParams({ assignee: v === "all" ? null : v })} options={assigneeOptions} className="min-w-[150px]" triggerClassName="border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-accent dark:border-white/10 dark:bg-white/5" />
             <button type="button" onClick={() => setRefreshKey((k) => k + 1)} disabled={revalidating} title="Refresh" className="grid h-9 w-9 shrink-0 place-items-center border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:bg-white/5">
               <RefreshCw className={cn("h-4 w-4", revalidating && "animate-spin")} />
             </button>
