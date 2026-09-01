@@ -12,7 +12,7 @@ import { cn } from "../../utils/cn";
 import AnimatedNumber from "../components/AnimatedNumber";
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
 const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
-const planColors = { basic: "#06b6d4", professional: "#10b981", enterprise: "#f59e0b" };
+const planColors = { essentials: "#0F3D2E", professional: "#1F7A55", enterprise: "#2FA36B" };
 
 // Best logo for a small tile (prefers the square mark) — empty → initial badge.
 const orgLogo = (org) =>

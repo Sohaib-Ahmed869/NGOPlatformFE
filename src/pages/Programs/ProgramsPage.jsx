@@ -260,7 +260,7 @@ export default function ProgramsPage() {
         <div className="mx-auto max-w-6xl">
           <motion.div {...reveal()} className="mb-10 text-center">
             <Eyebrow icon={Sparkles}>{intro.eyebrow ?? "Our programs"}</Eyebrow>
-            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">{intro.heading ?? "Choose where your gift goes"}</h2>
+            <h2 className="mt-3 font-heading text-3xl font-bold text-primary">{intro.heading ?? "Choose where your donation goes"}</h2>
             <p className="mt-2 text-text-muted">{intro.subtitle ?? "Browse our active campaigns and back the cause closest to your heart."}</p>
           </motion.div>
 

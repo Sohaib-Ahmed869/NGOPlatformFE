@@ -153,6 +153,7 @@ const TeamUsers = lazy(() => import("./SuperAdmin/Screens/TeamUsers"));
 const MfaSetupRequired = lazy(() => import("./SuperAdmin/Screens/MfaSetupRequired"));
 const SAEmailTemplates = lazy(() => import("./SuperAdmin/Screens/EmailTemplates"));
 const SAEmailTemplateEdit = lazy(() => import("./SuperAdmin/Screens/EmailTemplateEdit"));
+const SAEmailSend = lazy(() => import("./SuperAdmin/Screens/EmailSend"));
 const AcceptInvite = lazy(() => import("./pages/AdminLogin/AcceptInvite"));
 const SAForgotPassword = lazy(() => import("./pages/AdminLogin/ForgotPassword"));
 import SupportSessionBanner from "./Admin/components/SupportSessionBanner";
@@ -390,6 +391,11 @@ const SuperAdminRoutes = () => (
       <Route path="support-sessions/:sessionId" element={<SupportSessionDetail />} />
       <Route path="audit" element={<AuditLog />} />
       <Route path="emails" element={<SAEmailTemplates />} />
+      {/* Sending one by hand. Both are ahead of "/emails/:key" — a static
+          segment outranks a dynamic one, and catalogue keys are dotted, so
+          neither can ever be read as a template. */}
+      <Route path="emails/compose" element={<SAEmailSend />} />
+      <Route path="emails/send/:key" element={<SAEmailSend />} />
       {/* Encoded so a dotted key like "donation.receipt" survives the URL. */}
       <Route path="emails/:key" element={<SAEmailTemplateEdit />} />
       <Route path="platform" element={<PlatformSettings />} />
@@ -540,7 +546,7 @@ const AppLayout = ({ children }) => {
   // nav, no footer/CTA — meant to stand alone with nothing pulling focus away).
   if (isRegister) {
     return (
-      <div data-public-site style={buildPlatformVars(platform)}>
+      <div data-public-site data-saas-site style={buildPlatformVars(platform)}>
         {children}
       </div>
     );
@@ -553,9 +559,15 @@ const AppLayout = ({ children }) => {
   // Public SaaS mode gets SaaS navbar/footer. The data-public-site wrapper +
   // PLATFORM_VARS scope the platform brand and design-shape tokens to the
   // marketing site so its navbar, cards, forms and footer theme consistently.
+  //
+  // data-saas-site is the narrower of the two markers and exists because
+  // data-public-site does NOT identify this site — tenant mode below sets it
+  // too. It is what the "no hard corners" floor in index.css keys off, and it
+  // sits out here rather than on the page so it also covers the navbar, the
+  // footer and /register/success, none of which are inside a .saas-page.
   if (tenantMode === "public") {
     return (
-      <div data-public-site style={buildPlatformVars(platform)}>
+      <div data-public-site data-saas-site style={buildPlatformVars(platform)}>
         <SaaSNavbar />
         {children}
         <SaaSFooter />

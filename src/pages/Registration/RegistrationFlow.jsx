@@ -38,14 +38,15 @@ const REVENUE_OPTIONS = [
   { value: "5000000+", label: "$5,000,000+" },
 ];
 const CHARITY_OPTIONS = [
-  { value: "general", label: "General charity" },
-  { value: "muslim", label: "Muslim charity" },
+  { value: "general", label: "Standard giving" },
+  { value: "muslim", label: "Islamic giving (Zakat, Sadaqah, Ramadan)" },
 ];
 
+/* Fallback only — replaced by the live plans once loaded. */
 const PLANS = [
-  { key: "basic", name: "Basic", monthly: 200, annual: 1920, blurb: "For small charities getting started" },
-  { key: "professional", name: "Professional", monthly: 500, annual: 4800, blurb: "For growing charities", popular: true },
-  { key: "enterprise", name: "Enterprise", monthly: 1000, annual: 9600, blurb: "For established charities at scale" },
+  { key: "essentials", name: "Essentials", monthly: 499, annual: 4790, blurb: "New and small charities" },
+  { key: "professional", name: "Professional", monthly: 899, annual: 8630, blurb: "Programs, events and recurring giving", popular: true },
+  { key: "enterprise", name: "Enterprise", monthly: 1499, annual: 14390, blurb: "Multi-program organisations at scale" },
 ];
 
 /* Token-driven palette — /register is wrapped in data-public-site + the platform
@@ -66,7 +67,12 @@ const css = `
 .reg-page h1,.reg-page h2,.reg-page h3{font-family:'Fraunces','Outfit',Georgia,serif!important;letter-spacing:-0.015em}
 /* Display headings at 500, not bold — see the note on the SaaS home page. */
 .reg-page h1,.reg-page h2{font-weight:500!important}
-.reg-page button,.reg-page input,.reg-page textarea,.reg-page [class*="rounded"],.reg-page [class*="border"]{border-radius:0 !important}
+/* This page used to force EVERY element square with a blanket
+   border-radius:0 !important. That is gone: the site is round throughout, and
+   the rule was also what defeated the [data-public-site] shape tokens in
+   index.css, which already round surfaces to --radius-card, buttons to
+   --radius-btn and inputs to --radius-input. Do not reintroduce it — with it in
+   place no rounded-* class on this page has any effect at all. */
 .reg-uline{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(16,42,35,.18);padding:10px 2px;font-size:14px;color:var(--tenant-primary,#102A23);outline:none;transition:border-color .3s,box-shadow .3s}
 .reg-uline::placeholder{color:#9aada4}
 .reg-uline:focus{border-bottom-color:var(--tenant-accent,#047857);box-shadow:0 1px 0 0 var(--tenant-accent,#047857)}
@@ -272,7 +278,10 @@ export default function RegistrationFlow() {
     // which threads them through as query params since Lead has no schema
     // field of its own for revenue/theme (Organisation/Stripe-only concepts).
     revenueRange: REVENUE_OPTIONS.some((o) => o.value === searchParams.get("revenue")) ? searchParams.get("revenue") : "0-500",
-    plan: searchParams.get("plan") || "basic",
+    // "basic" was the entry tier's code before the rename to "essentials";
+    // links and emails sent before that still carry ?plan=basic, so normalise
+    // rather than dropping those visitors onto an unknown plan.
+    plan: (searchParams.get("plan") === "basic" ? "essentials" : searchParams.get("plan")) || "essentials",
     billingCycle: searchParams.get("billing") || "monthly",
     adminName: "", adminEmail: "", adminPassword: "", confirmPassword: "",
     theme: searchParams.get("theme") || "default",
@@ -510,8 +519,8 @@ export default function RegistrationFlow() {
           <div className="relative overflow-hidden p-8 text-white sm:p-10"
             style={{ background: "linear-gradient(155deg, var(--tenant-primary, #102A23) 0%, #0A1A14 100%)" }}>
             {/* geometric shapes */}
-            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 border-2" style={{ borderColor: "rgba(255,255,255,.10)" }} />
-            <div aria-hidden className="pointer-events-none absolute bottom-24 right-7 h-14 w-24 opacity-[.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.9) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
+            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-3xl border-2" style={{ borderColor: "rgba(255,255,255,.10)" }} />
+            <div aria-hidden className="pointer-events-none absolute bottom-24 right-7 h-14 w-24 rounded-xl opacity-[.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.9) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
             <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-2 w-16" style={{ background: V.glow }} />
 
             <div className="relative flex h-full flex-col">
@@ -546,7 +555,7 @@ export default function RegistrationFlow() {
                   return (
                     <div key={s.label} className="flex items-start gap-3.5">
                       <div className="flex flex-col items-center">
-                        <motion.div className="grid h-9 w-9 shrink-0 place-items-center text-[13px] font-bold"
+                        <motion.div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-bold"
                           animate={active ? { scale: [1, 1.08, 1] } : {}} transition={{ duration: 0.4 }}
                           style={done
                             ? { background: "#fff", color: V.primary }
@@ -624,19 +633,19 @@ export default function RegistrationFlow() {
                           <Dropdown value={form.revenueRange} onChange={(v) => up("revenueRange", v)} options={REVENUE_OPTIONS} />
                         </div>
                         <div>
-                          <Label>Charity type</Label>
+                          <Label>Giving categories</Label>
                           <Dropdown value={form.isMuslimCharity ? "muslim" : "general"} onChange={(v) => up("isMuslimCharity", v === "muslim")} options={CHARITY_OPTIONS} />
                         </div>
                       </div>
                       <p className="-mt-3 text-[12px] leading-relaxed" style={{ color: V.inkFaint }}>
-                        Muslim charities get the Islamic giving pages (Zakat, Ramadan, Ways to Give) and donation types. You can change this later.
+                        Turns on the Islamic giving pages (Zakat calculator, Ramadan, Ways to Give) and the matching donation types. You can change this later.
                       </p>
 
                       <div>
                         <Label>Organisation logo <span className="font-normal" style={{ color: V.inkFaint }}>(optional)</span></Label>
                         {!logoPreview ? (
                           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed py-6 transition-colors hover:bg-black/[0.015]" style={{ borderColor: "rgba(16,42,35,.16)" }}>
-                            <span className="grid h-10 w-10 place-items-center" style={{ background: V.surface2, color: V.primary }}><Upload className="h-5 w-5" /></span>
+                            <span className="grid h-10 w-10 place-items-center rounded-2xl" style={{ background: V.surface2, color: V.primary }}><Upload className="h-5 w-5" /></span>
                             <span className="text-[13.5px] font-medium" style={{ color: V.ink }}>Click to upload</span>
                             <span className="text-[11.5px]" style={{ color: V.inkFaint }}>PNG, JPG, SVG or WebP · max 2MB</span>
                             <input type="file" accept="image/jpeg,image/png,image/svg+xml,image/webp" onChange={handleLogoSelect} className="hidden" />

@@ -32,7 +32,7 @@ export const GIVING_PATHS = [
 export const GIVING_FORMS = [
   { icon: "Coins", title: "Zakat", text: "2.5% of qualifying wealth held for a lunar year — one of the five pillars of Islam." },
   { icon: "HandHeart", title: "Sadaqah", text: "Voluntary charity given any time, in any amount, for any cause close to your heart." },
-  { icon: "Sparkles", title: "Zakat al-Fitr", text: "A small obligatory gift given before Eid prayer that purifies the fast." },
+  { icon: "Sparkles", title: "Zakat al-Fitr", text: "A small obligatory donation given before Eid prayer that purifies the fast." },
   { icon: "Gem", title: "Fidya & Kaffarah", text: "Compensation for missed fasts — feeding those in need on your behalf." },
 ];
 

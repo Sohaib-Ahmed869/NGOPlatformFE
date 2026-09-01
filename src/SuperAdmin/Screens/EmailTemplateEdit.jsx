@@ -23,6 +23,7 @@ export default function EmailTemplateEdit() {
       templateKey={key}
       backLabel="All emails"
       onBack={() => navigate({ pathname: "/emails", search })}
+      onSend={(k) => navigate(`/emails/send/${encodeURIComponent(k)}${search}`)}
     />
   );
 }

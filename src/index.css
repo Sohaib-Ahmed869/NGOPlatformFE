@@ -235,3 +235,52 @@ html:has([data-admin-theme])::-webkit-scrollbar-thumb:hover,
 html:has([data-user-portal])::-webkit-scrollbar-thumb:hover {
   background-color: rgba(148, 163, 184, 0.6);
 }
+
+/* ============================================================
+   SaaS marketing site — no hard corners
+   ============================================================
+   Every corner on the Donexus marketing site is round. The radius MAP (which
+   Tailwind size maps to which pixel value) lives with the rest of the design
+   system in pages/SaaS/ui.jsx §Corners; what lives here is the FLOOR — the
+   default for anything that would otherwise paint a square.
+
+   It is here and not there for reach. ui.jsx's rules are scoped to .saas-page,
+   which wraps a page's body and nothing else: not the navbar, not the footer
+   on any route, and not /register or /get-started, which have no .saas-page at
+   all. On top of that /register/success never imports ui.jsx, so a rule that
+   shipped inside pageCss simply would not exist on that route. index.css is
+   always loaded, and [data-saas-site] (App.jsx) covers the whole site — chrome
+   included. data-public-site would NOT do: tenant sites set it too.
+
+   :where() carries ZERO specificity, so this is a floor and never an override.
+   The radius map, rounded-full, an inline style — all still win.
+
+   The selector is element-typed rather than universal on purpose. A blanket
+   div/span rule also catches full-bleed section grounds and the absolute
+   inset-0 layers painted behind them, and rounding those does not read as
+   "soft": it cuts transparent notches out of the four corners of the viewport
+   where the band meets the screen edge. Boxed divs that need a radius get one
+   at their own call site instead. */
+[data-saas-site] :where(label, img, table, fieldset, details,
+summary, blockquote, pre, code) {
+  border-radius: 14px;
+}
+/* iframe and video are NOT in that list, and this is not an oversight. Both are
+   used here as fills — `absolute inset-0` inside a frame that is already round
+   and clipping (the office map on /contact). Media that fills a frame has to be
+   rounded BY the frame: give the media its own radius as well and the corner it
+   cuts is INSIDE the frame's, so the notch does not soften anything, it just
+   punches a hole through the map and shows the white card behind it. Verified
+   on /contact at 3x. Standalone media that needs a radius gets it explicitly. */
+/* button / input / select / textarea are deliberately NOT in that list: the
+   [data-public-site] shape tokens near the top of this file already give them
+   --radius-btn and --radius-input. Adding them here would only fight it. */
+
+/* Underlined fields are a bottom RULE, not a box, and a radius on one bends
+   that line up at both ends into a smile. !important is not laziness here: the
+   shape-token rule above is `[data-public-site] :is(input,…):not(…):not(…)`,
+   which scores (0,3,1) and beats any reasonable selector written at this
+   scope. */
+[data-saas-site] :is(input, textarea):is(.saas-uline, .reg-uline, .gs-uline) {
+  border-radius: 0 !important;
+}

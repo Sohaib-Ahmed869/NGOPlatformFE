@@ -31,7 +31,7 @@ function ContactFaq({ items }) {
       {items.map((f, i) => {
         const isOpen = open === i;
         return (
-          <div key={f.q} className="saas-faqlite relative overflow-hidden"
+          <div key={f.q} className="saas-faqlite relative overflow-hidden rounded-2xl"
             style={{
               background: isOpen ? `linear-gradient(180deg, rgba(var(--tenant-accent-rgb),.06), ${V.surface})` : V.surface,
               border: `1px solid ${isOpen ? "rgba(var(--tenant-accent-rgb),.35)" : V.line}`,
@@ -44,7 +44,7 @@ function ContactFaq({ items }) {
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span className="flex-1 text-[16px] font-semibold leading-snug transition-colors" style={{ color: isOpen ? V.primary : V.ink }}>{f.q}</span>
-              <span className="grid h-8 w-8 shrink-0 place-items-center transition-all duration-300"
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-all duration-300"
                 style={{ background: isOpen ? V.primary : V.surface2, color: isOpen ? "#fff" : V.primary, border: `1px solid ${isOpen ? "transparent" : V.line}`, transform: isOpen ? "rotate(180deg)" : "none" }}>
                 <ChevronDown className="h-4 w-4" />
               </span>
@@ -68,9 +68,12 @@ function ContactFaq({ items }) {
 const css = `
 /* Display headings at 500, not bold — see the note on the home page. */
 .saas-page h1,.saas-page h2{font-weight:500!important}
-/* Sharp, editorial corners — force EVERY element square, overriding both the
-   rounded-* utilities AND the [data-public-site] auto-rounding of borders/buttons/inputs. */
-.saas-page, .saas-page *, .saas-page *::before, .saas-page *::after{border-radius:0 !important}
+/* This page used to force EVERY element square with a blanket
+   border-radius:0 !important. That is gone: the site is round throughout, and
+   the rule was also what defeated the [data-public-site] shape tokens in
+   index.css, which already round surfaces to --radius-card, buttons to
+   --radius-btn and inputs to --radius-input. Do not reintroduce it — with it in
+   place no rounded-* class on this page has any effect at all. */
 /* Underline input — straight edge, no box, accent on focus */
 .saas-uline{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(var(--tenant-primary-rgb),.18);padding:10px 2px;font-size:14px;color:var(--tenant-primary,#102A23);outline:none;transition:border-color .3s,box-shadow .3s}
 .saas-uline::placeholder{color:#8AA89C}
@@ -129,7 +132,7 @@ export default function ContactPage() {
   const InfoRow = ({ icon: Icon, label, value, href }) => {
     const inner = (
       <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center border border-white/15" style={{ color: "#fff" }}>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/15" style={{ color: "#fff" }}>
           <Icon className="h-4 w-4" />
         </span>
         <div className="min-w-0">
@@ -152,7 +155,7 @@ export default function ContactPage() {
       {/* ── Editorial split: dark brand panel + form ── */}
       <section data-hero className="relative z-[1] px-6 pb-20 pt-28">
         <Reveal className="mx-auto max-w-5xl">
-          <div className="grid grid-cols-1 overflow-hidden border lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
+          <div className="grid grid-cols-1 overflow-hidden rounded-3xl border lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
             style={{ borderColor: V.line, boxShadow: "0 30px 70px -36px rgba(6,40,30,.4)" }}>
 
             {/* Left — dark brand panel */}
@@ -179,7 +182,7 @@ export default function ContactPage() {
                   {address ? <InfoRow icon={MapPin} label="Office" value={address} /> : null}
                 </div>
 
-                <div className="mt-7 inline-flex items-center gap-2 border border-white/15 px-3 py-1.5 text-[12.5px] text-white/75">
+                <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-[12.5px] text-white/75">
                   <Clock className="h-3.5 w-3.5" style={{ color: V.accent }} /> Typically replies within 24 hours
                 </div>
 
@@ -187,7 +190,7 @@ export default function ContactPage() {
                 <div className="mt-7 border-t border-white/10 pt-6">
                   <p className="text-[13px] text-white/55">Prefer to talk it through?</p>
                   <Link to="/get-started"
-                    className="group mt-2 inline-flex items-center gap-2 bg-white px-5 py-3 text-[14px] font-semibold" style={{ color: V.primary }}>
+                    className="group mt-2 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[14px] font-semibold" style={{ color: V.primary }}>
                     <CalendarClock className="h-4 w-4" /> Book a 15-min demo
                     <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                   </Link>
@@ -199,7 +202,7 @@ export default function ContactPage() {
                       const Icon = s.icon;
                       return (
                         <a key={s.key} href={s.href} target="_blank" rel="noreferrer"
-                          className="grid h-10 w-10 place-items-center border border-white/15 text-white/60 transition-all hover:-translate-y-0.5 hover:border-white/40 hover:text-white">
+                          className="grid h-10 w-10 place-items-center rounded-2xl border border-white/15 text-white/60 transition-all hover:-translate-y-0.5 hover:border-white/40 hover:text-white">
                           <Icon className="h-4 w-4" />
                         </a>
                       );
@@ -274,7 +277,7 @@ export default function ContactPage() {
       {address ? (
         <section className="relative z-[1] px-6 pb-20">
           <Reveal className="mx-auto max-w-5xl">
-            <div className="grid grid-cols-1 overflow-hidden border md:grid-cols-[0.8fr_1.2fr]" style={{ borderColor: V.line, boxShadow: "0 24px 60px -36px rgba(6,40,30,.3)" }}>
+            <div className="grid grid-cols-1 overflow-hidden rounded-3xl border md:grid-cols-[0.8fr_1.2fr]" style={{ borderColor: V.line, boxShadow: "0 24px 60px -36px rgba(6,40,30,.3)" }}>
               {/* info */}
               <div className="p-8 sm:p-10" style={{ background: V.surface }}>
                 <span className="inline-flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.16em]" style={{ fontFamily: mono, color: V.inkFaint }}>

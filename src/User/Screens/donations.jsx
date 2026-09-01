@@ -409,7 +409,7 @@ function DonationDetailPage({ donation, orgInfo, onBack }) {
   const instPct = instTotal ? Math.min(100, Math.round((instPaid / instTotal) * 100)) : 0;
   const itemsTotal = donation.items.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
   const typeFact = isOneTime
-    ? "One-time gift"
+    ? "One-time donation"
     : donation.paymentType === "recurring"
       ? `${cap(rec?.frequency || "monthly")} recurring`
       : `${instTotal} installments`;
@@ -890,7 +890,7 @@ const UserDonations = () => {
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Your giving</p>
             <h1 className="mt-1 font-heading text-2xl font-bold text-white">My Donations</h1>
-            <p className="mt-1 text-sm text-white/80">Every gift you've made — receipts, history and your annual statement.</p>
+            <p className="mt-1 text-sm text-white/80">Every donation you've made — receipts, history and your annual statement.</p>
           </div>
           <div className="flex items-center gap-2">
             <button

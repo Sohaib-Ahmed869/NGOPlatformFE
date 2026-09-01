@@ -63,7 +63,7 @@ export default function SaaSFooter() {
             <p className="mt-4 max-w-[300px] text-sm leading-relaxed text-white/55">{description}</p>
             <Link
               to="/register"
-              className="mt-6 inline-flex items-center gap-2 rounded-none bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
             >
               Start your portal <ArrowRight className="h-4 w-4" />
             </Link>
@@ -78,7 +78,7 @@ export default function SaaSFooter() {
                       href={s.href}
                       target="_blank"
                       rel="noreferrer"
-                      className="grid h-10 w-10 place-items-center rounded-none border border-white/15 text-white/60 transition-all hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-white"
+                      className="grid h-10 w-10 place-items-center rounded-2xl border border-white/15 text-white/60 transition-all hover:-translate-y-0.5 hover:border-accent hover:bg-accent hover:text-white"
                     >
                       <Icon className="h-4 w-4" />
                     </a>
@@ -130,7 +130,7 @@ export default function SaaSFooter() {
                 href={`mailto:${email}`}
                 className="group flex items-center gap-3 text-sm text-white/55 transition-colors hover:text-white"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-none border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">
                   <Mail className="h-4 w-4" />
                 </span>
                 {email}
@@ -140,7 +140,7 @@ export default function SaaSFooter() {
                   href={`tel:${phone}`}
                   className="group flex items-center gap-3 text-sm text-white/55 transition-colors hover:text-white"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-none border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-accent transition-all group-hover:border-accent group-hover:bg-accent/10">
                     <Phone className="h-4 w-4" />
                   </span>
                   {phone}
@@ -148,7 +148,7 @@ export default function SaaSFooter() {
               ) : null}
               {address ? (
                 <div className="flex items-center gap-3 text-sm text-white/55">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-none border border-white/10 text-accent">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-accent">
                     <MapPin className="h-4 w-4" />
                   </span>
                   {address}

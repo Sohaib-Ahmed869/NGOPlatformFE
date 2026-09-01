@@ -712,7 +712,7 @@ const Subscriptions = () => {
           <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
             {tab === "past"
               ? "Cancelled, ended or fully-paid plans will appear here."
-              : "Set up a recurring gift or installment plan and it'll show here for you to manage."}
+              : "Set up a recurring donation or installment plan and it'll show here for you to manage."}
           </p>
         </div>
       ) : (
@@ -777,7 +777,7 @@ const Subscriptions = () => {
       </Modal>
 
       {/* Extend modal */}
-      <Modal isOpen={showEdit} onClose={() => !busy && setShowEdit(false)} title="Extend subscription" description="Choose a new end date for your recurring gift." icon={Calendar}>
+      <Modal isOpen={showEdit} onClose={() => !busy && setShowEdit(false)} title="Extend subscription" description="Choose a new end date for your recurring donation." icon={Calendar}>
         <div className="mb-4">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">Current end date</label>
           <div className="border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">{currentEndDate ? fmtDate(currentEndDate) : "Open-ended"}</div>

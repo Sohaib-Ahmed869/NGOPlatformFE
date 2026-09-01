@@ -32,7 +32,7 @@ import SALoader from "../SALoader";
 import toast from "react-hot-toast";
 
 import AnimatedNumber from "../components/AnimatedNumber";
-const planColors = { basic: "#06b6d4", professional: "#10b981", enterprise: "#f59e0b" };
+const planColors = { essentials: "#0F3D2E", professional: "#1F7A55", enterprise: "#2FA36B" };
 const statusStyles = {
   active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
   pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
@@ -452,7 +452,7 @@ export default function Organisations() {
       ["", "All Plans"],
       ...(plans.length > 0
         ? plans.map((p) => [p.code, p.name])
-        : [["basic", "Basic"], ["professional", "Professional"], ["enterprise", "Enterprise"]]),
+        : [["essentials", "Essentials"], ["professional", "Professional"], ["enterprise", "Enterprise"]]),
     ],
     [plans],
   );
@@ -907,7 +907,7 @@ export default function Organisations() {
                   value={selectedPlan}
                   onChange={(v) => setSelectedPlan(v)}
                   options={plans.length === 0
-                    ? [{ value: "basic", label: "Basic" }, { value: "professional", label: "Professional" }, { value: "enterprise", label: "Enterprise" }]
+                    ? [{ value: "essentials", label: "Essentials" }, { value: "professional", label: "Professional" }, { value: "enterprise", label: "Enterprise" }]
                     : plans.map((p) => ({ value: p.code, label: `${p.name} — $${Number(p.price?.monthly || 0).toLocaleString()}/mo` }))}
                 />
               </div>

@@ -56,14 +56,26 @@ const card = "border border-gray-100 bg-white shadow-sm dark:border-white/10 dar
 
 const isRichEmpty = (html) => !sanitizeRichText(html || "").replace(/<[^>]*>/g, "").replace(/&nbsp;| /g, " ").trim();
 
-function Meta({ icon: Icon, label, value }) {
+/**
+ * One intake field. The value WRAPS — it is never truncated.
+ *
+ * This panel is the operator's only view of what the lead actually typed, and a
+ * clipped value is worse than a tall card: "https://www.hu…", "ayna.sulaiman+…"
+ * and "TBC — awaiting…" are all indistinguishable from the next lead's. There is
+ * nowhere else in the console to go and read the full string.
+ *
+ * `overflow-wrap: anywhere` rather than plain `break-words` because the values
+ * that overflow are the ones with no spaces to break at — URLs and email
+ * addresses — and `break-words` alone leaves those overflowing their column.
+ */
+function Meta({ icon: Icon, label, value, wide = false }) {
   if (value === undefined || value === null || value === "") return null;
   return (
-    <div className="min-w-0">
+    <div className={cn("min-w-0", wide && "col-span-full")}>
       <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">
-        {Icon ? <Icon className="h-3 w-3" /> : null} {label}
+        {Icon ? <Icon className="h-3 w-3 shrink-0" /> : null} {label}
       </p>
-      <p className="mt-0.5 truncate text-sm text-gray-800 dark:text-white/85">{value}</p>
+      <p className="mt-0.5 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-white/85">{value}</p>
     </div>
   );
 }
@@ -81,11 +93,31 @@ function Chips({ values, labelFor }) {
   );
 }
 
+/**
+ * Fields laid out by the width they ACTUALLY have, not by the viewport's.
+ *
+ * This was `grid-cols-2 sm:grid-cols-3`, which is measured against the window
+ * while these cards live in a rail that is one third of it. Past `lg` the rail
+ * gets NARROWER as the window gets wider, so on a large screen the breakpoint
+ * confidently asked for three columns inside ~500px and every value was squeezed
+ * into ~150px — which is what the truncation was hiding.
+ *
+ * auto-fit + minmax is the fix rather than more breakpoints: it reads the real
+ * container, so the same card is 1-up in the narrow rail, 2-up when the rail has
+ * room, and 3-up on a stacked mobile layout where the card spans the page. No
+ * breakpoint can express that, because the rail's width is not a function of the
+ * viewport's in one direction.
+ *
+ * Full-width children must use `col-span-full` — with a variable column count
+ * there is no fixed number to span.
+ */
 function Section({ title, children }) {
   return (
     <div className={`${card} p-4`}>
       <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">{title}</h3>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">{children}</div>
+      <div className="grid gap-x-4 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
+        {children}
+      </div>
     </div>
   );
 }
@@ -263,8 +295,8 @@ export default function LeadDetail() {
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center bg-accent/10 text-accent"><Building2 className="h-5 w-5" /></span>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold text-gray-900 dark:text-white">{lead.orgName}</h1>
-              <p className="truncate text-sm text-gray-500 dark:text-white/60">{lead.contactName} · <a href={`mailto:${lead.contactEmail}`} className="text-accent hover:underline">{lead.contactEmail}</a></p>
+              <h1 className="text-lg font-bold text-gray-900 [overflow-wrap:anywhere] dark:text-white">{lead.orgName}</h1>
+              <p className="text-sm text-gray-500 [overflow-wrap:anywhere] dark:text-white/60">{lead.contactName} · <a href={`mailto:${lead.contactEmail}`} className="text-accent hover:underline">{lead.contactEmail}</a></p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -332,10 +364,10 @@ export default function LeadDetail() {
         {/* Left: intake details */}
         <div className="space-y-4 lg:col-span-1">
           <Section title="Organisation">
-            <Meta icon={Globe} label="Website" value={lead.orgWebsite} />
+            <Meta icon={Globe} label="Website" value={lead.orgWebsite} wide />
             <Meta icon={Sparkles} label="Type" value={lead.verticalType === "muslim" ? "Muslim charity" : "General"} />
             <Meta icon={MapPin} label="Country" value={lead.country} />
-            <div className="col-span-2 sm:col-span-3">
+            <div className="col-span-full">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Cause areas</p>
               <Chips values={lead.causeAreas} labelFor={causeAreaLabel} />
             </div>
@@ -343,7 +375,7 @@ export default function LeadDetail() {
 
           <Section title="Contact">
             <Meta icon={UserIcon} label="Role" value={lead.contactRole} />
-            <Meta icon={Mail} label="Email" value={lead.contactEmail} />
+            <Meta icon={Mail} label="Email" value={lead.contactEmail} wide />
             <Meta icon={Phone} label="Phone" value={lead.contactPhone} />
           </Section>
 
@@ -354,12 +386,12 @@ export default function LeadDetail() {
           </Section>
 
           <Section title="Current state">
-            <div className="col-span-2 sm:col-span-3">
+            <div className="col-span-full">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Tools in use</p>
               <Chips values={lead.currentTools} labelFor={currentToolLabel} />
               {lead.currentToolsOther ? <p className="mt-1.5 text-xs text-gray-500">{lead.currentToolsOther}</p> : null}
             </div>
-            <div className="col-span-2 sm:col-span-3">
+            <div className="col-span-full">
               <p className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Challenges</p>
               <Chips values={lead.challenges} labelFor={challengeLabel} />
               {lead.challengesOther ? <p className="mt-1.5 text-xs text-gray-500">{lead.challengesOther}</p> : null}
@@ -372,7 +404,7 @@ export default function LeadDetail() {
             <Meta label="Timeline" value={timelineLabel(lead.timeline)} />
             <Meta label="Decision role" value={decisionRoleLabel(lead.decisionRole)} />
             {lead.message ? (
-              <div className="col-span-2 sm:col-span-3">
+              <div className="col-span-full">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">Message</p>
                 <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-white/80">{lead.message}</p>
               </div>

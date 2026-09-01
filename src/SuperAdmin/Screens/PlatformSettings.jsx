@@ -4,7 +4,7 @@ import {
   Building2, Palette, Loader2, Save, Mail, MapPin, Share2, Upload, Trash2, Check,
   Facebook, Instagram, Twitter, Linkedin,
   CreditCard, KeyRound, Eye, EyeOff, ShieldCheck, AlertTriangle, Webhook, Copy, Plug,
-  Zap, ArrowRightLeft, Users, RefreshCw,
+  Zap, ArrowRightLeft, Users, RefreshCw, Send,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import platformService from "../../services/platform.service";
@@ -33,6 +33,7 @@ const TABS = [
   { id: "social", label: "Social", desc: "Social links", icon: Share2 },
   { id: "branding", label: "Branding", desc: "Logos, colours & theme", icon: Palette },
   { id: "stripe", label: "Stripe", desc: "Billing account & keys", icon: CreditCard },
+  { id: "email", label: "Email", desc: "Outbound mailbox", icon: Send },
 ];
 
 const DEFAULTS = {
@@ -301,6 +302,362 @@ function SecretInput({ label, hint, value, onChange, placeholder, stored, autoCo
         ) : null}
       </div>
     </Field>
+  );
+}
+
+/**
+ * The platform's outbound mailbox.
+ *
+ * Same contract as StripeTab below and for the same reasons: the password is
+ * write-only (the server returns a mask, never the secret), so the input starts
+ * blank and "leave blank to keep the current one" is the actual behaviour
+ * rather than a convenience.
+ *
+ * The one thing this tab does that the Stripe tab does not is offer to SEND.
+ * Authenticating proves the login works; it does not prove mail arrives.
+ * "Logged in fine, delivered nothing" is a real and common state — a blocked
+ * sender, an unverified domain — and it stays invisible until a receipt
+ * silently fails to reach a donor.
+ */
+const EMAIL_BLANK = { host: "", port: 587, secure: false, username: "", password: "", fromName: "", fromEmail: "", replyTo: "" };
+
+function EmailTab({ draftRef }) {
+  const { platformVersion } = useSARealtime();
+  const [cfg, setCfg] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Restored from the parent's ref so switching tabs doesn't discard a
+  // half-entered mailbox — this tab lives inside an AnimatePresence and is
+  // destroyed on every tab change.
+  const [form, setForm] = useState(() => draftRef.current || { ...EMAIL_BLANK });
+  // One action at a time: Test and Save both open an SMTP connection, and
+  // letting them race means the slower response overwrites the faster one.
+  const [busy, setBusy] = useState(null); // "saving" | "testing" | "clearing" | null
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [testTo, setTestTo] = useState("");
+
+  const saving = busy === "saving";
+  const testing = busy === "testing";
+  const clearing = busy === "clearing";
+
+  useEffect(() => { draftRef.current = form; }, [form, draftRef]);
+
+  // platformVersion bumps when another operator changes platform config, so
+  // this revalidates instead of showing a mailbox that has since been replaced.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const data = await withMinDelay(platformService.getEmailConfig());
+        if (!alive) return;
+        setCfg(data);
+        // Never clobber half-typed credentials with a background refresh.
+        setForm((f) =>
+          f.password || f.host !== "" || f.username !== ""
+            ? f
+            : {
+                host: data.host || "", port: data.port || 587, secure: !!data.secure,
+                username: data.username || "", password: "",
+                fromName: data.fromName || "", fromEmail: data.fromEmail || "", replyTo: data.replyTo || "",
+              },
+        );
+        setErr(null);
+      } catch (e) {
+        if (alive) setErr(e?.response?.data?.error || "Couldn't load the email configuration.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [reloadKey, platformVersion]);
+
+  const adopt = (next) => {
+    setCfg(next);
+    const clean = {
+      host: next.host || "", port: next.port || 587, secure: !!next.secure,
+      username: next.username || "", password: "",
+      fromName: next.fromName || "", fromEmail: next.fromEmail || "", replyTo: next.replyTo || "",
+    };
+    setForm(clean);
+    draftRef.current = clean;
+  };
+
+  const dirty =
+    !!cfg &&
+    (form.password.trim() !== "" ||
+      form.host.trim() !== (cfg.host || "") ||
+      Number(form.port) !== (cfg.port || 587) ||
+      !!form.secure !== !!cfg.secure ||
+      form.username.trim() !== (cfg.username || "") ||
+      form.fromName.trim() !== (cfg.fromName || "") ||
+      form.fromEmail.trim() !== (cfg.fromEmail || "") ||
+      form.replyTo.trim() !== (cfg.replyTo || ""));
+
+  const basePayload = () => {
+    const p = {
+      host: form.host.trim(), port: Number(form.port) || 587, secure: !!form.secure,
+      username: form.username.trim(), fromName: form.fromName.trim(),
+      fromEmail: form.fromEmail.trim(), replyTo: form.replyTo.trim(),
+    };
+    if (form.password.trim()) p.password = form.password;
+    return p;
+  };
+
+  const persist = async (payload, successMsg) => {
+    if (busy) return;
+    setBusy("saving");
+    try {
+      const res = await platformService.updateEmailConfig(payload);
+      adopt(res.config);
+      setTestResult(null);
+      toast.success(successMsg);
+    } catch (e) {
+      const d = e?.response?.data;
+      toast.error(d?.hint ? `${d.error} ${d.hint}` : d?.error || "Failed to save the mailbox");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onSave = () => { if (dirty) persist({ ...basePayload(), enabled: !!cfg.enabled }, "Mailbox saved"); };
+
+  const onToggleEnabled = () => {
+    const next = !cfg.enabled;
+    // Enabling with details typed but unsaved would verify the OLD mailbox and
+    // enable the wrong one — send what is on screen so both stay consistent.
+    persist({ ...basePayload(), enabled: next }, next ? "Platform mailbox enabled" : "Platform mailbox disabled");
+  };
+
+  const onTest = async () => {
+    if (busy) return;
+    setBusy("testing");
+    setTestResult(null);
+    try {
+      // Typed host + username means "test what I've entered"; otherwise test
+      // the mailbox the server is actually running on.
+      const typed = form.host.trim() && form.username.trim();
+      const payload = typed ? { ...basePayload() } : {};
+      if (testTo.trim()) payload.to = testTo.trim();
+      const res = await platformService.testEmailConnection(payload);
+      setTestResult({ ok: true, ...res });
+      if (res.config) setCfg(res.config);
+      toast.success(res.message || "Connected");
+    } catch (e) {
+      const msg = e?.response?.data?.error || "Could not connect to the mail server";
+      setTestResult({ ok: false, error: msg });
+      toast.error(msg);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onClear = async () => {
+    if (busy) return;
+    setBusy("clearing");
+    try {
+      const res = await platformService.clearEmailConfig();
+      adopt(res.config);
+      setConfirmClear(false);
+      setTestResult(null);
+      toast.success("Mailbox removed");
+    } catch (e) {
+      toast.error(e?.response?.data?.error || "Failed to remove the mailbox");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // A typed password lives only in this component's state; a reload loses it.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  if (loading) return <div className="grid place-items-center py-16"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>;
+  if (err) return <SAErrorState message={err} onRetry={() => { setErr(null); setLoading(true); setReloadKey((k) => k + 1); }} />;
+  if (!cfg) return null;
+
+  const rt = cfg.runtime || {};
+  const status = !rt.configured
+    ? { tone: "rose", label: "No mailbox configured", detail: "Nothing can send. Receipts, registration emails and operator notices will all fail." }
+    : rt.source === "database"
+      ? { tone: "emerald", label: "Live · using the saved mailbox", detail: `Platform mail is sent from ${rt.fromEmail || cfg.username}.` }
+      : { tone: "amber", label: "Using the EMAIL_* environment variables", detail: cfg.hasPassword ? "A mailbox is saved here but not enabled, so the environment is still in use." : "Falling back to the environment. Save a mailbox below to manage it from the console." };
+
+  const toneCls = {
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    rose: "border-rose-200 bg-rose-50 text-rose-800",
+  }[status.tone];
+
+  // 465 is implicit TLS, 587 is STARTTLS. Getting this pair backwards is the
+  // most common SMTP mistake and it does not fail loudly — the client waits for
+  // a handshake that never comes and the send hangs until it times out.
+  const portMismatch =
+    (Number(form.port) === 465 && !form.secure) || (Number(form.port) === 587 && form.secure);
+
+  const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
+  const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" } } };
+
+  return (
+    <motion.div layout variants={stagger} initial="hidden" animate="show" className="space-y-8">
+      <SectionHead icon={Mail} title="Email" subtitle="The platform's own mailbox — used for every email a tenant's own SMTP doesn't send." />
+
+      <motion.div variants={item} layout>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${status.tone}-${rt.source}`}
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className={cn("flex flex-wrap items-start gap-3 border p-4", toneCls)}
+          >
+            <span className="mt-0.5 shrink-0">
+              {status.tone === "emerald" ? <ShieldCheck className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{status.label}</p>
+              <p className="mt-0.5 text-xs opacity-90">{status.detail}</p>
+              {cfg.lastVerifiedAt ? (
+                <p className="mt-2 text-xs opacity-90">Last verified {new Date(cfg.lastVerifiedAt).toLocaleString()}</p>
+              ) : null}
+              {cfg.lastVerifyError ? (
+                <p className="mt-2 text-xs font-medium opacity-90">Last error: {cfg.lastVerifyError}</p>
+              ) : null}
+            </div>
+            <button
+              type="button" onClick={onToggleEnabled} disabled={!!busy}
+              className="shrink-0 border border-current px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition hover:opacity-80 disabled:opacity-50"
+            >
+              {cfg.enabled ? "Disable" : "Enable"}
+            </button>
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
+
+      {cfg.passwordBroken ? (
+        <motion.div variants={item} className="flex items-start gap-3 border border-rose-200 bg-rose-50 p-4 text-rose-800">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">The stored password can't be decrypted</p>
+            <p className="mt-0.5 text-xs">PAYMENT_ENC_KEY (or JWT_SECRET) changed after it was saved. Re-enter the password below to fix it.</p>
+          </div>
+        </motion.div>
+      ) : null}
+
+      {/* Server */}
+      <motion.div variants={item} className="grid gap-5 sm:grid-cols-2">
+        <Field label="SMTP host" hint="e.g. smtp.gmail.com — the server name only, no https:// and no path.">
+          <TextInput value={form.host} onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))} placeholder="smtp.gmail.com" spellCheck={false} autoComplete="off" className="font-mono" />
+        </Field>
+        <Field label="Port" hint="587 for STARTTLS (most providers), 465 for implicit TLS.">
+          <TextInput type="number" value={form.port} onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))} placeholder="587" className="font-mono" />
+        </Field>
+        <Field label="Mailbox username" hint="Usually the full email address of the sending account.">
+          <TextInput icon={Users} value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="no-reply@yourdomain.org" spellCheck={false} autoComplete="off" />
+        </Field>
+        <SecretInput
+          label="Password"
+          hint={cfg.hasPassword ? `Stored ${cfg.passwordMask || ""} — leave blank to keep it.` : "An app password, if your provider issues them."}
+          value={form.password}
+          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+          placeholder={cfg.hasPassword ? "Leave blank to keep" : "App password"}
+          stored={cfg.hasPassword}
+        />
+        <Field label="Use TLS" hint="On for port 465. Off for 587, which upgrades to TLS with STARTTLS." className="sm:col-span-2">
+          <label className="mt-1 inline-flex cursor-pointer items-center gap-3">
+            <input type="checkbox" checked={!!form.secure} onChange={(e) => setForm((f) => ({ ...f, secure: e.target.checked }))} className="h-4 w-4 accent-accent" />
+            <span className="text-sm text-gray-700">Connect over implicit TLS</span>
+          </label>
+          {portMismatch ? (
+            <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              Port {form.port} normally pairs with TLS {Number(form.port) === 465 ? "on" : "off"}. As set, the connection will most likely hang rather than fail.
+            </p>
+          ) : null}
+        </Field>
+      </motion.div>
+
+      {/* Identity */}
+      <motion.div variants={item} className="grid gap-5 sm:grid-cols-2">
+        <Field label="From name" hint="Shown as the sender. Tenants with a name of their own still send as themselves.">
+          <TextInput value={form.fromName} onChange={(e) => setForm((f) => ({ ...f, fromName: e.target.value }))} placeholder="Donexus" />
+        </Field>
+        <Field label="From address" hint="Leave blank to send as the mailbox username — most providers reject anything else.">
+          <TextInput icon={Mail} value={form.fromEmail} onChange={(e) => setForm((f) => ({ ...f, fromEmail: e.target.value }))} placeholder="no-reply@yourdomain.org" spellCheck={false} />
+        </Field>
+        <Field label="Reply-to" hint="Optional. Where replies should land if that isn't the sending mailbox." className="sm:col-span-2">
+          <TextInput icon={Mail} value={form.replyTo} onChange={(e) => setForm((f) => ({ ...f, replyTo: e.target.value }))} placeholder="support@yourdomain.org" spellCheck={false} />
+        </Field>
+      </motion.div>
+
+      {/* Test */}
+      <motion.div variants={item} className="border border-gray-100 bg-gray-50/60 p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Send a test</p>
+        <p className="mt-1.5 text-xs text-gray-500">
+          Leave the address blank to check the login only. Enter one to actually deliver a message — a mailbox can authenticate perfectly and still be blocked from sending.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <div className="min-w-[240px] flex-1">
+            <TextInput icon={Mail} value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@example.com" spellCheck={false} />
+          </div>
+          <button type="button" onClick={onTest} disabled={!!busy || (!rt.configured && !(form.host.trim() && form.username.trim()))} className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50">
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />} Test mailbox
+          </button>
+        </div>
+        {testResult ? (
+          <p className={cn("mt-3 text-xs font-medium", testResult.ok ? "text-emerald-700" : "text-rose-700")}>
+            {testResult.ok ? testResult.message || "Connected." : testResult.error}
+          </p>
+        ) : null}
+      </motion.div>
+
+      <motion.div variants={item} className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-6">
+        {cfg.hasPassword || cfg.host ? (
+          <button type="button" onClick={() => setConfirmClear(true)} disabled={!!busy} className="inline-flex items-center gap-2 border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> Remove
+          </button>
+        ) : null}
+        <span className="flex-1" />
+        <button type="button" onClick={onSave} disabled={!!busy || !dirty} className="inline-flex items-center gap-2 bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-light disabled:opacity-50">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save changes
+        </button>
+      </motion.div>
+
+      <AnimatePresence>
+        {confirmClear ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => !busy && setConfirmClear(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-white p-6 shadow-xl"
+            >
+              <div className="flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center bg-rose-50 text-rose-600"><AlertTriangle className="h-5 w-5" /></span>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Remove the platform mailbox?</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {rt.envAvailable
+                      ? "Platform email falls back to the EMAIL_* environment variables, so sending keeps working."
+                      : "There are no EMAIL_* environment variables to fall back on, so every platform email will stop sending until a mailbox is configured again."}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button type="button" onClick={() => setConfirmClear(false)} disabled={!!busy} className="px-4 py-2 text-sm font-medium text-gray-600 transition hover:text-gray-900 disabled:opacity-50">Cancel</button>
+                <button type="button" onClick={onClear} disabled={!!busy} className="inline-flex items-center gap-2 bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50">
+                  {clearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Remove
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -1044,6 +1401,9 @@ export default function PlatformSettings() {
   // Holding its draft here means a half-pasted key survives a detour to
   // Branding — it still dies when you leave the screen, which is the point.
   const stripeDraftRef = useRef(null);
+  // Own draft ref: the tabs share an AnimatePresence, so each is unmounted on
+  // every switch and a half-entered mailbox would otherwise be lost.
+  const emailDraftRef = useRef(null);
 
   useEffect(() => {
     // Cached per session → only fetch (and show the loader) on first visit.
@@ -1364,6 +1724,8 @@ export default function PlatformSettings() {
               )}
 
               {tab === "stripe" && <StripeTab draftRef={stripeDraftRef} />}
+
+              {tab === "email" && <EmailTab draftRef={emailDraftRef} />}
             </motion.div>
           </AnimatePresence>
         </div>

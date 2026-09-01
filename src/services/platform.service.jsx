@@ -177,6 +177,39 @@ const platformService = {
     superadminService.invalidateAuditCache();
     return res.data;
   },
+
+  /* ── Platform mailbox ────────────────────────────────────────────────────
+     Same write-only contract as the Stripe config above: the password goes up,
+     never comes back, and a blank one means "leave unchanged". Deliberately
+     NOT cached — unlike the Stripe key this is read on one screen only, and a
+     stale cache here would show a mailbox as healthy after a failed re-save. */
+  getEmailConfig: async () => {
+    const res = await axiosInstance.get("/platform/settings/email");
+    return res.data;
+  },
+
+  updateEmailConfig: async (payload) => {
+    const res = await axiosInstance.put("/platform/settings/email", payload);
+    superadminService.invalidateAuditCache(); // mailbox changes are audited
+    return res.data;
+  },
+
+  /**
+   * Test a mailbox. Pass SMTP fields to test what is typed but not yet saved;
+   * pass none to test the one the server is actually running on. Pass `to` to
+   * actually deliver a message — authenticating proves the login, not that
+   * mail arrives.
+   */
+  testEmailConnection: async (payload = {}) => {
+    const res = await axiosInstance.post("/platform/settings/email/test", payload);
+    return res.data;
+  },
+
+  clearEmailConfig: async () => {
+    const res = await axiosInstance.delete("/platform/settings/email");
+    superadminService.invalidateAuditCache();
+    return res.data;
+  },
 };
 
 export default platformService;

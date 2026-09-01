@@ -187,7 +187,7 @@ const DonorDetail = () => {
         <div className="grid grid-cols-2 divide-y divide-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
           <HeaderStat icon={DollarSign} label="Total donated" value={money(total)} />
           <HeaderStat icon={Heart} label="Donations" value={count} />
-          <HeaderStat icon={TrendingUp} label="Average gift" value={money(average)} />
+          <HeaderStat icon={TrendingUp} label="Average donation" value={money(average)} />
           <HeaderStat icon={Clock} label="Last donation" value={fmtDate(d.lastDonationDate)} />
         </div>
       </div>

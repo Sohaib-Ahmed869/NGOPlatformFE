@@ -80,6 +80,28 @@ function lruSet(map, key, value, max) {
   if (map.size > max) map.delete(map.keys().next().value);
 }
 
+/**
+ * Build the axios `(body, config)` pair for a send.
+ *
+ * With no attachments this is plain JSON, which keeps the common case a normal
+ * request. With attachments it has to be multipart, and multipart carries only
+ * strings — so the nested objects are JSON-encoded into single fields and the
+ * server parses them back. Returned as a tuple so the call site stays one line
+ * and the two shapes can never drift apart.
+ */
+function sendBody({ files, ...rest } = {}) {
+  const list = Array.isArray(files) ? files.filter(Boolean) : [];
+  if (!list.length) return [rest, undefined];
+
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(rest)) {
+    if (v === undefined || v === null || v === "") continue;
+    fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+  }
+  for (const f of list) fd.append("attachments", f);
+  return [fd, { headers: { "Content-Type": "multipart/form-data" } }];
+}
+
 function makeService(base, { templatesPath = "/templates" } = {}) {
   const url = (p = "") => `${base}${p}`;
   const tpl = (key, p = "") => `${base}${templatesPath}/${encodeURIComponent(key)}${p}`;
@@ -212,8 +234,12 @@ function makeService(base, { templatesPath = "/templates" } = {}) {
      * a character you just typed are the normal rhythm of editing, and every
      * one of them used to be a full server render.
      */
-    preview: (key, draft, { signal } = {}) => {
-      const sig = `${key}|${draftSignature(draft)}`;
+    preview: (key, draft, { signal, data } = {}) => {
+      // `data` is the composer's real values. It joins the signature because a
+      // preview is only content-addressed if the ADDRESS covers everything that
+      // changes the render -- keying on the draft alone would serve one
+      // recipient's email while showing another's name.
+      const sig = `${key}|${draftSignature(draft)}|${draftSignature(data)}`;
       const hit = _preview.get(sig);
       if (hit) {
         // Touch it so an active editing session doesn't evict its own history.
@@ -225,7 +251,7 @@ function makeService(base, { templatesPath = "/templates" } = {}) {
         _previewFlight,
         sig,
         tpl(key, "/preview"),
-        { draft },
+        data ? { draft, data } : { draft },
         { signal },
         (res) => {
           lruSet(_preview, sig, res.data, PREVIEW_CACHE_MAX);
@@ -235,10 +261,43 @@ function makeService(base, { templatesPath = "/templates" } = {}) {
     },
 
     /** Whether `preview` would answer from memory — lets the UI skip its spinner. */
-    hasPreview: (key, draft) => _preview.has(`${key}|${draftSignature(draft)}`),
+    hasPreview: (key, draft, data) =>
+      _preview.has(`${key}|${draftSignature(draft)}|${draftSignature(data)}`),
 
     sendTest: (key, { to, draft }) =>
       axiosInstance.post(tpl(key, "/test"), { to, draft }).then((r) => r.data),
+
+    /* ── manual send ──
+       The composer: a real email, to addresses someone typed, with the
+       variables filled in by hand and files optionally attached.
+
+       Not cached and not de-duplicated, unlike everything else here. A repeated
+       preview is the same answer; a repeated send is a second email in
+       somebody's inbox, and joining two of them into one would silently drop a
+       deliberate re-send. The panel guards the double-click instead. */
+
+    sendManual: (key, payload) =>
+      axiosInstance.post(tpl(key, "/send"), ...sendBody(payload)).then((r) => r.data),
+
+    /* ── free-form composer ──
+       An email that isn't in the catalogue at all. Same envelope, same layout,
+       same send log — the body is just written on the spot. */
+
+    previewCustom: (body, { signal } = {}) => {
+      const sig = `custom|${draftSignature(body)}`;
+      const hit = _preview.get(sig);
+      if (hit) {
+        lruSet(_preview, sig, hit, PREVIEW_CACHE_MAX);
+        return Promise.resolve(hit);
+      }
+      return sharedPost(axiosInstance, _previewFlight, sig, url("/custom/preview"), body, { signal }, (res) => {
+        lruSet(_preview, sig, res.data, PREVIEW_CACHE_MAX);
+        return res.data;
+      });
+    },
+
+    sendCustom: (payload) =>
+      axiosInstance.post(url("/custom/send"), ...sendBody(payload)).then((r) => r.data),
 
     /* ── shared layout ── */
 

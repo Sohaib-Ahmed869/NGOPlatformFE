@@ -149,7 +149,7 @@ function DonorCard({ donor, onView }) {
             <dd className="mt-0.5 font-medium text-gray-800">{donor.donationCount || 0}</dd>
           </div>
           <div className="min-w-0">
-            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Last gift</dt>
+            <dt className="text-[11px] uppercase tracking-wide text-text-muted/70">Last donation</dt>
             <dd className="mt-0.5 flex items-center gap-1.5 font-medium text-gray-800">
               <Calendar className="h-4 w-4 shrink-0 text-accent" /> {fmtShort(donor.lastDonationDate)}
             </dd>
@@ -221,7 +221,7 @@ function DonorMobile({ donor, onView }) {
           </div>
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
             <TypeChip type={donor.donationType} />
-            <span className="text-xs text-text-muted">{donor.donationCount || 0} gifts · {fmtShort(donor.lastDonationDate)}</span>
+            <span className="text-xs text-text-muted">{donor.donationCount || 0} donation{(donor.donationCount || 0) === 1 ? "" : "s"} · {fmtShort(donor.lastDonationDate)}</span>
           </div>
         </div>
       </div>
@@ -459,7 +459,7 @@ const DonorsPage = () => {
                     <SortableTh label="Donor" sortKey="name" sortConfig={sortConfig} onSort={handleSort} />
                     <SortableTh label="Donated" sortKey="totalDonated" sortConfig={sortConfig} onSort={handleSort} />
                     <th className="px-4 py-3.5 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3.5 uppercase tracking-wider">Gifts</th>
+                    <th className="px-4 py-3.5 uppercase tracking-wider">Donations</th>
                     <SortableTh label="Last donation" sortKey="lastDonationDate" sortConfig={sortConfig} onSort={handleSort} />
                     <th className="px-4 py-3.5 text-right uppercase tracking-wider">View</th>
                   </tr>

@@ -109,9 +109,12 @@ const css = `
 `;
 
 // Shown only until the live (SuperAdmin-managed) plans load, or if none are seeded.
+// These MUST mirror config/planPricing.js on the backend: this is what a visitor
+// sees while the request is in flight, and a stale figure here is a price we are
+// advertising and no longer charge. Annual is 20% off 12x monthly.
 const FALLBACK_PLANS = [
-  { name: "Basic", key: "basic", monthlyPrice: 200, annualPrice: 1920, popular: false,
-    description: "Perfect for small organisations just getting started with online fundraising",
+  { name: "Essentials", key: "essentials", monthlyPrice: 499, annualPrice: 4790, onboardingFee: 1000, popular: false,
+    description: "New and small charities. Core fundraising, one branded site, standard support.",
     features: [
       { name: "Up to 3 campaigns", included: true }, { name: "Donation processing (Stripe)", included: true },
       { name: "Donor management", included: true }, { name: "Branded subdomain portal", included: true },
@@ -119,17 +122,17 @@ const FALLBACK_PLANS = [
     ],
     limits: { campaigns: 3, volunteers: 0 },
     featureFlags: { recurringGiving: true, programs: true, events: true, store: true } },
-  { name: "Professional", key: "professional", monthlyPrice: 500, annualPrice: 4800, popular: true,
-    description: "For growing organisations with active campaigns and team collaboration needs",
+  { name: "Professional", key: "professional", monthlyPrice: 899, annualPrice: 8630, onboardingFee: 1500, popular: true,
+    description: "Established charities running programs, events and recurring giving.",
     features: [
-      { name: "Up to 5 campaigns", included: true }, { name: "Everything in Basic", included: true },
+      { name: "Up to 5 campaigns", included: true }, { name: "Everything in Essentials", included: true },
       { name: "Up to 10 volunteers", included: true }, { name: "Program follow-up updates", included: true },
       { name: "Event management", included: true },
     ],
     limits: { campaigns: 5, volunteers: 10 },
     featureFlags: { recurringGiving: true, programs: true, p2pCampaigns: true, events: true, volunteers: true, newsletter: true, store: true } },
-  { name: "Enterprise", key: "enterprise", monthlyPrice: 1000, annualPrice: 9600, popular: false,
-    description: "For established organisations that need unlimited capacity and premium support",
+  { name: "Enterprise", key: "enterprise", monthlyPrice: 1499, annualPrice: 14390, onboardingFee: 2500, popular: false,
+    description: "Multi-program organisations needing the full suite and priority support.",
     features: [
       { name: "Unlimited campaigns", included: true }, { name: "Everything in Professional", included: true },
       { name: "Unlimited volunteers", included: true }, { name: "Priority support", included: true },
@@ -172,6 +175,7 @@ const mapDbPlan = (p) => ({
   description: p.description || "",
   monthlyPrice: p.price?.monthly || 0,
   annualPrice: p.price?.annual || 0,
+  onboardingFee: p.onboardingFee || 0,
   popular: !!p.isPopular,
   features: (p.features || []).map((f) => ({ name: f, included: true })),
   limits: p.limits || {},
@@ -285,7 +289,7 @@ export default function PlansPage() {
         <PageHero
           chip="Pricing"
           title="Simple, transparent pricing"
-          lede="No hidden fees, no surprises. Every plan includes donation processing and a branded portal."
+          lede="Three plans, priced in Australian dollars and quoted excluding GST. Annual billing is discounted twenty percent. Every plan includes donation processing and a branded portal."
           band={false}
         />
       </div>
@@ -294,13 +298,13 @@ export default function PlansPage() {
 
           {/* Billing toggle — smooth sliding indicator */}
           <Reveal delay={0.3}>
-            <div className="relative inline-flex p-1.5"
+            <div className="relative inline-flex rounded-full p-1.5"
               style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: `inset 0 1px 0 rgba(255,255,255,.9), 0 1px 2px rgba(15,23,42,.04)` }}>
               <button type="button" onClick={() => setBillingCycle("monthly")}
                 className="relative px-6 py-2.5 text-sm font-semibold transition-colors"
                 style={{ color: billingCycle === "monthly" ? "#fff" : V.inkSoft }}>
                 {billingCycle === "monthly" && (
-                  <motion.span aria-hidden layoutId="plans-billing-pill" className="absolute inset-0"
+                  <motion.span aria-hidden layoutId="plans-billing-pill" className="absolute inset-0 rounded-full"
                     style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(var(--tenant-accent-rgb),.4)` }}
                     transition={{ type: "spring", stiffness: 320, damping: 30 }} />
                 )}
@@ -310,13 +314,13 @@ export default function PlansPage() {
                 className="relative px-6 py-2.5 text-sm font-semibold transition-colors"
                 style={{ color: billingCycle === "annual" ? "#fff" : V.inkSoft }}>
                 {billingCycle === "annual" && (
-                  <motion.span aria-hidden layoutId="plans-billing-pill" className="absolute inset-0"
+                  <motion.span aria-hidden layoutId="plans-billing-pill" className="absolute inset-0 rounded-full"
                     style={{ background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 1px 4px rgba(var(--tenant-accent-rgb),.4)` }}
                     transition={{ type: "spring", stiffness: 320, damping: 30 }} />
                 )}
                 <span className="relative z-10 inline-flex items-center gap-1.5">
                   Annual
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold" style={{ fontFamily: mono, background: billingCycle === "annual" ? "rgba(255,255,255,.18)" : "rgba(5,150,105,.14)", color: billingCycle === "annual" ? "#fff" : V.success }}>-20%</span>
+                  <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{ fontFamily: mono, background: billingCycle === "annual" ? "rgba(255,255,255,.18)" : "rgba(5,150,105,.14)", color: billingCycle === "annual" ? "#fff" : V.success }}>-20%</span>
                 </span>
               </button>
             </div>
@@ -351,7 +355,7 @@ export default function PlansPage() {
           </Reveal>
 
           <Reveal delay={0.1}>
-            <div className="saas-comp-table relative overflow-x-auto"
+            <div className="saas-comp-table relative overflow-x-auto rounded-2xl"
               style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: "0 22px 54px -28px rgba(6,40,30,.18)" }}>
               <table className="w-full min-w-[640px] border-collapse text-left">
                 <thead>
@@ -360,11 +364,11 @@ export default function PlansPage() {
                     {cardPlans.map((p) => (
                       <th key={p.key} className={`relative px-4 pb-5 pt-6 text-center align-bottom ${p.popular ? "saas-comp-pop" : ""}`}>
                         {p.popular && (
-                          <span className="absolute left-1/2 top-1.5 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white"
+                          <span className="absolute left-1/2 top-1.5 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-white"
                             style={{ background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})` }}>Most popular</span>
                         )}
                         <div className="text-[15px] font-bold" style={{ color: p.popular ? V.primary : V.ink }}>{p.name}</div>
-                        <div className="mt-0.5 text-[12px]" style={{ fontFamily: mono, color: V.inkFaint }}>${p.monthlyPrice}/mo</div>
+                        <div className="mt-0.5 text-[12px]" style={{ fontFamily: mono, color: V.inkFaint }}>A${p.monthlyPrice.toLocaleString("en-AU")}/mo</div>
                       </th>
                     ))}
                   </tr>
@@ -379,11 +383,11 @@ export default function PlansPage() {
                           <td key={p.key} className={`px-4 py-3.5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
                             {typeof val === "boolean" ? (
                               val ? (
-                                <span className="inline-grid h-6 w-6 place-items-center align-middle" style={{ background: "rgba(var(--tenant-accent-rgb),.12)" }}>
+                                <span className="inline-grid h-6 w-6 place-items-center rounded-lg align-middle" style={{ background: "rgba(var(--tenant-accent-rgb),.12)" }}>
                                   <Check className="h-3.5 w-3.5" strokeWidth={3} style={{ color: V.primary }} />
                                 </span>
                               ) : (
-                                <span className="inline-grid h-6 w-6 place-items-center align-middle" style={{ background: "rgba(15,23,42,.05)" }}>
+                                <span className="inline-grid h-6 w-6 place-items-center rounded-lg align-middle" style={{ background: "rgba(15,23,42,.05)" }}>
                                   <X className="h-3.5 w-3.5" strokeWidth={3} style={{ color: "rgba(15,23,42,.30)" }} />
                                   <span className="sr-only">Not included</span>
                                 </span>
@@ -403,7 +407,7 @@ export default function PlansPage() {
                     {cardPlans.map((p) => (
                       <td key={p.key} className={`px-4 py-5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
                         <Link to={`/register?plan=${p.key}&billing=monthly`}
-                          className="saas-btn-primary group inline-flex items-center justify-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"
+                          className="saas-btn-primary group inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors"
                           style={p.popular
                             ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff" }
                             : { background: V.surface2, color: V.ink, border: `1px solid ${V.line}` }}>

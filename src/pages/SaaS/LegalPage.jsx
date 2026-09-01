@@ -87,7 +87,7 @@ function LegalLayout({ title, intro, updated, sections }) {
                   return (
                     <a key={s.id} href={`#${s.id}`}
                       onClick={(e) => { e.preventDefault(); goTo(s.id); }}
-                      className="border-l-2 py-1.5 pl-3 text-[13.5px] transition-all duration-300"
+                      className="rounded-lg border-l-2 py-1.5 pl-3 text-[13.5px] transition-all duration-300"
                       style={on
                         ? { borderColor: V.primary, color: V.primary, fontWeight: 600, background: "rgba(var(--tenant-accent-rgb), .07)" }
                         : { borderColor: V.line, color: V.inkSoft }}>
@@ -101,7 +101,7 @@ function LegalLayout({ title, intro, updated, sections }) {
 
           {/* Sections */}
           <div className="min-w-0">
-            <div className="legal-body rounded-none p-7 sm:p-10" style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: "0 16px 40px -20px rgba(15,23,42,.10)" }}>
+            <div className="legal-body rounded-3xl p-7 sm:p-10" style={{ background: V.surface, border: `1px solid ${V.line}`, boxShadow: "0 16px 40px -20px rgba(15,23,42,.10)" }}>
               {sections.map((s, i) => (
                 <Reveal key={s.id} id={s.id} delay={Math.min(i * 0.03, 0.2)} className="scroll-mt-28">
                   <div className={i > 0 ? "mt-10 border-t pt-10" : ""} style={i > 0 ? { borderColor: V.line } : undefined}>

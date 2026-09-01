@@ -7,6 +7,7 @@ import { AdminRealtimeProvider } from "../context/AdminRealtimeContext";
 import { AdminSidebar } from "./components/AdminSidebar";
 import { AdminTopbar } from "./components/AdminTopbar";
 import ProfileService from "../services/profile.service";
+import MfaRequiredGate from "./MfaRequiredGate";
 import { cn } from "../utils/cn";
 import "./admin-theme.css";
 
@@ -82,6 +83,15 @@ const AdminLayout = () => {
 
   if (!effectiveUser || !effectiveUser.role?.includes("admin")) {
     return <Navigate to="/login" replace />;
+  }
+
+  // The platform team can make two-factor mandatory for a tenant admin (Team ->
+  // Tenant admins). loginAdmin returns `mfaSetupRequired` when that is set and
+  // nothing is enrolled yet; without this the setting would be stored and never
+  // read. Rendered in place of the shell rather than as a route, so there is no
+  // URL that walks around it.
+  if (effectiveUser.mfaSetupRequired) {
+    return <MfaRequiredGate />;
   }
 
   return (

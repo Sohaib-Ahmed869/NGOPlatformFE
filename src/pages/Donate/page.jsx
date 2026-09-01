@@ -149,7 +149,7 @@ const QuickDonate = ({ programs }) => {
       return;
     }
     addItem({
-      // Unique id per gift so distinct amounts/causes don't collapse into one
+      // Unique id per donation so distinct amounts/causes don't collapse into one
       // cart line (the cart de-dupes on id).
       id: `give-${(donationType || "donation").toLowerCase().replace(/\s+/g, "-")}-${value}-${Date.now()}`,
       title: donationType || "Donation",
@@ -207,7 +207,7 @@ const QuickDonate = ({ programs }) => {
             </h1>
             <p className="mt-5 max-w-xl font-body text-lg leading-relaxed text-white/75">
               {hero.subtitle ??
-                "Choose an amount, pick a cause, and give in seconds. Every gift is secure, receipted, and goes directly to the work that matters."}
+                "Choose an amount, pick a cause, and give in seconds. Every donation is secure, receipted, and goes directly to the work that matters."}
             </p>
 
             {stats.length > 0 && (
@@ -442,7 +442,7 @@ const WhyGive = () => {
   const points = [
     { icon: Lock, title: "Secure by design", text: "Bank-level encryption protects every card payment, end to end." },
     { icon: Heart, title: "100% donation policy", text: "Your generosity goes straight to the cause you choose." },
-    { icon: Receipt, title: "Instant receipt", text: "A tax receipt is emailed the moment your gift is confirmed." },
+    { icon: Receipt, title: "Instant receipt", text: "A tax receipt is emailed the moment your donation is confirmed." },
     { icon: ShieldCheck, title: "Privacy protected", text: "Your details are never shared or sold — full stop." },
   ];
 

@@ -42,7 +42,7 @@ export default function PlanGate({ feature, current, children, fallback }) {
 
 function UpgradePrompt({ feature, plan, limit }) {
   const nextPlan =
-    plan === "basic"
+    plan === "essentials"
       ? "Professional"
       : plan === "professional"
       ? "Enterprise"

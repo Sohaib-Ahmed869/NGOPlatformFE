@@ -77,7 +77,16 @@ const PANES = [
   { key: "variables", label: "Variables", icon: Braces },
 ];
 
-export default function EmailTemplateEditor({ service, templateKey, onBack, backLabel = "All emails" }) {
+export default function EmailTemplateEditor({
+  service,
+  templateKey,
+  onBack,
+  backLabel = "All emails",
+  // Optional. The composer is a PAGE, and the two hosts reach it differently —
+  // the platform console by route, the tenant tab by swapping its own body — so
+  // the editor asks rather than navigating. Absent, the button isn't offered.
+  onSend,
+}) {
   const [data, setData] = useState(null);
   const [draft, setDraft] = useState(null);
   const [baseline, setBaseline] = useState(null);
@@ -89,6 +98,7 @@ export default function EmailTemplateEditor({ service, templateKey, onBack, back
   const [reloadNonce, setReloadNonce] = useState(0);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+
 
   const [preview, setPreview] = useState({ html: "", subject: "", text: "", warnings: [] });
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -518,7 +528,7 @@ export default function EmailTemplateEditor({ service, templateKey, onBack, back
             {...registerField("subject")}
             value={draft.subject}
             onChange={(e) => patch({ subject: e.target.value })}
-            placeholder="Thanks for your gift, {{donor.firstName}}"
+            placeholder="Thanks for your donation, {{donor.firstName}}"
             className={inputCls}
           />
         </div>
@@ -582,6 +592,25 @@ export default function EmailTemplateEditor({ service, templateKey, onBack, back
         </span>
 
         <div className="ml-auto flex items-center gap-2">
+          {onSend && (
+          <button
+            onClick={() => {
+              // The composer sends the SAVED template, not what's on screen —
+              // so it refuses while there is unsaved work a recipient would
+              // not be getting.
+              if (dirty) {
+                toast("Save your changes first — a real send uses the saved email.", { icon: "💾" });
+                return;
+              }
+              onSend(templateKey);
+            }}
+            title="Send this email to someone, with the details filled in"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:text-gray-800 disabled:opacity-50 dark:border-white/10 dark:text-white/65"
+          >
+            <Send className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Send to someone</span>
+          </button>
+          )}
           <button
             onClick={sendTest}
             disabled={testing}

@@ -6,8 +6,8 @@ import { Eyebrow, reveal } from "../../components/giving";
 const CTA_IMAGE = "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=900&q=80";
 
 const POINTS = [
-  { icon: Lock, title: "Secure by design", text: "Bank-level encryption on every gift." },
-  { icon: Receipt, title: "Instant receipt", text: "Emailed the moment your gift clears." },
+  { icon: Lock, title: "Secure by design", text: "Bank-level encryption on every donation." },
+  { icon: Receipt, title: "Instant receipt", text: "Emailed the moment your donation clears." },
   { icon: HeartHandshake, title: "Goes to the cause", text: "Directed straight to the work that matters." },
 ];
 

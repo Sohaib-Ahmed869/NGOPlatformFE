@@ -7,7 +7,7 @@ import { S, BrowserWindow, Phone, NotifyCard, MiniChart } from "./illustration";
  *
  * The audience is a charity CEO or fundraising manager, so what the drawings
  * show is what they get: their own donation page on their own subdomain, a
- * receipt going out, a gift landing, the numbers adding up.
+ * receipt going out, a donation landing, the numbers adding up.
  */
 
 /* ── Hero: the product, in the open ──────────────────────────────────────── */
@@ -18,7 +18,7 @@ export default function HeroScene() {
       viewBox="0 60 1440 540"
       preserveAspectRatio="xMidYMax slice"
       role="img"
-      aria-label="A charity's donation page on its own web address, with a donor receipt, a live gift notification and a chart of donations"
+      aria-label="A charity's donation page on its own web address, with a donor receipt, a live donation notification and a chart of donations"
     >
       <defs>
         <linearGradient id="dx-sky" x1="0" y1="0" x2="0" y2="1">
@@ -48,7 +48,7 @@ export default function HeroScene() {
       {/* the donor's receipt */}
       <Phone x={286} y={214} s={0.92} />
 
-      {/* a gift landing, and the week's numbers */}
+      {/* a donation landing, and the week's numbers */}
       <NotifyCard x={1010} y={168} s={0.94} />
       <MiniChart x={1052} y={286} s={0.86} />
 
@@ -107,7 +107,7 @@ export function StepBrand({ className }) {
   );
 }
 
-/* 3 — share it, and the gifts arrive. */
+/* 3 — share it, and the donations arrive. */
 export function StepReceive({ className }) {
   return (
     <svg viewBox="0 0 320 200" className={className} role="img" aria-label="Donations arriving and receipts going out automatically">

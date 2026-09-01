@@ -481,7 +481,7 @@ const UserDashboard = () => {
         <>
           {/* KPI tiles */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile index={1} icon={HandCoins} label="Donations" value={money(d.donationPaid)} color={accent} spark={sparkOf(["donation"])} sub={`${donationCount} gift${donationCount === 1 ? "" : "s"}`} />
+            <StatTile index={1} icon={HandCoins} label="Donations" value={money(d.donationPaid)} color={accent} spark={sparkOf(["donation"])} sub={`${donationCount} donation${donationCount === 1 ? "" : "s"}`} />
             <StatTile index={2} icon={Megaphone} label="Fundraisers" value={money(d.campaignPaid)} color={CH_COLORS.campaign} spark={sparkOf(["campaign"])} sub={`${d.campaigns.length} campaign${d.campaigns.length === 1 ? "" : "s"}`} />
             <StatTile index={3} icon={Ticket} label="Events" value={money(d.eventPaid)} color={CH_COLORS.event} spark={sparkOf(["event"])} sub={`${d.events.length} registration${d.events.length === 1 ? "" : "s"}`} />
             <StatTile index={4} icon={Wallet} label="Active subscriptions" value={d.activeRecurring.length + d.activeInstallments.length} color="#06B6D4" spark={sparkOf(["donation", "campaign", "event"])} sub={`${money(d.estMonthly)}/mo est.`} />
@@ -696,7 +696,7 @@ const UserDashboard = () => {
                         </div>
                       )}
                       <div className="mt-3 flex items-center justify-between border-t border-gray-50 pt-3">
-                        <span className="text-[11px] text-text-muted">Your gift</span>
+                        <span className="text-[11px] text-text-muted">Your donation</span>
                         <span className="text-sm font-bold text-accent">{money(c.mine)}</span>
                       </div>
                     </Link>

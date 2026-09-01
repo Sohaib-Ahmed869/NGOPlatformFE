@@ -27,7 +27,7 @@ import { V, EASE } from "./ui";
    double duty as a feature list for anyone who never clicks. */
 const TABS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, blurb: "Every number your board asks for, on one screen." },
-  { id: "donations", label: "Donations", icon: Heart, blurb: "One-off, monthly and instalment gifts in one ledger." },
+  { id: "donations", label: "Donations", icon: Heart, blurb: "One-off, monthly and instalment donations in one ledger." },
   { id: "donors", label: "Donors", icon: Users, blurb: "The full supporter record — history, contact, causes." },
   { id: "website", label: "Your website", icon: Paintbrush, blurb: "Your brand, your pages, your own web address." },
 ];
@@ -93,7 +93,7 @@ const KPIS = [
   { label: "Raised this month", value: "$48,920", delta: "+12.4%" },
   { label: "Active donors", value: "1,284", delta: "+86" },
   { label: "Monthly giving", value: "$11,350", delta: "+4.1%" },
-  { label: "Avg. gift", value: "$74", delta: "+$6" },
+  { label: "Avg. donation", value: "$74", delta: "+$6" },
 ];
 
 // A fortnight of daily totals. Hand-set rather than random so the silhouette is
@@ -165,7 +165,7 @@ function DashboardPane(m) {
         {/* Live feed */}
         <Panel className="p-4">
           <div className="flex items-center justify-between">
-            <p className="text-[12.5px] font-semibold" style={{ color: V.ink }}>Recent gifts</p>
+            <p className="text-[12.5px] font-semibold" style={{ color: V.ink }}>Recent donations</p>
             <span className="inline-flex items-center gap-1.5 text-[10px] font-medium" style={{ color: V.success }}>
               <Dot tone={V.success} /> Live
             </span>
@@ -279,7 +279,7 @@ function DonationsPane(m) {
 
 const DONORS = [
   { name: "Aisha Rahman", email: "aisha.r@example.com", total: "$4,280", gifts: 22, since: "2023", tag: "Monthly", pct: 88 },
-  { name: "Priya Nair", email: "p.nair@example.com", total: "$3,150", gifts: 9, since: "2024", tag: "Major gift", pct: 64 },
+  { name: "Priya Nair", email: "p.nair@example.com", total: "$3,150", gifts: 9, since: "2024", tag: "Major donation", pct: 64 },
   { name: "Tom Becker", email: "tbecker@example.com", total: "$1,920", gifts: 48, since: "2022", tag: "Monthly", pct: 40 },
   { name: "Maria Santos", email: "m.santos@example.com", total: "$860", gifts: 34, since: "2024", tag: "Monthly", pct: 18 },
 ];
@@ -314,7 +314,7 @@ function DonorsPane(m) {
               </span>
               <span className="shrink-0 text-right">
                 <span className="block text-[12.5px] font-bold" style={{ color: V.ink }}>{d.total}</span>
-                <span className="block text-[9.5px]" style={{ color: V.inkFaint }}>{d.gifts} gifts · since {d.since}</span>
+                <span className="block text-[9.5px]" style={{ color: V.inkFaint }}>{d.gifts} donations · since {d.since}</span>
               </span>
             </motion.li>
           ))}
@@ -333,7 +333,7 @@ function DonorsPane(m) {
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          {[["Lifetime", "$4,280"], ["This year", "$1,140"], ["Gifts", "22"], ["Avg. gift", "$195"]].map(([k, v]) => (
+          {[["Lifetime", "$4,280"], ["This year", "$1,140"], ["Donations", "22"], ["Avg. donation", "$195"]].map(([k, v]) => (
             <span key={k} className="rounded-[10px] px-2.5 py-2" style={{ background: V.surface2 }}>
               <span className="block text-[9.5px]" style={{ color: V.inkFaint }}>{k}</span>
               <span className="block text-[13px] font-bold" style={{ color: V.ink }}>{v}</span>
@@ -344,9 +344,9 @@ function DonorsPane(m) {
         <p className="mt-3.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: V.inkFaint }}>Timeline</p>
         <ul className="mt-2 grid gap-2">
           {[
-            ["Gift received", "$250 · Emergency Appeal"],
+            ["Donation received", "$250 · Emergency Appeal"],
             ["Receipt sent", "Automatically, by email"],
-            ["Monthly gift", "$40 · Clean Water"],
+            ["Monthly donation", "$40 · Clean Water"],
           ].map(([t, s], i) => (
             <li key={t} className="flex gap-2">
               <span className="mt-[5px] flex flex-col items-center">
@@ -438,7 +438,7 @@ function WebsitePane(m) {
                 Clean water for<br />1,000 families.
               </p>
               <p className="mt-1.5 text-[9.5px] leading-relaxed" style={{ color: V.inkSoft }}>
-                Every gift is matched this month by our partners.
+                Every donation is matched this month by our partners.
               </p>
               <span aria-hidden className="mt-2.5 block h-[5px] w-full overflow-hidden rounded-full"
                 style={{ background: "rgba(var(--tenant-primary-rgb), .12)" }}>

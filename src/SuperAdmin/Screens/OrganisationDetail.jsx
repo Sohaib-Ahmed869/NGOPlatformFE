@@ -1054,7 +1054,7 @@ export default function OrganisationDetail() {
                         label: `${p.name} — ${Number(p.price?.monthly || 0).toLocaleString()} ${String(p.currency || "").toUpperCase()}/mo`,
                       }))
                     : [
-                        { value: "basic", label: "Basic" },
+                        { value: "essentials", label: "Essentials" },
                         { value: "professional", label: "Professional" },
                         { value: "enterprise", label: "Enterprise" },
                       ]

@@ -5,6 +5,7 @@ import {
   Lock,
   Paperclip,
   Pencil,
+  Send,
   ChevronRight,
   ChevronDown,
   Shield,
@@ -63,6 +64,9 @@ export default function EmailTemplateList({
   busyKeys,
   onToggle,
   onOpen,
+  // Optional. When given, each row grows a "send this one now" action — the
+  // console's only route from "here is the email" to "this person receives it".
+  onSend,
   filters,
   onFilters,
   showScope = false,
@@ -425,6 +429,7 @@ export default function EmailTemplateList({
                             // the memo below — Row calls them with `t` instead.
                             onToggle={onToggle}
                             onOpen={onOpen}
+                            onSend={onSend}
                           />
                         );
                       })}
@@ -495,10 +500,11 @@ function RailItem({ label, count, failed = 0, customised = 0, selected, dimmed, 
  * handlers come straight from the parent, so a row only re-renders when
  * something about THAT row changed.
  */
-const Row = memo(function Row({ t, index, active, busy, showScope, onToggle, onOpen }) {
+const Row = memo(function Row({ t, index, active, busy, showScope, onToggle, onOpen, onSend }) {
   const hasActivity = t.sent30d > 0 || t.failed30d > 0;
   const open = useCallback(() => onOpen(t), [onOpen, t]);
   const toggle = useCallback(() => onToggle(t), [onToggle, t]);
+  const send = useCallback(() => onSend?.(t), [onSend, t]);
 
   return (
     <div
@@ -588,6 +594,17 @@ const Row = memo(function Row({ t, index, active, busy, showScope, onToggle, onO
           )}
         />
       </button>
+
+      {onSend && (
+        <button
+          onClick={send}
+          aria-label={`Send ${t.label} now`}
+          title="Send this email now — choose the recipient and fill in the details"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-300 opacity-0 transition-colors hover:bg-gray-100 hover:text-accent focus-visible:opacity-100 group-hover:opacity-100 dark:text-white/20 dark:hover:bg-white/10"
+        >
+          <Send className="h-3.5 w-3.5" />
+        </button>
+      )}
 
       <button
         onClick={open}

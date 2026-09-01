@@ -471,7 +471,7 @@ const AdminDonationsList = () => {
         <div className="grid grid-cols-2 divide-y divide-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
           <HeaderStat icon={DollarSign} label="Total raised" value={money(stats.totalAmount)} />
           <HeaderStat icon={Receipt} label="Total donations" value={stats.total} />
-          <HeaderStat icon={TrendingUp} label="Average gift" value={money(stats.avg)} />
+          <HeaderStat icon={TrendingUp} label="Average donation" value={money(stats.avg)} />
           <HeaderStat icon={Repeat} label="Recurring plans" value={stats.recurring} />
         </div>
       </div>

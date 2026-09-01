@@ -138,7 +138,7 @@ const QuickDonate = ({ image, title = "Make a Difference Today", subtitle, defau
       return;
     }
     addItem({
-      // Unique id per gift so distinct amounts/causes don't collapse into one
+      // Unique id per donation so distinct amounts/causes don't collapse into one
       // cart line (the cart de-dupes on id).
       id: `quick-${(donationType || "donation").toLowerCase().replace(/\s+/g, "-")}-${value}-${Date.now()}`,
       title: donationType || "Donation",

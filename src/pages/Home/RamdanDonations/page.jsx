@@ -290,7 +290,7 @@ const RamadanDonations = () => {
           />
           <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
             {tenNights.map((d, i) => (
-              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} buttonLabel={tenNightsSection.cardButton ?? "Automate this gift"} />
+              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} buttonLabel={tenNightsSection.cardButton ?? "Automate this donation"} />
             ))}
           </motion.div>
         </div>
@@ -307,7 +307,7 @@ const RamadanDonations = () => {
           />
           <motion.div className="grid grid-cols-1 gap-6 md:grid-cols-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}>
             {daily.map((d, i) => (
-              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} buttonLabel={dailySection.cardButton ?? "Automate this gift"} />
+              <GiveCard key={d.key || i} donation={d} onDonate={handleDonateClick} reduce={reduce} buttonLabel={dailySection.cardButton ?? "Automate this donation"} />
             ))}
           </motion.div>
         </div>

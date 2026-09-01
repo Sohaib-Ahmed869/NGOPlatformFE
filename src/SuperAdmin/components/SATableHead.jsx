@@ -27,8 +27,12 @@ import { cn } from "../../utils/cn";
  * control that changes it.
  */
 
+// `whitespace-nowrap` because a wrapped header is never what anyone wanted:
+// these labels are one or two short words, and letting "Last login" break in
+// half makes the header row taller than the data and ragged against its
+// neighbours. Tables here already scroll horizontally when they must.
 const TH_BASE =
-  "px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-white/60";
+  "whitespace-nowrap px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-white/60";
 
 function SATableHead({ columns, sort, onSort, className, rowStyle, rowClassName }) {
   const activeKey = sort?.key || null;

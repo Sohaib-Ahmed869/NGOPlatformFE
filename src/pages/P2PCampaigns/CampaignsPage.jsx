@@ -37,7 +37,7 @@ const SORTS = [
 const HOW_IT_WORKS = [
   { icon: HandHeart, title: "Start your fundraiser", text: "Create your page in minutes — share your story, set a goal and add a photo that brings it to life." },
   { icon: Megaphone, title: "Rally your community", text: "Spread the word to friends, family and supporters. Every share helps your cause reach further." },
-  { icon: Coins, title: "Receive donations", text: "Contributions go straight toward your cause, with every gift tracked openly on your page." },
+  { icon: Coins, title: "Receive donations", text: "Contributions go straight toward your cause, with every donation tracked openly on your page." },
 ];
 
 const catLabel = (c) => (c.category === "other" ? c.customCategory || "Other" : c.category);

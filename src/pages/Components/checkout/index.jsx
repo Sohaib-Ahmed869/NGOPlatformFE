@@ -59,7 +59,7 @@ function CheckoutLayout() {
         <motion.div {...revealProps} data-hero className="mb-8">
           <h1 className="mt-4 font-heading text-3xl font-bold leading-tight text-primary sm:text-4xl">Complete your donation</h1>
           <p className="mt-2 max-w-xl text-text-muted">
-            A few quick steps and your gift is on its way — every contribution is encrypted and goes further with our 100% donation policy.
+            A few quick steps and your donation is on its way — every contribution is encrypted and goes further with our 100% donation policy.
           </p>
         </motion.div>
 

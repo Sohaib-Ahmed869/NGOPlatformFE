@@ -7,6 +7,13 @@ import { V } from "./ui";
 
 const mono = "'JetBrains Mono', monospace";
 
+/* Prices are Australian dollars. "A$" rather than a bare "$" because the
+   schedule is quoted in AUD and the site sells to charities who will otherwise
+   read a lone $ as USD — the enterprise plan was literally stored as `usd` in
+   the plan collection before this, so the ambiguity is not hypothetical.
+   en-AU grouping, no cents: every amount in the schedule is a whole dollar. */
+const AUD = (n) => "A$" + Math.round(Number(n) || 0).toLocaleString("en-AU");
+
 /* GSAP count-up that rolls from the previous price to the new one — fires on
    mount (0 → price) and again whenever the billing cycle flips the amount. */
 function PriceCounter({ value }) {
@@ -17,14 +24,14 @@ function PriceCounter({ value }) {
     const obj = { v: prev.current };
     const tween = gsap.to(obj, {
       v: value, duration: 0.8, ease: "power2.out",
-      onUpdate: () => { if (node) node.textContent = "$" + Math.round(obj.v).toLocaleString("en-US"); },
+      onUpdate: () => { if (node) node.textContent = AUD(obj.v); },
     });
     prev.current = value;
     return () => tween.kill();
   }, [value]);
   return (
     <span ref={ref} className="text-[44px] font-medium tracking-tight" style={{ color: V.ink }}>
-      {"$" + value.toLocaleString("en-US")}
+      {AUD(value)}
     </span>
   );
 }
@@ -44,7 +51,7 @@ export default function PlanCard({ plan, billingCycle }) {
       }}
     >
       {plan.popular && (
-        <span className="absolute top-4 right-4 px-2.5 py-1 text-[10px] tracking-[.08em] uppercase font-bold text-white"
+        <span className="absolute top-4 right-4 rounded-full px-2.5 py-1 text-[10px] tracking-[.08em] uppercase font-bold text-white"
           style={{ fontFamily: mono, background: `linear-gradient(135deg, ${V.primary}, ${V.primary2})`, boxShadow: `0 6px 16px -6px rgba(var(--tenant-accent-rgb),.5)` }}>
           Popular
         </span>
@@ -71,15 +78,34 @@ export default function PlanCard({ plan, billingCycle }) {
               transition={{ duration: 0.25 }}
             >
               <span className="text-xs" style={{ fontFamily: mono, color: V.inkFaint }}>
-                ≈ ${perMonth}/mo · billed yearly
+                ≈ {AUD(perMonth)}/mo · billed yearly
               </span>
-              <span className="text-xs font-semibold px-2 py-0.5"
+              <span className="rounded-full text-xs font-semibold px-2 py-0.5"
                 style={{ color: V.success, background: "rgba(5,150,105,.14)", border: "1px solid rgba(5,150,105,.3)" }}>
-                Save ${plan.monthlyPrice * 12 - plan.annualPrice}
+                Save {AUD(plan.monthlyPrice * 12 - plan.annualPrice)}
               </span>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* The rest of the published schedule, always visible and NOT tied to
+            the billing toggle. The toggle changes which number is being sold;
+            these three are what a charity is actually comparing between plans,
+            and hiding two of them behind a switch is what made the old card
+            unanswerable ("what does a year cost?"). Onboarding is a one-off and
+            has no Stripe recurring price — it is invoiced separately. */}
+        <dl className="mt-4 space-y-1.5">
+          {[
+            ["Annual, paid yearly", AUD(plan.annualPrice)],
+            ["Equivalent per month", AUD(plan.annualPrice / 12)],
+            ...(plan.onboardingFee ? [["Onboarding, one off", AUD(plan.onboardingFee)]] : []),
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-baseline justify-between gap-3 text-[12.5px]">
+              <dt style={{ color: V.inkSoft }}>{label}</dt>
+              <dd className="font-semibold" style={{ fontFamily: mono, color: V.ink }}>{value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <ul className="space-y-0 mb-7 flex-1">

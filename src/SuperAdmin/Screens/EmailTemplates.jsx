@@ -11,6 +11,7 @@ import {
   Send,
   AlertTriangle,
   PowerOff,
+  PenLine,
 } from "lucide-react";
 import emailTemplatesService from "../../services/emailTemplates.service";
 import SAPageHeader from "../components/SAPageHeader";
@@ -114,6 +115,13 @@ export default function EmailTemplates() {
     [navigate],
   );
 
+  // Same shape as openTemplate: the view you left travels with you, so Back
+  // lands on the category and search you were in rather than the top of 43.
+  const sendTemplate = useCallback(
+    (t) => navigate(`/emails/send/${encodeURIComponent(t.key)}${window.location.search}`),
+    [navigate],
+  );
+
   const applyStatus = useCallback(
     (value) => {
       setTab("templates");
@@ -129,6 +137,15 @@ export default function EmailTemplates() {
         title="Emails"
         subtitle="Every message the platform sends, editable without a deploy."
         actions={
+          <>
+          <button
+            onClick={() => navigate(`/emails/compose${window.location.search}`)}
+            title="Write a one-off email and send it in the platform's branding"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-accent hover:text-accent dark:border-white/10 dark:text-white/65"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            Compose
+          </button>
           <button
             onClick={refresh}
             disabled={refreshing}
@@ -141,6 +158,7 @@ export default function EmailTemplates() {
             <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
             {refreshing ? "Refreshing" : "Refresh"}
           </button>
+          </>
         }
       />
 
@@ -244,6 +262,7 @@ export default function EmailTemplates() {
           busyKeys={busyKeys}
           onToggle={toggle}
           onOpen={openTemplate}
+          onSend={sendTemplate}
           filters={filters}
           onFilters={setFilters}
           showScope

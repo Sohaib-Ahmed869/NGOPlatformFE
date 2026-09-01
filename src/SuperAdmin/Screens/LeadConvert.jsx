@@ -91,7 +91,7 @@ function Dropdown({ value, onChange, options, id }) {
 }
 
 const BILLING_OPTIONS = [{ value: "monthly", label: "Monthly" }, { value: "annual", label: "Annual" }];
-const FALLBACK_PLANS = [{ key: "basic", name: "Basic" }, { key: "professional", name: "Professional" }, { key: "enterprise", name: "Enterprise" }];
+const FALLBACK_PLANS = [{ key: "essentials", name: "Essentials" }, { key: "professional", name: "Professional" }, { key: "enterprise", name: "Enterprise" }];
 const REVENUE_OPTIONS = [
   { value: "0-500", label: "$0 – $500" },
   { value: "500-5000000", label: "$500 – $5,000,000" },
@@ -213,7 +213,7 @@ export default function LeadConvert() {
     setSlug(slugify(lead.orgName));
     setAdminName(lead.contactName || "");
     setAdminEmail(lead.contactEmail || "");
-    setPlan(lead.interestedPlan || "basic");
+    setPlan(lead.interestedPlan || "essentials");
     setBillingCycle(lead.interestedBillingCycle || "monthly");
     setIsMuslimCharity(lead.verticalType === "muslim");
     setRevenueRange(guessRevenueRange(lead.annualBudgetRange));

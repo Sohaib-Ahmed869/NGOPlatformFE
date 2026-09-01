@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, UserPlus, Search, Mail, LogOut, ShieldOff, ShieldCheck, X, Loader2, Pencil } from "lucide-react";
+import { Users, UserPlus, Search, Mail, LogOut, ShieldOff, ShieldCheck, X, Loader2, Pencil, Building2, ArrowUpRight, KeyRound, Unlock, Smartphone } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import superadminUsersService from "../../services/superadminUsers.service";
 import SAPageHeader from "../components/SAPageHeader";
@@ -50,6 +51,51 @@ const TEAM_SORT_ACCESSORS = {
   lastLogin: (u) => u.lastLogin,
 };
 
+/**
+ * The two populations that can sign into something on this platform, kept on
+ * separate tabs rather than in one table.
+ *
+ * They are not the same kind of account and the columns prove it: an operator
+ * has a platformRole, a status and an MFA policy, all of them editable here; a
+ * tenant admin has none of those, belongs to exactly one organisation, and is
+ * created and managed by that organisation's own lifecycle. Merging them would
+ * mean a Role dropdown with nothing valid to put in it on half the rows.
+ */
+const TABS = [
+  { key: "operators", label: "Platform operators", icon: ShieldCheck },
+  { key: "tenants", label: "Tenant admins", icon: Building2 },
+];
+
+// Mirrors the operators table's shape on purpose — identity, who they belong
+// to, whether they can get in, how well protected they are, when they last did.
+// The two tabs answering the same questions in the same column order is what
+// lets an operator read either one without re-learning it.
+const TENANT_COLUMNS = [
+  { label: "Name", key: "name" },
+  { label: "Organisation", key: "org" },
+  { label: "Status", key: "status" },
+  { label: "2FA", key: "mfa" },
+  { label: "Last login", key: "lastLogin", defaultDir: "desc" },
+  { label: "Added", key: "createdAt", defaultDir: "desc" },
+  { label: "" },
+];
+
+const TENANT_SORT_ACCESSORS = {
+  // Same fallback as the operators table: a tenant admin provisioned by
+  // activation may have no name yet, and sorting those to the bottom as blanks
+  // hides exactly the rows someone is scanning for.
+  name: (u) => u.name || u.email,
+  org: (u) => u.organisation?.name || "",
+  // Sorted by how much attention the row wants, not alphabetically: suspended
+  // first, then locked out, then the ones that are simply fine.
+  status: (u) => (u.status === "suspended" ? 0 : u.lockedUntil ? 1 : 2),
+  // Same ordering as the operators table: enrolled > required-but-not-yet >
+  // optional, i.e. by how protected the account actually is.
+  mfa: (u) => (u.twoFactorEnabled ? 2 : u.mfaRequired ? 1 : 0),
+  lastLogin: (u) => u.lastLogin,
+  createdAt: (u) => u.createdAt,
+};
+
 // Per-operator MFA requirement. "Follows role" is the default — Owner and Admin
 // must enrol, everyone else needn't — and the other two override it either way.
 const MFA_POLICY_OPTIONS = [
@@ -59,8 +105,452 @@ const MFA_POLICY_OPTIONS = [
 ];
 const MFA_POLICY_LABELS = Object.fromEntries(MFA_POLICY_OPTIONS.map((o) => [o.value, o.label]));
 
+// The tenant-admin version has TWO values, not three. A tenant admin has no
+// platformRole, so there is no role table for "default" to follow — it just
+// means "not required", and a separate "exempt" would be a second word for the
+// same state.
+const TENANT_MFA_OPTIONS = [
+  { value: "default", label: "Optional" },
+  { value: "required", label: "Required" },
+];
+
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "Never";
+
+/**
+ * One row action. Extracted because the tenant rows carry up to six of them and
+ * the operators table's inline buttons repeat the same twelve classes each
+ * time — the point is that every action on this screen looks and behaves
+ * identically, which is easier to keep true from one place.
+ */
+function RowBtn({ onClick, disabled, icon: Icon, label, tone = "default", compact = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap border border-gray-200 bg-white py-1 text-[11px] font-medium transition-colors disabled:opacity-50 dark:border-white/10 dark:bg-white/5",
+        // Icon-only for the situational actions. Six labelled buttons pushed the
+        // row onto two lines, and the four that are hidden most of the time are
+        // the ones whose label earns its width least. `title` + `aria-label`
+        // carry the name for both a hover and a screen reader.
+        compact ? "w-7 justify-center px-0" : "px-2.5",
+        tone === "danger"
+          ? "text-gray-600 hover:border-red-300 hover:text-red-600 dark:text-white/70"
+          : "text-gray-600 hover:border-accent hover:text-accent dark:text-white/70",
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {!compact && label}
+    </button>
+  );
+}
+
+/**
+ * The tenant-admins tab.
+ *
+ * Owns its own search / sort / page state rather than sharing the operator
+ * table's: the two tabs sort on different columns, and a search typed against
+ * one population shouldn't survive into the other. Loads once, on first open —
+ * the tab is not the landing view, so fetching it on mount would cost every
+ * visitor a request most of them never look at.
+ *
+ * NOT read-only. An operator can suspend a charity's admin, end their sessions,
+ * clear a sign-in lockout, remove their two-factor and send them a reset link —
+ * the six things support is actually asked for. Everything else about a tenant
+ * (its plan, its lifecycle, deleting it) still lives on the organisation, which
+ * is what the last action opens.
+ *
+ * Row actions are inline buttons rather than an overflow menu, matching the
+ * operators table above: no other list screen in this console has a row menu,
+ * and one screen inventing a primitive is exactly the divergence this codebase
+ * treats as a bug. They are shown CONDITIONALLY, so a healthy row carries two
+ * and only a row in trouble carries five.
+ */
+function TenantAdminsTable() {
+  const navigate = useNavigate();
+  const cached = superadminUsersService.getTenantAdminsCached();
+  const [rows, setRows] = useState(cached?.users || []);
+  const [loading, setLoading] = useState(!cached);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
+  const [sort, setSort] = useState({ key: "name", dir: "asc" });
+
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await superadminUsersService.loadTenantAdmins();
+      setRows(data.users || []);
+      setError(null);
+    } catch (err) {
+      setError(err?.response?.data?.error || "Couldn't load tenant admins.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cached) return;
+    fetchRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.organisation?.name?.toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
+  const sorted = useTableSort(filtered, sort, TENANT_SORT_ACCESSORS);
+  const pageCount = Math.max(1, Math.ceil(sorted.length / limit));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = useMemo(
+    () => sorted.slice((safePage - 1) * limit, safePage * limit),
+    [sorted, safePage, limit],
+  );
+  useEffect(() => { setPage(1); }, [search]);
+  const changeSort = useCallback((next) => { setSort(next); setPage(1); }, []);
+  const changeLimit = useCallback((next) => {
+    setLimit((cur) => (cur === next ? cur : next));
+    setPage(1);
+  }, []);
+
+  /* ── operations ──
+     Each one confirms first and then merges the row the server hands back,
+     rather than refetching all of them: the response carries the new state of
+     the only row that changed, and the service keeps the session cache in step
+     so leaving the tab and coming back shows the same thing. */
+  const confirm = useConfirm();
+  const [busyIds, setBusyIds] = useState(() => new Set());
+  const markBusy = useCallback((id, on) => {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  /** Apply a confirmed change to the row and the cache in one place. */
+  const applyRow = useCallback((id, patch) => {
+    if (!patch) return;
+    setRows((prev) => prev.map((u) => (u._id === id ? { ...u, ...patch } : u)));
+    superadminUsersService.patchTenantAdminCache(id, patch);
+  }, []);
+
+  /**
+   * Every action below is the same five steps, so they share one runner:
+   * confirm, mark busy, call, merge, report. Written out per action it was five
+   * near-identical blocks in which only the verb differed.
+   */
+  const runAction = useCallback(
+    (u, { title, message, tone = "default", icon, confirmText, run, fallbackError }) => {
+      confirm({
+        title,
+        message,
+        tone,
+        icon,
+        confirmText,
+        onConfirm: async () => {
+          markBusy(u._id, true);
+          try {
+            const res = await run();
+            applyRow(u._id, res?.user);
+            toast.success(res?.message || "Done");
+          } catch (err) {
+            toast.error(err?.response?.data?.error || fallbackError);
+          } finally {
+            markBusy(u._id, false);
+          }
+        },
+      });
+    },
+    [confirm, markBusy, applyRow],
+  );
+
+  const who = (u) => (
+    <strong className="text-gray-800 dark:text-white">{u.name || u.email}</strong>
+  );
+
+  const toggleStatus = (u) => {
+    const suspending = u.status !== "suspended";
+    runAction(u, {
+      title: suspending ? "Suspend this admin" : "Reactivate this admin",
+      tone: suspending ? "danger" : "default",
+      icon: suspending ? ShieldOff : ShieldCheck,
+      confirmText: suspending ? "Suspend" : "Reactivate",
+      message: suspending ? (
+        <>
+          {who(u)} loses access to {u.organisation?.name || "their charity"}&rsquo;s admin portal
+          immediately, and any session they have open dies on its next request.
+          <br />
+          <br />
+          The charity&rsquo;s public site, donation pages and donors are unaffected — this only stops
+          this person signing in.
+        </>
+      ) : (
+        <>Restore admin access for {who(u)}. Any sign-in lockout is cleared at the same time.</>
+      ),
+      run: () => superadminUsersService.tenantAdmin.setStatus(u._id, suspending ? "suspended" : "active"),
+      fallbackError: "Failed to change status",
+    });
+  };
+
+  const forceLogout = (u) =>
+    runAction(u, {
+      title: "Sign out everywhere",
+      icon: LogOut,
+      confirmText: "Sign out everywhere",
+      message: (
+        <>
+          End every session {who(u)} has open. They keep their password and can sign straight back
+          in — this is for a lost laptop or a shared browser, not for removing access.
+        </>
+      ),
+      run: () => superadminUsersService.tenantAdmin.forceLogout(u._id),
+      fallbackError: "Failed to sign out this admin",
+    });
+
+  const unlock = (u) =>
+    runAction(u, {
+      title: "Clear the lockout",
+      icon: Unlock,
+      confirmText: "Unlock",
+      message: (
+        <>
+          {who(u)} is locked out after five failed sign-ins. This lets them try again now instead of
+          waiting for it to expire.
+        </>
+      ),
+      run: () => superadminUsersService.tenantAdmin.unlock(u._id),
+      fallbackError: "Failed to clear the lockout",
+    });
+
+  const resetMfa = (u) =>
+    runAction(u, {
+      title: "Remove two-factor",
+      tone: "danger",
+      icon: Smartphone,
+      confirmText: "Remove two-factor",
+      message: (
+        <>
+          This takes a security factor OFF {who(u)}&rsquo;s account — after it, their password alone
+          gets them in until they enrol a new authenticator.
+          <br />
+          <br />
+          Only do this once you are sure who you are talking to. It is recorded against your name in
+          the audit log.
+        </>
+      ),
+      run: () => superadminUsersService.tenantAdmin.resetMfa(u._id),
+      fallbackError: "Failed to reset two-factor",
+    });
+
+  /**
+   * The one control here that is NOT a confirm-then-act: it is a policy, it is
+   * reversible in one click, and a dialog per dropdown change would be noise.
+   * Optimistic, and rolled back to the value the server reports on failure.
+   */
+  const changeMfaPolicy = async (u, policy) => {
+    if (policy === (u.mfaPolicy || "default")) return;
+    const previous = { mfaPolicy: u.mfaPolicy || "default", mfaRequired: !!u.mfaRequired };
+    applyRow(u._id, { mfaPolicy: policy, mfaRequired: policy === "required" });
+    markBusy(u._id, true);
+    try {
+      const res = await superadminUsersService.tenantAdmin.setMfaPolicy(u._id, policy);
+      applyRow(u._id, res?.user);
+      toast.success(res?.message || "Updated");
+    } catch (err) {
+      applyRow(u._id, previous);
+      toast.error(err?.response?.data?.error || "Failed to change the two-factor policy");
+    } finally {
+      markBusy(u._id, false);
+    }
+  };
+
+  const sendReset = (u) =>
+    runAction(u, {
+      title: "Send a password reset",
+      icon: KeyRound,
+      confirmText: "Send reset link",
+      message: (
+        <>
+          Email a reset link to <strong className="text-gray-800 dark:text-white">{u.email}</strong>,
+          valid for one hour. You never see the password — only their inbox can complete it.
+        </>
+      ),
+      run: () => superadminUsersService.tenantAdmin.sendPasswordReset(u._id),
+      fallbackError: "Failed to send the reset link",
+    });
+
+  if (loading) return <SALoader />;
+  if (error) return <SAErrorState message={error} onRetry={fetchRows} />;
+
+  return (
+    <>
+      <div className="relative mb-6 max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, email or organisation…"
+          className="w-full border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-800 outline-none transition-colors focus:border-accent dark:border-white/10 dark:bg-white/5 dark:text-white/90"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className={`${card} py-20 text-center`}>
+          <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-gray-500 dark:text-white/60">
+            {search ? "No one matches that search" : "No tenant admins yet"}
+          </p>
+        </div>
+      ) : (
+        <div className={`${card} overflow-hidden`}>
+          <div className="scroll-slim overflow-x-auto">
+            <table className="w-full min-w-[1180px]">
+              <SATableHead
+                columns={TENANT_COLUMNS}
+                sort={sort}
+                onSort={changeSort}
+                rowStyle={{ backgroundColor: "rgba(var(--tenant-accent-rgb, 4, 120, 87), 0.14)" }}
+              />
+              <tbody>
+                {pageRows.map((u) => {
+                  const busy = busyIds.has(u._id);
+                  const suspended = u.status === "suspended";
+                  const locked = !!u.lockedUntil;
+                  return (
+                  <tr key={u._id} className="border-t border-gray-100 dark:border-white/10">
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <p className={cn("text-sm font-medium text-gray-900 dark:text-white", suspended && "line-through opacity-60")}>
+                        {u.name || "—"}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-white/50">{u.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.organisation ? (
+                        <span className="inline-flex items-start gap-2">
+                          <span className="text-sm text-gray-800 dark:text-white/80">{u.organisation.name}</span>
+                          {/* A deactivated tenant still has an admin row, and
+                              that is exactly when someone is looking it up. */}
+                          {!u.organisation.isActive && (
+                            <span className="bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-white/10 dark:text-white/50">
+                              Inactive
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">No organisation</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {/* Suspended outranks locked: one is a decision someone
+                          made, the other is a timer, and only the first needs
+                          a decision to undo. */}
+                      <StatusBadge status={suspended ? "suspended" : locked ? "locked" : "active"} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {/* Whether they HAVE it, and whether they MUST — the same
+                          two facts, in the same order, as the operators tab.
+                          "Not set up" reads very differently once it is also
+                          "required", so both are always shown. */}
+                      <div className="flex flex-col items-start gap-1.5">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold",
+                            u.twoFactorEnabled
+                              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10"
+                              : u.mfaRequired
+                                ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10"
+                                : "bg-gray-100 text-gray-500 dark:bg-white/10",
+                          )}
+                        >
+                          {u.twoFactorEnabled ? <ShieldCheck className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
+                          {u.twoFactorEnabled ? "Enrolled" : "Not set up"}
+                        </span>
+                        <SASelect
+                          value={u.mfaPolicy || "default"}
+                          onChange={(v) => changeMfaPolicy(u, v)}
+                          options={TENANT_MFA_OPTIONS}
+                          disabled={busy}
+                          className="!min-w-[112px] !py-1 !text-xs"
+                        />
+                        {u.mfaRequired && !u.twoFactorEnabled && (
+                          <span className="text-[10px] leading-tight text-amber-600 dark:text-amber-400">
+                            Must set it up at next sign-in
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">{fmtDate(u.lastLogin)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">{fmtDate(u.createdAt)}</td>
+                    <td className="w-px whitespace-nowrap px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Only offered when there is something to clear. */}
+                        {locked && (
+                          <RowBtn compact onClick={() => unlock(u)} disabled={busy} icon={Unlock} label="Clear lockout" />
+                        )}
+                        {u.twoFactorEnabled && (
+                          <RowBtn compact onClick={() => resetMfa(u)} disabled={busy} icon={Smartphone} label="Remove two-factor" />
+                        )}
+                        {/* Nothing to sign out of if they have never signed in. */}
+                        {u.lastLogin && !suspended && (
+                          <RowBtn compact onClick={() => forceLogout(u)} disabled={busy} icon={LogOut} label="Sign out everywhere" />
+                        )}
+                        {!suspended && (
+                          <RowBtn compact onClick={() => sendReset(u)} disabled={busy} icon={KeyRound} label="Send password reset" />
+                        )}
+                        <RowBtn
+                          onClick={() => toggleStatus(u)}
+                          disabled={busy}
+                          icon={suspended ? ShieldCheck : ShieldOff}
+                          label={suspended ? "Reactivate" : "Suspend"}
+                          tone={suspended ? "default" : "danger"}
+                        />
+                        {u.organisation && (
+                          <RowBtn
+                            onClick={() => navigate(`/organisations/${u.organisation._id}`)}
+                            icon={ArrowUpRight}
+                            label="Organisation"
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border-t border-gray-100 px-4 py-3 dark:border-white/10">
+            <SAPagination
+              page={safePage}
+              pages={pageCount}
+              total={sorted.length}
+              limit={limit}
+              shown={pageRows.length}
+              onPage={setPage}
+              onLimit={changeLimit}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function TeamUsers() {
   const { user: me } = useAuth();
@@ -72,6 +562,7 @@ export default function TeamUsers() {
   const [search, setSearch] = useState("");
   const [busyIds, setBusyIds] = useState(() => new Set());
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [tab, setTab] = useState("operators");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useState({ key: "name", dir: "asc" });
@@ -294,19 +785,55 @@ export default function TeamUsers() {
       <SAPageHeader
         eyebrow="Configuration"
         title="Team"
-        subtitle="Platform operators and what each of them can access."
+        subtitle={
+          tab === "tenants"
+            ? "The admin each organisation signs in with — suspend them, end their sessions, clear a lockout or send a reset."
+            : "Platform operators and what each of them can access."
+        }
         actions={
-          <button
-            type="button"
-            onClick={() => setInviteOpen(true)}
-            className="inline-flex items-center gap-2 bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
-          >
-            <UserPlus className="h-4 w-4" /> Invite operator
-          </button>
+          /* Only on the operators tab: this invites a PLATFORM operator, and a
+             tenant admin is never created this way. */
+          tab === "operators" ? (
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              className="inline-flex items-center gap-2 bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-light"
+            >
+              <UserPlus className="h-4 w-4" /> Invite operator
+            </button>
+          ) : null
         }
       />
 
-      {error ? (
+      {/* ── tabs ── */}
+      <div className="mb-5 flex flex-wrap gap-1 border-b border-gray-100 dark:border-white/10">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "relative inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium transition-colors",
+              tab === t.key
+                ? "text-accent"
+                : "text-gray-500 hover:text-gray-800 dark:text-white/50 dark:hover:text-white/80",
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" />
+            {t.label}
+            {tab === t.key && (
+              <motion.span
+                layoutId="sa-team-tab"
+                className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-accent"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === "tenants" ? (
+        <TenantAdminsTable />
+      ) : error ? (
         <SAErrorState message={error} onRetry={fetchUsers} />
       ) : (
         <>

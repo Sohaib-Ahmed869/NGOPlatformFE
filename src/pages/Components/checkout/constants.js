@@ -55,7 +55,7 @@ export const STEPS = [
 ];
 
 export const PAYMENT_TYPES = [
-  { id: "single", label: "One-time", desc: "A single gift today", icon: Coins },
+  { id: "single", label: "One-time", desc: "A single donation today", icon: Coins },
   { id: "recurring", label: "Recurring", desc: "Give on a schedule", icon: Repeat },
   { id: "installments", label: "Installments", desc: "Split the total", icon: CalendarDays },
 ];

@@ -250,7 +250,7 @@ const OrderConfirmation = () => {
               <div className="mt-6 flex items-start gap-2.5 border border-accent/20 bg-accent/5 px-4 py-3">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                 <p className="text-sm text-gray-600">
-                  A receipt is on its way to your inbox. You can track this gift anytime from your dashboard.
+                  A receipt is on its way to your inbox. You can track this donation anytime from your dashboard.
                 </p>
               </div>
             )}
@@ -392,7 +392,7 @@ const OrderConfirmation = () => {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
         >
           <ShieldCheck className="h-4 w-4 text-accent" />
-          Securely processed · 100% of your gift supports {orgName}.
+          Securely processed · 100% of your donation supports {orgName}.
         </motion.div>
       </div>
     </div>

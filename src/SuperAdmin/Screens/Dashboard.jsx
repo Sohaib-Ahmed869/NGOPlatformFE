@@ -15,7 +15,7 @@ import { cn } from "../../utils/cn";
 
 const card = "rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-[var(--admin-card)]";
 const HEADER_GRADIENT = "linear-gradient(120deg, var(--tenant-primary, #102A23), var(--tenant-accent, #047857))";
-const planColors = { basic: "#06b6d4", professional: "#10b981", enterprise: "#f59e0b" };
+const planColors = { essentials: "#0F3D2E", professional: "#1F7A55", enterprise: "#2FA36B" };
 
 const orgLogo = (org) => org?.branding?.iconLogoDark || org?.branding?.iconLogo || org?.branding?.logoDark || org?.branding?.logo || "";
 // These double as count-up formatters, so they're handed the interpolated
@@ -141,7 +141,7 @@ export default function SADashboard() {
   const plans = (stats?.plans?.length
     ? stats.plans
     : [
-        { code: "basic", name: "Basic", count: 0, monthly: 0, color: planColors.basic },
+        { code: "essentials", name: "Essentials", count: 0, monthly: 0, color: planColors.essentials },
         { code: "professional", name: "Professional", count: 0, monthly: 0, color: planColors.professional },
         { code: "enterprise", name: "Enterprise", count: 0, monthly: 0, color: planColors.enterprise },
       ]

@@ -338,7 +338,7 @@ const AdminDashboard = () => {
         <StatTile index={1} icon={DollarSign} label="Total received" value={money(od.totalAmountReceived)} color={accent} spark={sparks.received} sub={`${Math.round(od.successRate || 0)}% success rate`} />
         <StatTile index={2} icon={Clock} label="Pending" value={money(od.pendingAmount)} color="#F59E0B" spark={sparks.count} sub={`${pendingCount} awaiting payment`} />
         <StatTile index={3} icon={Repeat} label="Monthly recurring" value={money(od.monthlyRecurringRevenue)} color="#8B5CF6" spark={sparks.recurring} sub={`${od.activeRecurring || 0} active plans`} />
-        <StatTile index={4} icon={TrendingUp} label="Average gift" value={money(Math.round(od.averageDonation))} color="#06B6D4" spark={sparks.amount} sub={`${(od.totalDonations || 0).toLocaleString()} donations`} />
+        <StatTile index={4} icon={TrendingUp} label="Average donation" value={money(Math.round(od.averageDonation))} color="#06B6D4" spark={sparks.amount} sub={`${(od.totalDonations || 0).toLocaleString()} donations`} />
       </div>
 
       {/* Trend + status donut */}
@@ -494,7 +494,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm font-bold text-accent">{money(dn.actualTotal != null ? dn.actualTotal : dn.total)}</p>
-                      <p className="text-[11px] text-text-muted">{dn.donations} gift{dn.donations === 1 ? "" : "s"}</p>
+                      <p className="text-[11px] text-text-muted">{dn.donations} donation{dn.donations === 1 ? "" : "s"}</p>
                     </div>
                   </li>
                 ))}

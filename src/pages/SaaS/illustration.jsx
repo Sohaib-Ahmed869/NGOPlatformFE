@@ -111,7 +111,7 @@ export function Phone({ x = 0, y = 0, s = 1 }) {
   );
 }
 
-/* ── Floating notification — a gift landing, live. ───────────────────────── */
+/* ── Floating notification — a donation landing, live. ───────────────────────── */
 export function NotifyCard({ x = 0, y = 0, s = 1 }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>

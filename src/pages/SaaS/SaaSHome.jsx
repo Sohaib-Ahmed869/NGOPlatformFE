@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import tenantService from "../../services/tenant.service";
-import platformService from "../../services/platform.service";
 import {
   motion, AnimatePresence, useInView, useMotionValue, useSpring,
   useReducedMotion,
@@ -11,9 +10,18 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   Users, ArrowRight, Check,
   Palette, Target, CreditCard, Calendar,
-  BarChart3, Quote, Star,
+  BarChart3,
   X as XIcon,
 } from "lucide-react";
+/* Brand marks for <ToolStack/>. Simple Icons ships one monochrome path per
+   brand, so these inherit `color` and sit in the page's ink until hovered —
+   an <img> per logo would not. Named imports from the barrel are what
+   footer.jsx already does, and Rollup tree-shakes the rest of the set out. */
+import {
+  SiStripe, SiPaypal, SiAmazonwebservices, SiAmazoncloudwatch, SiMongodb,
+  SiNodedotjs, SiExpress, SiSocketdotio, SiReact, SiTailwindcss, SiMui,
+  SiFramer, SiGreensock,
+} from "react-icons/si";
 import HeroScene, { StepSetup, StepBrand, StepReceive } from "./scenes";
 import ProductTour from "./ProductTour";
 import CtaSection from "./CtaSection";
@@ -49,86 +57,13 @@ const MagneticBtn = ({ children, className = "", style = {}, as: Tag = "a", ...p
 };
 
 
-/* ── Testimonial avatar with a graceful initials fallback if the image 404s ── */
-function ReviewAvatar({ t }) {
-  const [err, setErr] = useState(false);
-  if (t.img && !err) {
-    return (
-      <img src={t.img} alt={t.author} loading="lazy" onError={() => setErr(true)}
-        className="h-11 w-11 shrink-0 rounded-full object-cover" style={{ border: `2px solid ${V.surface}`, boxShadow: `0 0 0 1px ${V.line}` }} />
-    );
-  }
-  return (
-    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
-      style={{ background: `linear-gradient(140deg, ${V.primary}, ${V.primary2})` }}>{t.initials}</div>
-  );
-}
-
-/* ── A single testimonial card (fixed width for the marquee carousel). ── */
-function ReviewCard({ t }) {
-  return (
-    <article className="saas-card relative mr-5 flex w-[340px] shrink-0 flex-col overflow-hidden p-8 sm:w-[400px]"
-      style={{ background: V.surface, border: `1px solid ${V.line}` }}>
-      <span aria-hidden className="saas-topline pointer-events-none absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }} />
-      {/* oversized faint quotation glyph for editorial depth */}
-      <Quote aria-hidden className="pointer-events-none absolute right-3 top-5 h-24 w-24" style={{ color: V.accent, opacity: 0.08 }} />
-      <div className="relative flex items-center justify-between">
-        <Quote className="h-7 w-7" style={{ color: V.accent }} />
-        <div className="flex gap-0.5">
-          {Array.from({ length: 5 }).map((_, s) => (
-            <Star key={s} className="h-4 w-4" style={{ color: V.accent, fill: V.accent }} />
-          ))}
-        </div>
-      </div>
-      {/* The quote is the hero — set large in the editorial serif. */}
-      <blockquote className="relative mt-5 flex-1 text-[20px] font-medium leading-[1.42] tracking-[-0.01em]"
-        style={{ color: V.ink, fontFamily: "'Fraunces', Georgia, serif" }}>
-        {t.quote}
-      </blockquote>
-      <div className="mt-7 flex items-center gap-3 pt-5" style={{ borderTop: `1px solid ${V.line}` }}>
-        <ReviewAvatar t={t} />
-        <div className="min-w-0">
-          <div className="text-[14px] font-semibold" style={{ color: V.ink }}>{t.author}</div>
-          <div className="text-[12.5px]" style={{ color: V.inkFaint }}>{t.role}</div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 /* ── Data ── */
-
-/* Hero stats come from GET /api/platform/stats — real cross-tenant totals, not
-   the four invented figures this used to ship. `format` turns a raw count into
-   the {to, prefix, suffix, decimals} the <Counter/> rolls, picking the unit from
-   the magnitude so 940 reads "940" and 1_240_000 reads "$1.2M".
-
-   Nothing here substitutes a placeholder when a figure is zero: the band drops
-   any stat that has no real value and hides itself entirely below two of them
-   (see <HeroStats/>). An empty platform showing "$0 raised" would be worse than
-   showing nothing, and inventing a number is what we're moving away from. */
-const heroStats = [
-  { key: "raised", label: "Raised for good causes", money: true },
-  { key: "charities", label: "Charities on the platform", plus: true },
-  { key: "donors", label: "Donors reached", plus: true },
-  { key: "countries", label: "Countries served" },
-];
-
-// n → the Counter's props. `plus` only appends "+" once the figure is big
-// enough for rounding to have lost something — "7+ charities" is just odd.
-function formatStat(n, { money, plus }) {
-  const prefix = money ? "$" : "";
-  if (n >= 1_000_000) return { to: n / 1_000_000, prefix, suffix: "M+", decimals: 1 };
-  if (n >= 10_000) return { to: Math.round(n / 1000), prefix, suffix: "K+" };
-  if (n >= 1000 && money) return { to: Math.round(n / 1000), prefix, suffix: "K+" };
-  return { to: n, prefix, suffix: plus && n >= 25 ? "+" : "" };
-}
 
 /* Descriptions are deliberately one tight sentence each and close to the same
    length: the cards sit in a 3-up grid with no images to absorb the difference,
    so a stray long line is what makes a row look ragged. */
 const features = [
-  { icon: CreditCard, kind: "donations", title: "Simple donations", desc: "One-time, monthly and instalment gifts, with receipts and thank-yous sent for you." },
+  { icon: CreditCard, kind: "donations", title: "Simple donations", desc: "One-time, monthly and instalment donations, with receipts and thank-yous sent for you." },
   { icon: Users, kind: "donors", title: "Know your donors", desc: "Every supporter in one place: giving history, contact details, the causes they care about." },
   { icon: Palette, kind: "brand", title: "Your brand, your portal", desc: "Your own web address, your logo, your colours. Donors see your charity, never us." },
   { icon: Target, kind: "campaigns", title: "Campaigns that inspire", desc: "Set a goal, watch it fill, and post updates that keep supporters close to the impact." },
@@ -139,27 +74,150 @@ const features = [
 const steps = [
   { n: "1", title: "Create your charity space", desc: "Pick a plan, choose your web address and set up your admin account. You'll be ready in a few minutes." },
   { n: "2", title: "Make it yours", desc: "Add your logo, choose your colours and launch your first campaign. No design or tech skills needed." },
-  { n: "3", title: "Start receiving gifts", desc: "Share your page. Donations arrive securely, receipts go out automatically, and supporters stay updated." },
+  { n: "3", title: "Start receiving donations", desc: "Share your page. Donations arrive securely, receipts go out automatically, and supporters stay updated." },
 ];
 
 
-// `img` is a dummy avatar (pravatar) with a graceful initials fallback if it
-// fails to load — see <ReviewAvatar/>.
-const testimonials = [
-  { quote: "We moved off spreadsheets and our monthly donations grew by 40% in the first quarter. Supporters love how easy giving has become.", author: "Sarah Mitchell", role: "Director · Hope Bridge", initials: "SM", img: "https://i.pravatar.cc/120?img=47" },
-  { quote: "Our donors finally see our charity, not a generic payment page. That trust shows up in every campaign we run.", author: "Ahmed Al-Rahman", role: "Operations · Mercy Global", initials: "AR", img: "https://i.pravatar.cc/120?img=12" },
-  { quote: "Sharing campaign updates keeps people connected to the cause. Supporter retention has never been higher.", author: "Maria Santos", role: "Fundraising · Bright Future", initials: "MS", img: "https://i.pravatar.cc/120?img=45" },
-  { quote: "Onboarding took an afternoon. By the next morning we'd taken our first online gift. No developers required.", author: "James Okonkwo", role: "CEO · Atlas Aid", initials: "JO", img: "https://i.pravatar.cc/120?img=15" },
-  { quote: "Recurring giving used to be a nightmare to manage. Now it just runs, and our reporting is finally clean.", author: "Priya Nair", role: "Programs · GiveWell Local", initials: "PN", img: "https://i.pravatar.cc/120?img=32" },
-  { quote: "Our volunteers coordinate events in one place: sign-ups, reminders and attendance, all handled.", author: "Tom Becker", role: "Comms · Ocean Relief", initials: "TB", img: "https://i.pravatar.cc/120?img=51" },
-  { quote: "Gift Aid and annual statements that used to eat a week now take minutes. It's given us our time back.", author: "Eleanor Whitcombe", role: "Trustee · Thames Relief", initials: "EW", img: "https://i.pravatar.cc/120?img=20" },
-  { quote: "The branded portal made us look like a national charity overnight. Donors keep telling us how professional it feels.", author: "Daniel Okafor", role: "Volunteer Lead · Shelter First", initials: "DO", img: "https://i.pravatar.cc/120?img=33" },
+/* ── Safeguards — the section that replaced the testimonial marquee.
+
+   What was here was eight invented charities saying flattering things, with
+   stock avatars and a specific number ("donations grew 40%") nobody could
+   check. Directly before the price is the worst possible place for that: it is
+   exactly where a buyer stops being persuaded and starts being sceptical, and
+   the questions in their head are not "do others like it" but "who touches my
+   donors' cards, where does the money land, and who can read this".
+
+   Every line is a fact about the build rather than a claim about it — the card
+   column really is four characters wide, the keys really are AES-256-GCM, the
+   audit log really is append-only. That constraint IS the section: anything we
+   cannot point at in the codebase does not go in it. `artefact` is the thing
+   itself, set in mono, because an identifier in mono reads as a specification
+   and a sentence about it reads as marketing.
+
+   ── On the shape, which took three goes ─────────────────────────────────
+   It is NOT a card grid. A tinted round icon chip, a staggered fade-up per
+   item, an accent seam lit across a card's top edge and a glow on hover are
+   the four things that make a section look auto-generated, and a 3×2 of them
+   is the single most template-looking block on the internet. <FeatureCards/>
+   above already spends that pattern; a second one directly before the price
+   made the page look assembled rather than designed.
+
+   It is also not the thin two-column list that replaced it first — sober is
+   not the same as plain, and that version left half the width empty.
+
+   What it is: one alignment spine. The heading holds the left column and stays
+   put while the evidence scrolls past it; every row hangs off a single rule
+   with its index, claim, mechanism and artefact in a fixed vertical order, so
+   the rhythm comes from type and spacing rather than from decoration. No
+   chips, no seams, no hover lift, no per-item motion. ── */
+const safeguards = [
+  {
+    claim: "Card details never reach us",
+    how: "Your donor's browser tokenises the card directly with Stripe. The only card field in our database is four characters wide — the last four digits, so a donor can recognise their own card.",
+    artefact: "•••• •••• •••• 4242",
+    label: "Stripe Elements",
+  },
+  {
+    claim: "Donations settle into your account",
+    how: "Payments go to your charity's own Stripe and PayPal accounts. We never take custody of your money, and we never take a percentage of a donation.",
+    artefact: "0.00%",
+    label: "Our cut of a donation",
+  },
+  {
+    claim: "Your data is yours alone",
+    how: "Every record is stamped with your organisation and every query is scoped to it before it runs — the same rule for search, exports and reporting as for the donor list.",
+    artefact: "organisationId",
+    label: "Scoped on every read",
+  },
+  {
+    claim: "Keys are encrypted before they are stored",
+    how: "Payment and email credentials are sealed on the way into the database, under a key that is not kept in it.",
+    artefact: "AES-256-GCM",
+    label: "Secrets at rest",
+  },
+  {
+    claim: "Support cannot look without your say-so",
+    how: "A support session is time-limited and view-only unless you widen it, and you can revoke it from your own screen while it is still running.",
+    artefact: "Revoke · anytime",
+    label: "Your kill switch",
+  },
+  {
+    claim: "Every operator action is on the record",
+    how: "Two-factor sign-in and IP allowlisting guard the platform console, and an append-only log keeps the account, address and time behind every change.",
+    artefact: "append-only",
+    label: "Audit log",
+  },
 ];
+
+function Safeguards() {
+  return (
+    /* 28rem, not less: .saas-h2 is a 40-50px clamp at this breakpoint, and in a
+       narrower column "The parts you can't" broke into three ragged lines with
+       an orphan. The column is sized to the type, not the other way round. */
+    <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] xl:gap-x-24">
+      {/* The heading is the left column, not a centred banner above — it stays
+          beside the evidence instead of scrolling away from it, and the section
+          fills its width instead of leaving half of it empty. */}
+      <div className="lg:sticky lg:top-28 lg:self-start">
+        <Reveal>
+          <h2 id="saas-safeguards-title" className="saas-h2 font-bold" style={{ color: V.ink }}>
+            The parts you can&rsquo;t<br />afford to get wrong.
+          </h2>
+          <p className="mt-4 text-[15.5px] leading-relaxed" style={{ color: V.inkSoft }}>
+            {/* Not "opposite": below lg this column stacks ABOVE the list. */}
+            Your donors&rsquo; money, their data, and who is allowed near either. Every line here is
+            a fact about how it is built, not a promise about how we behave.
+          </p>
+          <Link to="/contact"
+            className="mt-6 inline-flex items-center gap-2 text-[14px] font-semibold"
+            style={{ color: V.primary }}>
+            Ask us anything about it
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Reveal>
+      </div>
+
+      <Reveal delay={0.08}>
+        <ul>
+          {safeguards.map((s, i) => (
+            <li key={s.claim}
+              className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-4 py-7 sm:grid-cols-[2.75rem_minmax(0,1fr)] sm:gap-x-6"
+              /* The rule sits between rows and closes the list, so the block
+                 reads as one object rather than six loose ones. */
+              style={{ borderTop: `1px solid ${V.line}`, ...(i === safeguards.length - 1 ? { borderBottom: `1px solid ${V.line}` } : {}) }}>
+              <span aria-hidden className="pt-[3px] font-mono text-[12px] tabular-nums" style={{ color: V.inkFaint }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+
+              <div className="min-w-0">
+                <h3 className="text-[18px] font-semibold leading-snug sm:text-[19px]" style={{ color: V.ink }}>
+                  {s.claim}
+                </h3>
+                <p className="mt-2 max-w-[54ch] text-[14.5px] leading-relaxed" style={{ color: V.inkSoft }}>
+                  {s.how}
+                </p>
+
+                {/* The evidence, as the thing itself. A masked card number and
+                    "0.00%" say what a sentence about them cannot. */}
+                <p className="mt-3.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                  <span className="font-mono text-[13px] font-medium tracking-tight" style={{ color: V.ink }}>
+                    {s.artefact}
+                  </span>
+                  <span className="text-[12px]" style={{ color: V.inkFaint }}>{s.label}</span>
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Reveal>
+    </div>
+  );
+}
 
 const pricingPlans = [
-  { tier: "Basic", desc: "For small charities getting started.", priceNum: 200, annualNum: 160, annualTotal: 1920, features: ["Up to 3 campaigns", "Donation processing", "Donor management", "Your branded portal", "Admin dashboard"] },
-  { tier: "Professional", desc: "For growing charities running active appeals.", priceNum: 500, annualNum: 400, annualTotal: 4800, popular: true, features: ["Up to 5 campaigns", "Everything in Basic", "Up to 10 volunteers", "Campaign updates", "Event management"] },
-  { tier: "Enterprise", desc: "For established charities operating at scale.", priceNum: 1000, annualNum: 800, annualTotal: 9600, features: ["Unlimited campaigns", "Everything in Professional", "Unlimited volunteers", "Priority support", "Tailored onboarding"] },
+  { tier: "Essentials", desc: "New and small charities. Core fundraising, one branded site, standard support.", priceNum: 499, annualNum: 399, annualTotal: 4790, features: ["Up to 3 campaigns", "Donation processing", "Donor management", "Your branded portal", "Admin dashboard"] },
+  { tier: "Professional", desc: "Established charities running programs, events and recurring giving.", priceNum: 899, annualNum: 719, annualTotal: 8630, popular: true, features: ["Up to 5 campaigns", "Everything in Essentials", "Up to 10 volunteers", "Campaign updates", "Event management"] },
+  { tier: "Enterprise", desc: "Multi-program organisations needing the full suite and priority support.", priceNum: 1499, annualNum: 1199, annualTotal: 14390, features: ["Unlimited campaigns", "Everything in Professional", "Unlimited volunteers", "Priority support", "Tailored onboarding"] },
 ];
 
 // Live (SuperAdmin-managed) plan → the home pricing-card shape.
@@ -173,91 +231,113 @@ const mapHomePlan = (p) => ({
   popular: !!p.isPopular,
   features: Array.isArray(p.features) ? p.features : [],
 });
+/* ── The stack, as one drifting row ──
+   Ordered by how much a charity buying this actually cares — the money first,
+   then who can get in, then where it runs, then the plumbing. The row loops, so
+   nothing is ever "last"; the order only decides what you see first when the
+   section scrolls into view.
 
-/* ── Charity logo wall ──
-   Well-known Australian charities, shown as sector context — NOT as customers.
-   See the section's caption: it says so in plain words, and it needs to keep
-   saying so until these are replaced by real tenants who've agreed to appear.
-   `scale` normalises OPTICAL AREA, not height. Sizing every logo to one row
-   height looks wrong here: these marks run from 0.67:1 (the stacked WWF panda)
-   to 6.2:1 (the Vinnies lockup), so equal heights make the wide wordmarks carry
-   ~4x the ink of the stacked ones. Each scale is sqrt(target area / (h² · ratio))
-   damped to the 0.62 power — full normalisation would push the stacked marks
-   past 2x the row height — then clamped to 1.42 so nothing breaks the band. ── */
-const charityLogos = [
-  { name: "Australian Red Cross", file: "red-cross.svg", scale: 1.07 },
-  { name: "UNICEF Australia", file: "unicef.svg", scale: 0.9 },
-  { name: "The Salvation Army", file: "salvation-army.svg", scale: 1.42 },
-  { name: "Cancer Council Australia", file: "cancer-council.svg", scale: 1.08 },
-  { name: "World Vision Australia", file: "world-vision.svg", scale: 0.86 },
-  { name: "Oxfam Australia", file: "oxfam.svg", scale: 1.42 },
-  { name: "Beyond Blue", file: "beyond-blue.png", scale: 1.03 },
-  { name: "Save the Children Australia", file: "save-the-children.png", scale: 0.85 },
-  { name: "The Smith Family", file: "smith-family.svg", scale: 1.11 },
-  { name: "RSPCA Australia", file: "rspca.svg", scale: 0.98 },
-  { name: "WWF-Australia", file: "wwf.svg", scale: 1.42 },
-  { name: "Lifeline Australia", file: "lifeline.svg", scale: 0.87 },
-  { name: "St Vincent de Paul Society", file: "vinnies.png", scale: 0.8 },
-  { name: "Royal Flying Doctor Service", file: "rfds.png", scale: 0.97 },
-  { name: "The Fred Hollows Foundation", file: "fred-hollows.svg", scale: 0.88 },
+   Two rules for anything added here:
+     1. It has to be genuinely in the build. Every entry below is a dependency
+        in NGOPlatformFE/NGOPlatformBE package.json or a line item in
+        INFRASTRUCTURE_COST_ANALYSIS.md. This list is a public claim about how
+        the platform is run, so an aspirational one is a false one — Mailchimp
+        was ripped out in 2026-06 and must never reappear here.
+     2. `Icon` must be an export that EXISTS in react-icons/si. A typo is not a
+        build error, it is `undefined` rendered as a component, which throws at
+        runtime on the live marketing page. Amazon CloudFront is in the stack
+        but has no mark in the set at all, which is why it is not in the row.
+   `brand` is the mark's official hex, used only on hover — the row runs in mono
+   ink until you point at one. ── */
+const toolLogos = [
+  { name: "Stripe", Icon: SiStripe, brand: "#635BFF" },
+  { name: "PayPal", Icon: SiPaypal, brand: "#003087" },
+  { name: "AWS", Icon: SiAmazonwebservices, brand: "#FF9900" },
+  { name: "CloudWatch", Icon: SiAmazoncloudwatch, brand: "#FF4F8B" },
+  { name: "MongoDB Atlas", Icon: SiMongodb, brand: "#47A248" },
+  { name: "Node.js", Icon: SiNodedotjs, brand: "#5FA04E" },
+  { name: "Express", Icon: SiExpress, brand: "#000000" },
+  { name: "Socket.IO", Icon: SiSocketdotio, brand: "#010101" },
+  { name: "React", Icon: SiReact, brand: "#61DAFB" },
+  { name: "Tailwind CSS", Icon: SiTailwindcss, brand: "#06B6D4" },
+  { name: "MUI", Icon: SiMui, brand: "#007FFF" },
+  { name: "Framer Motion", Icon: SiFramer, brand: "#0055FF" },
+  { name: "GSAP", Icon: SiGreensock, brand: "#0AE448" },
 ];
 
-/* ── GSAP count-up — rolls a number from 0 → `to` the first time it scrolls
-   into view, with thousands separators and an optional prefix/suffix. ── */
-function Counter({ to, decimals = 0, prefix = "", suffix = "", duration = 1.8, className = "", style = {} }) {
-  const ref = useRef(null);
-  const started = useRef(false);
-  const inView = useInView(ref, { once: true, amount: 0.4 });
-  const fmt = (n) =>
-    prefix + n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix;
+/* ── The headline's rotating last line — a slot-machine roll.
+   The outgoing phrase leaves through the top of `.saas-hero-mask` while the
+   incoming one arrives from below it AT THE SAME TIME. That simultaneity is
+   the whole point: with AnimatePresence mode="wait" the exit ran to completion
+   before the next phrase mounted, so the line sat visibly EMPTY for half a
+   second on every swap — which is what read as the headline buffering. Both
+   phrases live in the one grid cell, so overlapping them costs no layout.
 
-  useEffect(() => {
-    if (!inView || started.current) return;
-    started.current = true;
-    const node = ref.current;
-    const obj = { v: 0 };
-    const tween = gsap.to(obj, {
-      v: to, duration, ease: "power2.out",
-      onUpdate: () => { if (node) node.textContent = fmt(obj.v); },
-    });
-    return () => tween.kill();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inView, to]);
+   Two more things this depends on, neither of which is optional:
+     • `.saas-hero-mask` (ui.jsx) supplies the clip. It used to be referenced
+       here and defined nowhere, so the phrases simply flew in over the chip
+       above and the lede below instead of rolling out from behind an edge.
+     • the gradient fill sits on a STATIC child of the moving span, never on
+       the moving span itself — background-clip:text on a transforming element
+       makes the browser re-rasterise the gradient every frame, and that is
+       what made the swap shimmer and drop frames.
 
-  return <span ref={ref} className={className} style={style}>{fmt(0)}</span>;
-}
+   The rotation is decorative: the <h1> carries a static aria-label, so this
+   whole span is aria-hidden. ── */
+const PHRASE_INK = {
+  backgroundImage:
+    "linear-gradient(100deg, var(--tenant-accent-light, #059669) 0%, var(--tenant-accent, #047857) 58%, var(--pf-accent-2, #065F46) 100%)",
+};
+/* 120%, not 100%: the mask is a tenth of an em taller than the line it clips
+   (the padding that saves the descenders of "good." and "grow"), and the ink
+   itself hangs past the line box, so a phrase has to travel further than its
+   own height to be completely out of sight. 107% clears the top edge and 96%
+   clears the bottom one; the rest is margin for a fallback face with deeper
+   metrics than Outfit. */
+const ROLL = 120;
 
-/* ── The headline's rotating last line. Each phrase rolls up out of the clipped
-   box while the previous one rolls out the top (AnimatePresence mode="wait", so
-   only one is ever mounted). An invisible twin of the LONGEST phrase sits in the
-   same grid cell and holds the width — without it the centred headline would
-   twitch wider and narrower on every swap. The rotation is decorative: the <h1>
-   carries a static aria-label, so this whole span is aria-hidden. ── */
-function RotatingPhrase({ phrases }) {
+function RotatingPhrase({ phrases, hold = 3200 }) {
   const reduce = useReducedMotion();
+  const ref = useRef(null);
+  const inView = useInView(ref, { amount: 0.4 });
   const [i, setI] = useState(0);
-  const widest = phrases.reduce((a, b) => (b.length > a.length ? b : a), "");
 
+  /* The timer runs only while the line is on screen AND the tab is in front.
+     setInterval keeps ticking in a hidden tab while requestAnimationFrame does
+     not, so leaving it running meant returning to a queue of swaps that all
+     resolved at once — a burst of half-finished rolls. */
   useEffect(() => {
-    if (reduce) return undefined; // frozen on the first phrase — no timer at all
-    const id = setInterval(() => setI((v) => (v + 1) % phrases.length), 2800);
-    return () => clearInterval(id);
-  }, [reduce, phrases.length]);
+    if (reduce || !inView) return undefined; // reduced motion → frozen on the first phrase
+    let id = 0;
+    const start = () => { if (!id) id = window.setInterval(() => setI((v) => (v + 1) % phrases.length), hold); };
+    const stop = () => { window.clearInterval(id); id = 0; };
+    const onVisibility = () => (document.hidden ? stop() : start());
+    onVisibility();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVisibility); };
+  }, [reduce, inView, hold, phrases.length]);
 
   return (
-    <span aria-hidden className="saas-hero-mask saas-hero-rotate relative inline-grid align-bottom">
-      <span className="invisible col-start-1 row-start-1 whitespace-nowrap">{widest}</span>
-      <AnimatePresence mode="wait" initial={false}>
+    <span ref={ref} aria-hidden className="saas-hero-mask saas-hero-rotate relative inline-grid align-bottom">
+      {/* Width holder: EVERY phrase, stacked invisibly in the one grid cell, so
+          the column is as wide as the widest RENDERED phrase. Picking the
+          holder by string length was wrong in a proportional face — character
+          count is not width — and the centred headline twitched on the swaps
+          where the guess came up short. */}
+      {phrases.map((p) => (
+        <span key={p} className="invisible col-start-1 row-start-1 whitespace-nowrap">{p}</span>
+      ))}
+      <AnimatePresence initial={false}>
         <motion.span
           key={phrases[i]}
-          className="saas-hero-ink col-start-1 row-start-1 whitespace-nowrap bg-clip-text text-transparent"
-          style={{ backgroundImage: "linear-gradient(100deg, var(--tenant-accent-light, #059669) 0%, var(--tenant-accent, #047857) 58%, var(--pf-accent-2, #065F46) 100%)" }}
-          initial={reduce ? { opacity: 0 } : { y: "108%", opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={reduce ? { opacity: 0 } : { y: "-108%", opacity: 0 }}
-          transition={{ duration: reduce ? 0.2 : 0.62, ease: EASE }}
+          className="col-start-1 row-start-1 whitespace-nowrap"
+          style={{ willChange: "transform" }}
+          initial={reduce ? { opacity: 0 } : { y: `${ROLL}%` }}
+          animate={reduce ? { opacity: 1 } : { y: "0%" }}
+          exit={reduce ? { opacity: 0 } : { y: `-${ROLL}%` }}
+          transition={{ duration: reduce ? 0.2 : 0.66, ease: EASE }}
         >
-          {phrases[i]}
+          <span className="block bg-clip-text text-transparent" style={PHRASE_INK}>{phrases[i]}</span>
         </motion.span>
       </AnimatePresence>
     </span>
@@ -269,8 +349,7 @@ function RotatingPhrase({ phrases }) {
    gradient blooms and a masked dot field, all framer-motion driven and all
    built from the platform tokens, so the hero recolours with the brand instead
    of being pinned to one stock photo. The headline rises word by word from
-   behind a mask and its closing line rotates through four promises; the stat
-   band still anchors the bottom edge, now as hairline-on-light. Everything
+   behind a mask and its closing line rotates through four promises. Everything
    stops under prefers-reduced-motion, and the section keeps `data-hero` so the
    navbar collapse still measures against it. ── */
 const heroPhrases = ["do more good.", "raise more funds.", "reach more donors.", "grow with ease."];
@@ -302,10 +381,10 @@ function HeroSection() {
           <span className="block">
             {heroWords.map((w, i) => (
               <span key={w} className="saas-hero-mask inline-block align-bottom" aria-hidden>
-                <motion.span className="inline-block"
-                  initial={reduce ? { opacity: 0 } : { y: "110%", opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.95, delay: 0.16 + i * 0.09, ease: EASE }}>
+                <motion.span className="inline-block" style={{ willChange: "transform" }}
+                  initial={reduce ? { opacity: 0 } : { y: `${ROLL}%` }}
+                  animate={reduce ? { opacity: 1 } : { y: "0%" }}
+                  transition={{ duration: reduce ? 0.3 : 0.78, delay: 0.14 + i * 0.08, ease: EASE }}>
                   {/* NON-BREAKING space on purpose: a plain trailing space at the
                       end of an inline-block collapses and the words collide. */}
                   {w}{i < heroWords.length - 1 ? " " : ""}
@@ -322,7 +401,7 @@ function HeroSection() {
         <motion.p className="saas-lede mx-auto mt-6" style={{ color: V.inkSoft }}
           initial={{ opacity: 0, y: RISE }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: REVEAL, delay: 0.5, ease: EASE }}>
-          Your own donation website, on your own web address, taking gifts through your own
+          Your own donation website, on your own web address, taking donations through your own
           Stripe account. Live in a week.
         </motion.p>
 
@@ -350,103 +429,14 @@ function HeroSection() {
   );
 }
 
-/* ── The hero's stat row, driven by the live platform totals.
-   Three states, and none of them is "make something up":
-     loading / failed  → render nothing at all
-     < 2 real figures  → render nothing (a lone "3 charities" is not a proof bar)
-     otherwise         → the figures that actually have a value
-   Rendered as the last block of the hero's centred column — a hairline rule and
-   a row of figures, NOT a full-bleed bar on the section's bottom edge. Keep it
-   that way: the bar version sat against the viewport edge and stayed put while
-   the hero faded past it, which reads as a fixed toolbar even though nothing
-   was ever position:fixed. ── */
-/* The row orchestrates its children rather than each tile timing itself: the
-   wrapper fades in, then `delayChildren` hands over to the shared fadeUpChild
-   ladder (custom={i} → i * 0.1s), so the stats inherit the page's one motion
-   vocabulary instead of inventing a second set of delays.
-   `hover` is spread on top of fadeUpChild for a reason — a variant LABEL
-   propagates to descendants, so the tile lifting is also what tells the figure
-   inside it to scale. Renaming this key silently kills that. */
-const statTile = {
-  ...fadeUpChild,
-  hover: { y: -4, transition: { type: "spring", stiffness: 340, damping: 22 } },
-};
-const statFigure = { hover: { scale: 1.07, transition: { type: "spring", stiffness: 340, damping: 20 } } };
-const statsWrap = {
-  hidden: { opacity: 0, y: RISE },
-  visible: { opacity: 1, y: 0, transition: { duration: REVEAL, ease: EASE, delay: 0.86, delayChildren: 0.94 } },
-};
-
-function HeroStats({ tone = "dark" }) {
-  const light = tone === "light";
-  const [stats, setStats] = useState(null); // null = loading / unavailable
-  const reduce = useReducedMotion();
-
-  useEffect(() => {
-    let alive = true;
-    platformService
-      .getPublicStats()
-      .then((res) => { if (alive) setStats(res?.data || null); })
-      .catch(() => { if (alive) setStats(null); });
-    return () => { alive = false; };
-  }, []);
-
-  const shown = stats
-    ? heroStats
-      .map((s) => ({ ...s, value: Number(stats[s.key]) || 0 }))
-      .filter((s) => s.value > 0)
-    : [];
-
-  if (shown.length < 2) return null;
-
-  return (
-    <motion.div className="mx-auto mt-[clamp(40px,5vh,64px)] w-full max-w-[860px]"
-      variants={statsWrap} initial="hidden" animate="visible">
-      {/* The rule draws itself out from the centre instead of just being there —
-          it's the line that separates the pitch above from the proof below, so
-          it earns the beat. Its own initial/animate opts it out of the variant
-          tree; the tiles below stay on it. */}
-      <motion.span aria-hidden className="block h-px w-full origin-center"
-        style={{ background: `linear-gradient(90deg, transparent, ${light ? "rgba(255,255,255,.18)" : V.line} 18%, ${light ? "rgba(255,255,255,.18)" : V.line} 82%, transparent)` }}
-        initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }}
-        transition={{ duration: 0.9, delay: 0.88, ease: EASE }} />
-
-      {/* Flex, not a fixed 4-col grid: the row can legitimately render 2, 3 or
-          4 tiles now, and a grid would strand them left-aligned with a hole. */}
-      <div className="flex flex-wrap justify-center gap-x-8 gap-y-7 pt-[clamp(24px,3vh,36px)]">
-        {shown.map((s, i) => {
-          const f = formatStat(s.value, s);
-          return (
-            <motion.div key={s.key} custom={i} variants={statTile}
-              whileHover={reduce ? undefined : "hover"}
-              className="group w-[42%] cursor-default text-center sm:w-auto sm:min-w-[130px] sm:max-w-[220px] sm:flex-1">
-              <motion.span className="block" variants={statFigure}>
-                <Counter to={f.to} prefix={f.prefix} suffix={f.suffix} decimals={f.decimals}
-                  className="text-[clamp(26px,2.4vw,34px)] font-bold tracking-tight" style={{ color: light ? "#FFFFFF" : V.ink }} />
-              </motion.span>
-              <div className="mt-1 text-[13px]" style={{ color: light ? "rgba(255,255,255,.55)" : V.inkSoft }}>{s.label}</div>
-              {/* accent rule, grown from the centre on hover — CSS, not framer:
-                  it only ever reacts to :hover and needs no state of its own */}
-              <span aria-hidden className="mx-auto mt-2.5 block h-[2px] w-9 origin-center scale-x-0 rounded-full transition-transform duration-300 ease-out group-hover:scale-x-100"
-                style={{ background: `linear-gradient(90deg, ${V.primary}, ${V.glow})` }} />
-            </motion.div>
-          );
-        })}
-      </div>
-    </motion.div>
-  );
-}
-
 /* ── The band the hero's foreground colour runs into.
    Filled edge-to-edge in the primary colour so it continues the bottom of
    <HeroScene/> with no seam. Carries the three things a charity board actually
-   asks about, and the live platform figures underneath — <HeroStats/> renders
-   nothing at all rather than inventing a number, so this block has to read fine
-   with the row absent. ── */
+   asks about. ── */
 const proofPoints = [
-  { title: "Your Stripe, your donors", body: "Gifts land in your account, and the donor list is yours to export whenever you like." },
+  { title: "Your Stripe, your donors", body: "Donations land in your account, and the donor list is yours to export whenever you like." },
   { title: "Hosted in Sydney", body: "Australian donor data stays in Australia. Your board will ask; the answer is yes." },
-  { title: "Zakat, Sadaqah, Lillah, Fidya", body: "Islamic giving categories are built in, not bolted on." },
+  { title: "No platform fee", body: "We never take a cut of a donation. Stripe's processing fee is the only deduction." },
 ];
 
 function StoryBand() {
@@ -471,8 +461,6 @@ function StoryBand() {
             </motion.div>
           ))}
         </motion.div>
-
-        <HeroStats tone="light" />
       </div>
     </section>
   );
@@ -552,7 +540,7 @@ function RollingPrice({ value, className = "", style = {} }) {
     seen.current = true;
     const obj = { v: from };
     const tween = gsap.to(obj, { v: value, duration: 0.7, ease: "power2.out",
-      onUpdate: () => { if (node) node.textContent = "$" + Math.round(obj.v).toLocaleString("en-US"); } });
+      onUpdate: () => { if (node) node.textContent = "A$" + Math.round(obj.v).toLocaleString("en-AU"); } });
     prev.current = value;
     return () => tween.kill();
      
@@ -697,7 +685,7 @@ function PricingCards() {
                   {annual && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
                       <div className="mt-1 text-[12px]" style={{ color: pop ? "rgba(255,255,255,.7)" : V.inkFaint }}>
-                        ≈ ${plan.annualNum.toLocaleString()}/mo · billed yearly
+                        ≈ A${plan.annualNum.toLocaleString("en-AU")}/mo · billed yearly
                       </div>
                     </motion.div>
                   )}
@@ -745,26 +733,28 @@ function PricingCards() {
   );
 }
 
-/* ── Charity logo wall ──
-   Full-bleed band of a single row drifting left, edges dissolved with a mask
-   so logos fade out rather than clip. Hovering a logo lifts it to full
-   opacity, which is what makes the strip feel browsable instead of
-   decorative. ── */
-function CharityWall() {
+/* ── The tool stack ──
+   Same band the charity logo wall used to be: a caption, then one row drifting
+   left forever, its edges dissolved by a mask so marks fade out rather than
+   clip at the viewport edge. What changed is what is in the row — brands we
+   actually build on, which needs no "these are not our customers" disclaimer.
+
+   Each item is a mark AND its name, where the charity wall was marks alone.
+   Those were wordmarks that read at a glance; a Simple Icons glyph is a bare
+   monochrome symbol, and a good part of this list (CloudWatch, Socket.IO, MUI,
+   GSAP) is unrecognisable without the label beside it.
+
+   No `saas-seam`: the dark story band directly above IS the separator, and a
+   hairline drawn a pixel under a colour block reads as an artefact. The
+   features section below carries the next one. ── */
+function ToolStack() {
   return (
-    // No seam of its own: the dark story band directly above IS the separator,
-    // and a hairline drawn a pixel under a colour block reads as an artefact.
-    // The features section below carries the next one.
-    <section aria-labelledby="saas-wall-title" className="relative py-[clamp(44px,5vw,76px)]"
-      style={{
-        "--logo-gap": "clamp(38px,4.6vw,72px)",
-        "--logo-h": "clamp(26px,3vw,42px)",
-      }}>
+    <section id="stack" aria-labelledby="saas-stack-title" className="relative py-[clamp(44px,5vw,76px)]">
       <div className="saas-shell mb-[clamp(24px,2.6vw,40px)]" style={{ paddingInline: "var(--page-pad)" }}>
         <div className="flex items-center justify-center gap-4">
           <span className="hidden h-px w-12 sm:block" style={{ background: `linear-gradient(90deg, transparent, ${V.line})` }} />
-          <p id="saas-wall-title" className="text-center text-[12px] font-semibold uppercase tracking-[0.2em]" style={{ color: V.inkFaint }}>
-            Built for the causes Australia already gives to
+          <p id="saas-stack-title" className="text-center text-[12px] font-semibold uppercase tracking-[0.2em]" style={{ color: V.inkFaint }}>
+            The tools your site, your data and your donations run on
           </p>
           <span className="hidden h-px w-12 sm:block" style={{ background: `linear-gradient(270deg, transparent, ${V.line})` }} />
         </div>
@@ -774,20 +764,17 @@ function CharityWall() {
         <div className="saas-logorow">
           <div className="saas-logotrack saas-logotrack--l">
             {[0, 1].map((half) => (
+              /* Two halves, each holding the list twice, so one half always
+                 overflows even an ultrawide viewport and the -50% loop never
+                 shows a gap. Only the first pass of the first half is exposed
+                 to assistive tech; the other three exist purely to fill it. */
               <div key={half} className="flex shrink-0 items-center" aria-hidden={half === 1}>
-                {[...charityLogos, ...charityLogos].map((c, i) => (
-                  <div key={`${half}-${i}`} className="saas-logoitem" style={{ "--logo-scale": c.scale ?? 1 }}>
-                    <img
-                      className="saas-logoimg"
-                      src={`/logos/charities/${c.file}`}
-                      /* Only the first pass of the first half is announced;
-                         the repeats exist purely to fill the loop. */
-                      alt={half === 0 && i < charityLogos.length ? c.name : ""}
-                      loading="lazy"
-                      decoding="async"
-                      draggable="false"
-                    />
-                  </div>
+                {[...toolLogos, ...toolLogos].map(({ name, Icon, brand }, i) => (
+                  <span key={`${half}-${i}`} className="saas-tool" style={{ "--tool-brand": brand }}
+                    aria-hidden={half === 0 && i < toolLogos.length ? undefined : true}>
+                    <Icon aria-hidden="true" focusable="false" />
+                    <span>{name}</span>
+                  </span>
                 ))}
               </div>
             ))}
@@ -846,8 +833,8 @@ export default function SaaSHome() {
       {/* ══ THE PRIMARY BLOCK THE HERO RUNS INTO — do not insert above ══ */}
       <StoryBand />
 
-      {/* ══ CHARITY LOGO WALL — one scrolling row ══ */}
-      <CharityWall />
+      {/* ══ THE STACK — what the platform is actually built on ══ */}
+      <ToolStack />
 
       {/* ══ PRODUCT TOUR — the actual software, before we describe it ══
           This has to sit ABOVE <FeatureCards/>. The feature copy ("one home for
@@ -883,22 +870,13 @@ export default function SaaSHome() {
         </div>
       </section>
 
-      {/* ══ TESTIMONIALS ══ */}
-      <section aria-labelledby="saas-reviews-title" className="saas-seam overflow-hidden" style={{ paddingBlock: "var(--section-y)" }}>
-        <div style={{ paddingInline: "var(--page-pad)" }}>
-          <SectionHead center id="saas-reviews-title"
-            title="Trusted by the people<br/>doing the good work." />
-        </div>
-        {/* Auto-scrolling marquee carousel — the list is doubled for a seamless
-            loop; it pauses when hovered. Edge fades soften the in/out. */}
-        <div className="relative">
-          <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 sm:w-28" style={{ background: `linear-gradient(90deg, ${V.bg}, transparent)` }} />
-          <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 sm:w-28" style={{ background: `linear-gradient(270deg, ${V.bg}, transparent)` }} />
-          <div className="saas-marquee flex w-max py-2" style={{ animationDuration: "55s" }}>
-            {[...testimonials, ...testimonials].map((t, i) => (
-              <ReviewCard key={i} t={t} />
-            ))}
-          </div>
+      {/* ══ SAFEGUARDS — the last thing before the price ══
+          Deliberately here and not earlier. This is where a reader stops being
+          persuaded and starts being sceptical, and the questions in their head
+          are about custody of money and data, not about who else likes us. ══ */}
+      <section id="safeguards" aria-labelledby="saas-safeguards-title" className="saas-section saas-seam">
+        <div className="saas-shell">
+          <Safeguards />
         </div>
       </section>
 
@@ -914,7 +892,7 @@ export default function SaaSHome() {
 
       {/* ══ CTA ══ */}
       <CtaSection
-        title="Take your first online gift next week."
+        title="Take your first online donation next week."
         primaryLabel="See the plans"
         primaryTo="/plans"
         secondaryLabel="Book a demo"

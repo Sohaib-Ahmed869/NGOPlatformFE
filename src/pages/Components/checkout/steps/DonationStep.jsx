@@ -15,7 +15,7 @@ export default function DonationStep() {
 
   return (
     <>
-      <SectionHead icon={Gift} title="Your donations" desc="Review your gifts, choose a category and how often to give." />
+      <SectionHead icon={Gift} title="Your donations" desc="Review your donations, choose a category and how often to give." />
 
       <div className="space-y-3">
         {items.map((item) => (

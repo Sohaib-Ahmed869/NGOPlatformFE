@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Palette, ScrollText, Info, RefreshCw } from "lucide-react";
+import { Mail, Palette, ScrollText, Info, RefreshCw, PenLine } from "lucide-react";
 import { tenantEmailTemplatesService } from "../../services/emailTemplates.service";
 import EmailTemplateEditor from "../../components/email/EmailTemplateEditor";
 import EmailTemplateList from "../../components/email/EmailTemplateList";
 import EmailLayoutPanel from "../../components/email/EmailLayoutPanel";
 import EmailLogsPanel from "../../components/email/EmailLogsPanel";
+import SendEmailPage from "../../components/email/SendEmailPage";
 import useEmailConsole from "../../components/email/useEmailConsole";
 import { cn } from "../../utils/cn";
 
@@ -33,6 +34,10 @@ const TABS = [
 export default function EmailTemplateSettings() {
   const [tab, setTab] = useState("templates");
   const [editingKey, setEditingKey] = useState(null);
+  // A template key, "" for the free-form composer, null when not sending.
+  // This tab has no routes of its own, so it swaps its whole body the way the
+  // editor does rather than opening a dialog over the list.
+  const [composeKey, setComposeKey] = useState(null);
   const [filters, setFilters] = useState({ q: "", group: "all", status: "all" });
 
   const { templates, groups, stats, loading, refreshing, error, busyKeys, toggle, refresh, revalidate } =
@@ -41,8 +46,8 @@ export default function EmailTemplateSettings() {
   // Closing the editor may have created or removed an override. If it didn't,
   // the service still holds the list and this costs nothing.
   useEffect(() => {
-    if (!editingKey) revalidate();
-  }, [editingKey, revalidate]);
+    if (!editingKey && composeKey === null) revalidate();
+  }, [editingKey, composeKey, revalidate]);
 
   // Keep a tab alive once opened — the send log carries its own filters and page.
   const [visited, setVisited] = useState(() => new Set([tab]));
@@ -57,6 +62,21 @@ export default function EmailTemplateSettings() {
         templateKey={editingKey}
         backLabel="Back to emails"
         onBack={() => setEditingKey(null)}
+        onSend={(k) => {
+          setEditingKey(null);
+          setComposeKey(k);
+        }}
+      />
+    );
+  }
+
+  if (composeKey !== null) {
+    return (
+      <SendEmailPage
+        service={tenantEmailTemplatesService}
+        templateKey={composeKey || null}
+        backLabel="Back to emails"
+        onBack={() => setComposeKey(null)}
       />
     );
   }
@@ -81,14 +101,24 @@ export default function EmailTemplateSettings() {
             </p>
           )}
         </div>
-        <button
-          onClick={refresh}
-          disabled={refreshing}
-          title="Refresh"
-          className="shrink-0 self-start rounded-lg p-1 text-gray-400 transition-colors hover:text-accent disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5 self-start">
+          <button
+            onClick={() => setComposeKey("")}
+            title="Write a one-off email and send it in your charity's branding"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-gray-600 transition-colors hover:border-accent hover:text-accent dark:border-white/10 dark:text-white/65"
+          >
+            <PenLine className="h-3 w-3" />
+            Compose
+          </button>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            title="Refresh"
+            className="rounded-lg p-1 text-gray-400 transition-colors hover:text-accent disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-100 dark:border-white/10">
@@ -130,6 +160,7 @@ export default function EmailTemplateSettings() {
           busyKeys={busyKeys}
           onToggle={toggle}
           onOpen={openTemplate}
+          onSend={(t) => setComposeKey(t.key)}
           filters={filters}
           onFilters={setFilters}
           shortcuts={tab === "templates"}
@@ -149,6 +180,7 @@ export default function EmailTemplateSettings() {
           <EmailLogsPanel service={tenantEmailTemplatesService} templates={templates} />
         </div>
       )}
+
     </div>
   );
 }

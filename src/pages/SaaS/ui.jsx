@@ -137,19 +137,27 @@ export const pageCss = `
 /* ---------- Corners ----------
    Fully round throughout; controls and chips are pills, set explicitly by the
    components in this file rather than by a blanket a/button rule, so a
-   card-shaped link never turns into a stadium. */
-.saas-page [class*="rounded-3xl"]{ border-radius:28px }
-.saas-page [class*="rounded-2xl"]{ border-radius:24px }
-.saas-page [class*="rounded-xl"]{ border-radius:16px }
-.saas-page [class*="rounded-lg"],
-.saas-page [class*="rounded-md"]{ border-radius:12px }
-.saas-page .saas-chip{ border-radius:999px }
+   card-shaped link never turns into a stadium.
+   Scoped to [data-saas-site] (App.jsx), NOT .saas-page. .saas-page wraps a
+   page's body only — the navbar, the footer on every route, and the whole
+   /register and /get-started flow sit outside it, so for as long as this map
+   was scoped there those surfaces silently fell back to Tailwind's own radii
+   and drifted from the home page they are meant to match. */
+[data-saas-site] [class*="rounded-3xl"]{ border-radius:28px }
+[data-saas-site] [class*="rounded-2xl"]{ border-radius:24px }
+[data-saas-site] [class*="rounded-xl"]{ border-radius:16px }
+[data-saas-site] [class*="rounded-lg"],
+[data-saas-site] [class*="rounded-md"]{ border-radius:12px }
+[data-saas-site] .saas-chip{ border-radius:999px }
 /* The radius map above is applied by mapping Tailwind's radius utilities, so
    the shape lands everywhere without editing every element. Specificity (0,2,0)
    beats Tailwind's (0,1,0) — no !important needed.
    rounded-full is deliberately exempt: avatars, status dots, progress bars and
    the billing toggle are genuinely circular and squaring them would read as a
-   rendering bug. */
+   rendering bug.
+   The FLOOR that catches elements with no radius utility at all is in
+   src/index.css — it has to be in the always-loaded sheet because
+   /register/success never imports this file. Keep the two in step. */
 
 /* ---------- Section seams (§2.4) ----------
    With the tinted bands gone the page runs on ONE light surface from the logo
@@ -161,8 +169,27 @@ export const pageCss = `
   background:linear-gradient(90deg,transparent,rgba(var(--tenant-primary-rgb),.11) 22%,
              rgba(var(--tenant-primary-rgb),.11) 78%,transparent) }
 
+
+/* ---------- Hero headline motion ----------
+   Every moving part of the <h1> travels inside one of these boxes: the three
+   opening words rise from behind its bottom edge, and the rotating last line
+   rolls through it. SaaSHome.jsx has always asked for this class; it was never
+   actually defined, so nothing clipped and the type just slid in on top of the
+   chip above and the lede below — motion with no edge to come from.
+
+   The measurements, taken off Outfit at the hero size, are why the box is
+   lopsided. Against a 1.03em line box the baseline sits .875em down and the
+   tallest ink rises .736em, so glyph tops are already .139em INSIDE the box —
+   the clip must stay flush with the top edge or an exiting phrase surfaces
+   above it and lands on top of "Help your charity". Descenders are the only
+   thing that escapes: .222em below the baseline is .067em past the bottom
+   edge, so the box is opened by .1em there and the equal negative margin hands
+   that space straight back to the layout, leaving the headline's line boxes
+   exactly where they were. Move either number and ROLL in SaaSHome.jsx has to
+   move with it. */
+.saas-hero-mask{ overflow:hidden; padding-bottom:.1em; margin-bottom:-.1em }
 @media (max-width:430px){ .saas-hero-rotate{ font-size:.86em } }
-.saas-card{transition:transform .4s ease,border-color .4s ease,box-shadow .4s ease}
+.saas-card{border-radius:24px;transition:transform .4s ease,border-color .4s ease,box-shadow .4s ease}
 .saas-card:hover{transform:translateY(-4px);border-color:rgba(var(--tenant-accent-rgb),.28);box-shadow:0 18px 40px -16px rgba(var(--tenant-accent-rgb),.22)}
 .saas-btn-primary{position:relative;overflow:hidden}
 .saas-btn-primary::before{content:"";position:absolute;inset:0;
@@ -175,12 +202,9 @@ export const pageCss = `
 .saas-card:hover .saas-ic{transform:rotate(-6deg) scale(1.08);background:linear-gradient(150deg,var(--tenant-accent,#047857),var(--tenant-accent-light,#059669));color:#fff;border-color:transparent}
 /* The accent rule that wipes across a card's top edge on hover. It needs BOTH
    halves: without the :hover rule below it is parked at scaleX(0) forever and
-   the review/pricing cards that render one simply never show it. */
+   the pricing cards that render one simply never show it. */
 .saas-topline{transform:scaleX(0);transform-origin:left;transition:transform .55s cubic-bezier(.2,.8,.2,1)}
 .saas-card:hover .saas-topline{transform:scaleX(1)}
-@keyframes saas-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.saas-marquee{animation:saas-marquee 40s linear infinite}
-.saas-marquee:hover{animation-play-state:paused}
 
 /* ---------- The feature rosette ----------
    One square stage, everything inside placed from the centre. Two custom
@@ -200,33 +224,74 @@ export const pageCss = `
 @media (min-width:1024px){
   .saas-rosette-stage{ min-height:calc(100svh - 150px); align-content:center }
 }
-/* Charity logo wall — a single row scrolling left. The track holds two
-   halves and every half repeats the row twice, so one half always overflows
-   the viewport and the -50% loop never shows a gap (§ same trick as
-   .saas-marquee above). */
+/* Tool stack — a single row scrolling left. The track holds two halves and
+   every half repeats the row twice, so one half always overflows the viewport
+   and the -50% loop never shows a gap. */
 @keyframes saas-logorow-l{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.saas-logorow{position:relative;overflow:hidden;
+/* --tool-size lives HERE, not on .saas-tool, because the row needs it too: it
+   sizes the marks AND the headroom the row has to leave for them.
+   That padding is not decoration. overflow:hidden clips at the padding box, and
+   without it the row is exactly one mark tall — so the hover scale below grew
+   the mark 1.8px past the top and bottom edges and the logo you pointed at came
+   back with its head and feet shaved off. Keep the padding above
+   (scale - 1) / 2 * --tool-size, currently .07, or the clipping returns. */
+.saas-logorow{--tool-size:clamp(24px,1.8vw,27px);
+  position:relative;overflow:hidden;
+  padding-block:calc(var(--tool-size) * .18);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
   mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .saas-logotrack{display:flex;width:max-content;align-items:center;will-change:transform}
-.saas-logotrack--l{animation:saas-logorow-l 78s linear infinite}
-/* Deliberately NO hover pause. Scrolling with a wheel or trackpad leaves the
-   cursor parked mid-viewport, so the row drifting past it would stop dead at
-   exactly the moment you scrolled onto the section — which reads as a stuck,
-   broken band rather than a considerate pause. The row never stops. */
-.saas-logoitem{flex:none;display:flex;align-items:center;margin-right:var(--logo-gap)}
-/* Logos ship at their own aspect ratios, so a single row height makes stacked
-   marks (WWF, Oxfam) read far smaller than wordmarks. --logo-scale is the
-   per-logo correction that keeps optical weight even across the row. */
-/* Desaturated at rest, full colour on hover. Eight charity brands at full
-   saturation — orange, blue, red, purple, green — were the loudest thing on a
-   page whose whole palette is one green, and they sat directly under the
-   feature grid. Grey lets the row read as provenance rather than as a second
-   colour scheme, and hovering still gives you the real mark. */
-.saas-logoimg{height:calc(var(--logo-h) * var(--logo-scale,1));width:auto;max-width:none;
-  object-fit:contain;opacity:.58;filter:grayscale(1);
-  transition:opacity .3s ease,filter .3s ease,transform .3s cubic-bezier(.22,1,.36,1)}
-.saas-logoitem:hover .saas-logoimg{opacity:1;filter:grayscale(0);transform:scale(1.05)}
+/* Duration is not a taste setting — it is derived. The loop distance is one
+   half of the track, so the row drifts at (half width / duration) px/s, and the
+   pace this band was tuned to is ~73px/s. One half currently measures ~4386px,
+   hence 60s. Anything that changes the row's WIDTH changes that speed: adding
+   or cutting marks, and equally just growing --tool-size, since the gaps scale
+   with it. Both have moved it more than once already — dropping nine marks at
+   the old 103s left the row crawling at 42px/s. Re-measure and re-divide.
+   The other constraint: one half must stay wider than the widest viewport you
+   care about or the loop shows a gap. With 13 marks it is ~4386px against a
+   3440px ultrawide — still clear, but that is the floor. Cut many more and the
+   halves need a third pass of the list, not just a new duration. */
+.saas-logotrack--l{animation:saas-logorow-l 60s linear infinite}
+/* The row DOES stop, but only while the pointer is actually on a mark — never
+   on bare band. That distinction is the whole rule: parking a cursor mid-
+   viewport and scrolling used to stop the band dead the moment you reached the
+   section, which read as broken rather than considerate, and the gaps between
+   marks are wide enough that a cursor left anywhere else lets it run. Stopping
+   is what makes the colour reveal below usable at all — the mark you point at
+   has to hold still long enough to look at. Fine pointers only: there is no
+   hover on a touchscreen, and :has gates the whole thing so a browser
+   without it simply never pauses. NOTE this block lives inside a JS template
+   literal: no backticks anywhere in these comments. */
+@media (hover:hover) and (pointer:fine){
+  .saas-logorow:has(.saas-tool:hover) .saas-logotrack--l{animation-play-state:paused}
+}
+/* ONE number drives the row. The mark size is the unit and the label, the space
+   between a mark and its label, and the space between items are all multiples
+   of it, so nudging --tool-size rescales the band as a set instead of leaving
+   the gaps stranded at their old pixel values.
+   The multipliers are the ratios the row already had at a 21px mark — label
+   .6, inner gap .42, item gap 2.75 — so growing the unit keeps the rhythm it
+   was tuned to rather than just crowding bigger marks into the old spacing.
+   The clamp floor is 24px, not the viewport-scaled value: 1.8vw bottoms out
+   around 7px on a phone, and letting it clamp lower there made the band SMALLER
+   on mobile than the fixed 21px/14px it replaced. */
+.saas-tool{flex:none;display:inline-flex;align-items:center;
+  gap:calc(var(--tool-size) * .42);margin-right:calc(var(--tool-size) * 2.75)}
+/* Mono ink at rest, the real logo in its own brand colour on hover — the same
+   bargain the charity wall made before it: twenty-two brand palettes at full
+   saturation (Stripe purple, AWS orange, React cyan, MongoDB green) would be
+   the loudest thing on a page whose whole scheme is one green, so the row reads
+   as provenance until you point at it. */
+.saas-tool svg{flex:none;width:var(--tool-size);height:var(--tool-size);
+  color:rgba(var(--tenant-primary-rgb),.5);
+  transition:color .35s ease,transform .35s cubic-bezier(.22,1,.36,1)}
+.saas-tool span{font-size:calc(var(--tool-size) * .6);font-weight:500;white-space:nowrap;
+  color:rgba(var(--tenant-primary-rgb),.62);transition:color .35s ease}
+/* --tool-brand is set per item in SaaSHome.jsx; the fallback keeps a mark
+   visible rather than transparent if one is ever added without a hex. */
+.saas-tool:hover svg{color:var(--tool-brand,currentColor);transform:scale(1.14)}
+.saas-tool:hover span{color:var(--tenant-primary,#102A23)}
 /* No reduced-motion rule here on purpose — the page-wide reset at §7.7 already
    neutralises every animation with !important, so anything set here is dead. */
 @keyframes saas-prog-shine{0%{transform:translateX(-130%)}55%,100%{transform:translateX(420%)}}

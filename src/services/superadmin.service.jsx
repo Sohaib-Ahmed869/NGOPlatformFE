@@ -424,6 +424,13 @@ const superadminService = {
     invalidateCouponsCache();
     return axiosInstance.post(`/superadmin/coupons/${code}/archive`);
   },
+  // Not the inverse of archive: archiving deletes the Stripe coupon, so the
+  // server has to recreate it. That can legitimately fail (expired, exhausted,
+  // or a percent over 100), which is why this returns errors worth showing.
+  restoreCoupon: (code) => {
+    invalidateCouponsCache();
+    return axiosInstance.post(`/superadmin/coupons/${code}/restore`);
+  },
   // Only description + planCodes — a Stripe coupon's discount terms are
   // immutable, so changing those goes through replaceCoupon instead.
   updateCoupon: (code, body) => {

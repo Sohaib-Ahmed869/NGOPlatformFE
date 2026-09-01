@@ -118,7 +118,7 @@ export default function SaaSNavbar() {
               "relative flex items-center justify-between gap-3 px-4 transition-all duration-500 ease-out sm:px-6",
               scrolled
                 ? "h-14 rounded-full border border-black/[0.06] shadow-lg shadow-black/[0.05] backdrop-blur-xl"
-                : "h-16 rounded-none border border-transparent",
+                : "h-16 rounded-full border border-transparent",
             )}
             /* The fill is set here, not with `bg-background/90`: Tailwind cannot
                apply a slash-opacity to a bare var() colour, so that utility was

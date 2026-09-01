@@ -22,15 +22,15 @@ const STEPS = [
 ];
 
 const VERTICAL_OPTIONS = [
-  { value: "general", label: "General charity" },
-  { value: "muslim", label: "Muslim charity" },
+  { value: "general", label: "Standard giving" },
+  { value: "muslim", label: "Islamic giving (Zakat, Sadaqah, Ramadan)" },
 ];
 const BILLING_OPTIONS = [
   { value: "monthly", label: "Monthly" },
   { value: "annual", label: "Annual" },
 ];
 const STATIC_PLANS = [
-  { key: "basic", name: "Basic" },
+  { key: "essentials", name: "Essentials" },
   { key: "professional", name: "Professional" },
   { key: "enterprise", name: "Enterprise" },
 ];
@@ -40,7 +40,12 @@ const mono = "'JetBrains Mono', monospace";
 
 const css = `
 .gs-page h1,.gs-page h2{font-weight:500!important}
-.gs-page, .gs-page *, .gs-page *::before, .gs-page *::after{border-radius:0 !important}
+/* This page used to force EVERY element square with a blanket
+   border-radius:0 !important. That is gone: the site is round throughout, and
+   the rule was also what defeated the [data-public-site] shape tokens in
+   index.css, which already round surfaces to --radius-card, buttons to
+   --radius-btn and inputs to --radius-input. Do not reintroduce it — with it in
+   place no rounded-* class on this page has any effect at all. */
 .gs-uline{width:100%;background:transparent;border:0;border-bottom:1px solid rgba(var(--tenant-primary-rgb),.18);padding:10px 2px;font-size:14px;color:var(--tenant-primary,#102A23);outline:none;transition:border-color .3s,box-shadow .3s}
 .gs-uline::placeholder{color:#8AA89C}
 .gs-uline:focus{border-bottom-color:var(--tenant-accent,#047857);box-shadow:0 1px 0 0 var(--tenant-accent,#047857)}
@@ -208,8 +213,8 @@ export default function GetStarted() {
 
           {/* ═══ LEFT — dark brand panel + stepper ═══ */}
           <div className="relative overflow-hidden p-8 text-white sm:p-10" style={{ background: "linear-gradient(155deg, var(--tenant-primary, #102A23) 0%, #0A1A14 100%)" }}>
-            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 border-2" style={{ borderColor: "rgba(255,255,255,.10)" }} />
-            <div aria-hidden className="pointer-events-none absolute bottom-6 right-8 h-16 w-28 opacity-[.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.9) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
+            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-3xl border-2" style={{ borderColor: "rgba(255,255,255,.10)" }} />
+            <div aria-hidden className="pointer-events-none absolute bottom-6 right-8 h-16 w-28 rounded-xl opacity-[.16]" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,.9) 1.5px, transparent 1.5px)", backgroundSize: "12px 12px" }} />
             <div aria-hidden className="pointer-events-none absolute left-0 top-0 h-2 w-16" style={{ background: V.glow }} />
 
             <div className="relative flex h-full flex-col">
@@ -241,7 +246,7 @@ export default function GetStarted() {
                   return (
                     <div key={s.label} className="flex items-start gap-3.5">
                       <div className="flex flex-col items-center">
-                        <motion.div className="grid h-9 w-9 shrink-0 place-items-center text-[13px] font-bold"
+                        <motion.div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[13px] font-bold"
                           animate={active ? { scale: [1, 1.08, 1] } : {}} transition={{ duration: 0.4 }}
                           style={done ? { background: "#fff", color: V.primary } : active ? { background: V.glow, color: "#06231b" } : { background: "rgba(255,255,255,.07)", color: "rgba(255,255,255,.5)", border: "1px solid rgba(255,255,255,.18)" }}>
                           {done ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
@@ -351,7 +356,7 @@ export default function GetStarted() {
                         <p className="mt-2 text-[14px]" style={{ color: V.inkSoft }}>Helps us recommend the right plan.</p>
                         <div className="mt-7 space-y-6">
                           <div>
-                            <Label>Charity type</Label>
+                            <Label>Giving categories</Label>
                             <ChipGroup options={VERTICAL_OPTIONS} value={form.verticalType} onChange={(v) => up("verticalType", v)} />
                           </div>
                           <div>

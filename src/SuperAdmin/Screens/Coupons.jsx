@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { Ticket, Plus, X, Archive, AlertTriangle, Check, CloudOff, Cloud, Sparkles, TrendingUp, RefreshCw, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Ticket, Plus, X, Archive, ArchiveRestore, AlertTriangle, Check, CloudOff, Cloud, Sparkles, TrendingUp, RefreshCw, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import superadminService from "../../services/superadmin.service";
 import { useSARealtime } from "../context/SARealtimeContext";
 import { useConfirm } from "../components/ConfirmProvider";
@@ -98,7 +98,7 @@ function Segmented({ value, onChange, options }) {
 }
 
 /* Tear-off coupon ticket — used on the grid AND as the live create-preview. */
-function CouponTicket({ c, preview = false, onArchive, onEdit, onReplace, onDelete }) {
+function CouponTicket({ c, preview = false, onArchive, onEdit, onReplace, onDelete, onRestore }) {
   const color = typeColor(c.type);
   const archived = !!c.archivedAt;
   const redeemed = c.timesRedeemed || 0;
@@ -151,6 +151,11 @@ function CouponTicket({ c, preview = false, onArchive, onEdit, onReplace, onDele
             <button onClick={() => onEdit(c)} className={`${ACTION_BTN} border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70`}>
               <Pencil className="h-3 w-3 shrink-0" /> Edit
             </button>
+            {archived && (
+              <button onClick={() => onRestore(c)} title="Put this code back into circulation — recreates it in Stripe" className={`${ACTION_BTN} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10`}>
+                <ArchiveRestore className="h-3 w-3 shrink-0" /> Restore
+              </button>
+            )}
             {!archived && (
               <button onClick={() => onReplace(c)} title="Archive this and create a replacement with new terms" className={`${ACTION_BTN} border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-white/70`}>
                 <RotateCcw className="h-3 w-3 shrink-0" /> Replace
@@ -371,6 +376,29 @@ export default function Coupons() {
     }
   };
 
+  // Restore is not a flag flip: archiving deleted the Stripe coupon, so the
+  // server recreates it. That can fail for reasons worth reading (expired,
+  // exhausted, a percent over 100), and the server sends a `hint` naming the
+  // fix — surface both rather than a generic failure toast.
+  const restoreCoupon = async (c) => {
+    const ok = await confirm({
+      title: `Restore ${c.code}?`,
+      message:
+        "This puts the code back into circulation and recreates it in Stripe, so customers can enter it at checkout again. Its redemption history is kept.",
+      confirmText: "Restore",
+    });
+    if (!ok) return;
+    try {
+      const res = await superadminService.restoreCoupon(c.code);
+      if (res.data?.warning) toast(res.data.warning, { icon: "⚠️" });
+      else toast.success(`${c.code} restored`);
+      refresh();
+    } catch (err) {
+      const d = err?.response?.data;
+      toast.error(d?.hint ? `${d.error} ${d.hint}` : d?.error || "Failed to restore coupon");
+    }
+  };
+
   // Closing the create modal throws the form away — confirm if anything's typed.
   const closeCreate = async () => {
     if (saving) return;
@@ -577,6 +605,7 @@ export default function Coupons() {
                 onEdit={(x) => setEditTarget({ code: x.code, description: x.description || "", planCodes: [...(x.planCodes || [])] })}
                 onReplace={startReplace}
                 onDelete={removeCoupon}
+                onRestore={restoreCoupon}
               />
             </motion.div>
           ))}

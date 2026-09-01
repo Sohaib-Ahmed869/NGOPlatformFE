@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Server,
   Building2,
+  Hand,
+  Paperclip,
 } from "lucide-react";
 import TabLoader from "../TabLoader";
 import SASelect from "../../SuperAdmin/components/SASelect";
@@ -77,6 +79,9 @@ export default function EmailLogsPanel({ service, templates = [], showTenant = f
   const [query, setQuery] = useState({
     status: "all",
     templateKey: "all",
+    // "all" | "manual" — after a support call the question is almost never
+    // "what did the system send", it's "who did we email by hand, and when".
+    origin: "all",
     days: 30,
     search: "",
     page: 1,
@@ -131,9 +136,10 @@ export default function EmailLogsPanel({ service, templates = [], showTenant = f
       since,
       ...(query.status !== "all" ? { status: query.status } : {}),
       ...(query.templateKey !== "all" ? { templateKey: query.templateKey } : {}),
+      ...(query.origin === "manual" ? { manual: 1 } : {}),
       ...(query.search.trim() ? { search: query.search.trim() } : {}),
     }),
-    [query.page, query.limit, query.status, query.templateKey, query.search, since],
+    [query.page, query.limit, query.status, query.templateKey, query.origin, query.search, since],
   );
 
   const fetchLogs = useCallback(
@@ -211,8 +217,9 @@ export default function EmailLogsPanel({ service, templates = [], showTenant = f
     [templates],
   );
 
-  const { status, templateKey, days, page, limit } = query;
-  const filtering = status !== "all" || templateKey !== "all" || !!query.search.trim();
+  const { status, templateKey, origin, days, page, limit } = query;
+  const filtering =
+    status !== "all" || templateKey !== "all" || origin !== "all" || !!query.search.trim();
 
   return (
     <div className="space-y-4">
@@ -278,6 +285,11 @@ export default function EmailLogsPanel({ service, templates = [], showTenant = f
           options={[["all", "All statuses"], ["sent", "Sent"], ["failed", "Failed"], ["skipped", "Skipped"]]}
         />
         <SASelect value={templateKey} onChange={(v) => update({ templateKey: v })} options={templateOptions} />
+        <SASelect
+          value={origin}
+          onChange={(v) => update({ origin: v })}
+          options={[["all", "Any origin"], ["manual", "Sent by hand"]]}
+        />
         <SASelect value={days} onChange={(v) => update({ days: Number(v) })} options={DAYS_OPTIONS} />
         <button
           onClick={refreshAll}
@@ -390,6 +402,20 @@ const LogRow = memo(function LogRow({ r, open, showTenant, onToggle }) {
                 {r.templateLabel}
               </span>
             )}
+            {r.meta?.manual && (
+              <span
+                title={r.meta.by ? `Sent by hand by ${r.meta.by}` : "Sent by hand from the console"}
+                className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-px text-[10px] text-gray-500 dark:bg-white/10 dark:text-white/45"
+              >
+                <Hand className="h-2.5 w-2.5" />
+                By hand
+              </span>
+            )}
+            {r.attachments > 0 && (
+              <span title={`${r.attachments} attachment${r.attachments === 1 ? "" : "s"}`}>
+                <Paperclip className="h-3 w-3 text-gray-400" />
+              </span>
+            )}
           </div>
           <p className="mt-0.5 truncate text-[11px] text-gray-400">
             {r.subject || (r.reason ? `Skipped: ${r.reason.replace(/_/g, " ")}` : "—")}
@@ -417,7 +443,21 @@ const LogRow = memo(function LogRow({ r, open, showTenant, onToggle }) {
             />
             <Detail label="Content from" value={r.source || "—"} />
             {r.durationMs > 0 && <Detail label="Took" value={`${r.durationMs} ms`} />}
-            {r.attachments > 0 && <Detail label="Attachments" value={r.attachments} />}
+            {r.attachments > 0 && (
+              <Detail
+                label="Attachments"
+                // Names only: the files were attached and discarded, never stored,
+                // so there is nothing here to link to.
+                value={
+                  Array.isArray(r.meta?.files) && r.meta.files.length
+                    ? r.meta.files.map((f) => f.name).join(", ")
+                    : r.attachments
+                }
+              />
+            )}
+            {r.meta?.manual && (
+              <Detail label="Sent by" value={r.meta.by || "an operator"} icon={Hand} />
+            )}
             {r.messageId && <Detail label="Message ID" value={r.messageId} mono />}
           </dl>
           {r.error && (

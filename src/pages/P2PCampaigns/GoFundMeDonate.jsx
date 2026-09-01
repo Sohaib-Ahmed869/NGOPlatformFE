@@ -607,7 +607,7 @@ function SuccessPanel({ campaign, value, slug, receiptUrl, navigate }) {
       </div>
       <h2 className="font-heading text-2xl font-bold text-primary">Your donation is complete</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-text-muted">
-        You gave <span className="font-semibold text-primary">{value >= 1 ? money(value) : "your gift"}</span> to{" "}
+        You gave <span className="font-semibold text-primary">{value >= 1 ? money(value) : "your donation"}</span> to{" "}
         <span className="font-medium text-primary">{campaign.title}</span>. A receipt is on its way — thank you for your generosity.
       </p>
 
