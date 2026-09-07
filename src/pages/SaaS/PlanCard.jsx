@@ -122,7 +122,7 @@ export default function PlanCard({ plan, billingCycle }) {
       </ul>
 
       <Link
-        to={`/register?plan=${plan.key}&billing=${billingCycle}`}
+        to={`/get-started?plan=${plan.key}&billing=${billingCycle}`}
         className={`saas-btn-primary group flex items-center justify-center gap-2 w-full py-3 rounded-lg text-[13.5px] font-semibold transition-colors`}
         style={plan.popular ? {
           background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: V.bg, border: "1px solid transparent",
@@ -132,7 +132,7 @@ export default function PlanCard({ plan, billingCycle }) {
           boxShadow: `inset 0 1px 0 rgba(255,255,255,.06)`,
         }}
       >
-        Get started
+        Talk to sales
         <ArrowRight className="w-4 h-4 group-hover:translate-x-[3px] transition-transform duration-300" />
       </Link>
     </div>

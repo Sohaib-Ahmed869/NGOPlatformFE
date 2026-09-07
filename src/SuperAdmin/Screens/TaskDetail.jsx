@@ -17,7 +17,7 @@ import {
   Building2,
   Mail,
 } from "lucide-react";
-import { TabLoader } from "../../components/TabLoader";
+import SALoader from "../SALoader";
 import { CustomSelect } from "../../components/CustomSelect";
 import { RichTextEditor, sanitizeRichText } from "../../components/RichTextEditor";
 import superadminService from "../../services/superadmin.service";
@@ -229,7 +229,7 @@ export default function TaskDetail() {
 
   const commentEmpty = useMemo(() => isRichEmpty(comment), [comment]);
 
-  if (loading) return <div className="flex h-[60vh] items-center justify-center"><TabLoader label="Loading task…" /></div>;
+  if (loading) return <SALoader label="Loading task…" />;
   if (error) return <SAErrorState message={error} onRetry={() => load({ force: true })} />;
   if (!task) return null;
 

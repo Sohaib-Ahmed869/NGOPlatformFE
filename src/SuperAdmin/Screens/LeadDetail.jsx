@@ -16,7 +16,7 @@ import {
   MapPin,
   Users,
 } from "lucide-react";
-import { TabLoader } from "../../components/TabLoader";
+import SALoader from "../SALoader";
 import { RichTextEditor, sanitizeRichText } from "../../components/RichTextEditor";
 import { cn } from "../../utils/cn";
 import superadminService from "../../services/superadmin.service";
@@ -150,7 +150,7 @@ export default function LeadDetail() {
     }
   };
 
-  if (loading) return <div className="flex h-[60vh] items-center justify-center"><TabLoader label="Loading lead…" /></div>;
+  if (loading) return <SALoader label="Loading lead…" />;
   if (error) return <SAErrorState message={error} onRetry={() => reload({ force: true })} />;
   if (!lead) return null;
 

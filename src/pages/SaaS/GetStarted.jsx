@@ -267,9 +267,11 @@ export default function GetStarted() {
               </nav>
 
               <div className="mt-auto pt-9">
+                {/* Self-serve signup is parked (see the /register route in
+                    App.jsx), so the "skip — sign yourself up" escape hatch that
+                    sat opposite the step counter is gone with it. */}
                 <div className="mb-2 flex items-center justify-between text-[11px] text-white/45">
                   <span style={{ fontFamily: mono }}>Step {Math.min(step + 1, STEPS.length)} of {STEPS.length}</span>
-                  <Link to="/register" className="transition-colors hover:text-white">Skip — self-serve signup →</Link>
                 </div>
                 <div className="h-[3px] w-full overflow-hidden" style={{ background: "rgba(255,255,255,.12)" }}>
                   <div ref={progressRef} className="h-full" style={{ width: "25%", background: `linear-gradient(90deg, ${V.glow}, #fff)` }} />

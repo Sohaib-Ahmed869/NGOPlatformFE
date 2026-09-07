@@ -2,22 +2,25 @@ import { ClosingHorizon } from "./scenes";
 import { V, Reveal, Btn, DonexusMark } from "./ui";
 
 /**
- * The marketing site's one closing block — home, plans, FAQ and the register
- * route all end here, so the site closes the same way wherever you leave it.
+ * The marketing site's one closing block — home, plans and FAQ all end here, so
+ * the site closes the same way wherever you leave it.
  *
  * Filled in the primary colour with the hero's landscape at dusk along the
  * bottom edge: the page opens on that place in daylight and closes on it at
  * night. The horizon is absolutely positioned, so the copy reserves room for it
  * with its own bottom padding — change one and change the other.
  *
- * It also mounts OUTSIDE .saas-page on the register route, so nothing here may
- * depend on the shared page stylesheet.
+ * It can mount OUTSIDE .saas-page, so nothing here may depend on the shared
+ * page stylesheet.
+ *
+ * The default primary CTA is "Talk to sales" (/get-started): self-serve signup
+ * is parked for now — see the /register route in App.jsx.
  */
 export default function CtaSection({
   title = "Ready to help your charity raise more?",
   subtitle = "Pick a plan, choose your web address, and we will walk you through the rest.",
-  primaryLabel = "Get started",
-  primaryTo = "/register",
+  primaryLabel = "Talk to sales",
+  primaryTo = "/get-started",
   secondaryLabel = "Talk to us",
   secondaryTo = "/contact",
   className = "",

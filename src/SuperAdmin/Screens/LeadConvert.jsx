@@ -12,7 +12,7 @@ import { toast } from "react-hot-toast";
 import tenantService from "../../services/tenant.service";
 import superadminService from "../../services/superadmin.service";
 import { getStripePromise } from "../../utils/stripeClient";
-import { TabLoader } from "../../components/TabLoader";
+import SALoader from "../SALoader";
 import SAErrorState from "../components/SAErrorState";
 import { timelineLabel } from "../../config/leadOptions";
 import { useTenant } from "../../context/TenantContext";
@@ -338,7 +338,7 @@ export default function LeadConvert() {
     return submitSendLink();
   };
 
-  if (loading) return <div className="flex h-[70vh] items-center justify-center"><TabLoader label="Loading lead…" /></div>;
+  if (loading) return <SALoader label="Loading lead…" />;
   if (error) return <SAErrorState message={error} onRetry={() => window.location.reload()} />;
   if (!lead) return null;
 

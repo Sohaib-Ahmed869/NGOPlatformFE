@@ -328,6 +328,22 @@ const TenantRoutes = () => (
   </Routes>
 );
 
+// Self-serve signup (/register — pick a plan, pay, get a portal) is PARKED:
+// the marketing site sends every visitor to "Talk to Sales" (/get-started)
+// instead, so leads come in through the form and we onboard them by hand until
+// the signup flow is wired up properly.
+//
+// Flipping this back to true restores the route AND nothing else — the CTAs
+// were repointed at /get-started, so bring those back too: SaaSNavbar (right
+// cluster + mobile overlay), SaaSFooter (product links + brand button),
+// CtaSection (its primaryLabel/primaryTo defaults, which FAQPage and PlansPage
+// override), PlanCard, PlansPage (comparison-table footer), SaaSHome (pricing
+// cards) and GetStarted (the "skip — self-serve signup" link).
+//
+// The flow itself is untouched and /register/success stays mounted, so an
+// activation already in flight still lands.
+const SELF_SERVE_SIGNUP = false;
+
 // ============================================================
 // PUBLIC SAAS ROUTES — marketing site (runs on bare domain)
 // ============================================================
@@ -335,7 +351,10 @@ const PublicSaaSRoutes = () => (
   <Routes>
     <Route path="/" element={<SaaSHome />} />
     <Route path="/plans" element={<PlansPage />} />
-    <Route path="/register" element={<RegistrationFlow />} />
+    <Route
+      path="/register"
+      element={SELF_SERVE_SIGNUP ? <RegistrationFlow /> : <Navigate to="/get-started" replace />}
+    />
     <Route path="/register/success" element={<RegistrationSuccess />} />
     <Route path="/get-started" element={<GetStarted />} />
     <Route path="/contact" element={<ContactPage />} />

@@ -565,12 +565,12 @@ function PricingCards() {
                   )}
                 </AnimatePresence>
 
-                <Link to={`/register?plan=${plan.code || plan.tier.toLowerCase()}&billing=${billing}`}
+                <Link to={`/get-started?plan=${plan.code || plan.tier.toLowerCase()}&billing=${billing}`}
                   className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-[14px] font-semibold transition-all"
                   style={pop
                     ? { background: "rgba(255,255,255,.14)", color: "#fff", border: "1.5px solid rgba(255,255,255,.55)" }
                     : { background: "transparent", color: V.primary, border: `1.5px solid ${V.primary}` }}>
-                  Get Started Now
+                  Talk to sales
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
 

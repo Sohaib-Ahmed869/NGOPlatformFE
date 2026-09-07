@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { MotionConfig, motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { Plus, Loader2, ListChecks, Settings2, RefreshCw, CheckCircle2 } from "lucide-react";
-import { TabLoader } from "../../components/TabLoader";
+import SALoader from "../SALoader";
 import { CustomSelect } from "../../components/CustomSelect";
 import superadminService from "../../services/superadmin.service";
 import SAErrorState from "../components/SAErrorState";
@@ -109,7 +109,7 @@ export default function LeadTasks() {
 
   const staffOptions = [{ value: "", label: "Unassigned" }, ...staff.map((s) => ({ value: s._id, label: s.name || s.email }))];
 
-  if (loading) return <div className="flex h-[60vh] items-center justify-center"><TabLoader label="Loading lead…" /></div>;
+  if (loading) return <SALoader label="Loading lead…" />;
   if (error) return <SAErrorState message={error} onRetry={() => reload({ force: true })} />;
   if (!lead) return null;
 
@@ -194,7 +194,7 @@ export default function LeadTasks() {
       </form>
 
       {tasksLoading ? (
-        <div className="flex h-40 items-center justify-center"><TabLoader label="Loading tasks…" /></div>
+        <SALoader label="Loading tasks…" minHeight="10rem" />
       ) : tasksError ? (
         <SAErrorState message={tasksError} onRetry={loadTasks} />
       ) : (

@@ -2,14 +2,15 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion, MotionConfig } from "framer-motion";
 import { toast } from "react-hot-toast";
-import { ArrowLeft, Loader2, Save, X, Plus, Tag as TagIcon, Building2, ListChecks, CalendarClock } from "lucide-react";
-import { TabLoader } from "../../components/TabLoader";
+import { ArrowLeft, Loader2, Save, X, Plus, Tag as TagIcon, Building2, ListChecks, CalendarClock, ChevronDown, Check, AlertTriangle, UserX } from "lucide-react";
+import SALoader from "../SALoader";
 import { CustomSelect } from "../../components/CustomSelect";
 import { RichTextEditor, sanitizeRichText } from "../../components/RichTextEditor";
 import superadminService from "../../services/superadmin.service";
 import SAErrorState from "../components/SAErrorState";
+import { useConfirm } from "../components/ConfirmProvider";
 import { cn } from "../../utils/cn";
-import { card } from "../components/taskShared";
+import { card, TaskCard } from "../components/taskShared";
 import {
   TASK_TYPES,
   TASK_PRIORITIES,
@@ -40,24 +41,92 @@ function Field({ label, hint, children, className, required = false }) {
 }
 
 /**
- * A full-width band of the form.
+ * The form's sections, in order.
+ *
+ * Deliberately NO sticky navigator here, unlike the lead editor: this form is
+ * about a screen and a half tall and shrinks to roughly one once the optional
+ * sections are folded. A table of contents for something you can already see
+ * is furniture, not navigation.
+ *
+ * `count` skips the fields that arrive with a default (type, priority,
+ * status) — a section reading 3/4 before you have done anything says nothing.
+ */
+const SECTIONS = [
+  { id: "task", title: "The task", count: ["title", "description"] },
+  { id: "classification", title: "Classification", count: ["assigneeUserId"] },
+  { id: "schedule", title: "Schedule", count: ["dueAt"] },
+  { id: "context", title: "Context", count: ["leadId", "tags"], optional: true },
+  { id: "checklist", title: "Checklist", count: ["checklist"], optional: true, newOnly: true },
+];
+
+const isFilled = (v) => (Array.isArray(v) ? v.length > 0 : String(v ?? "").trim() !== "");
+
+/** Rich text arrives as HTML, so "empty" is `<p></p>`, not "". */
+const hasText = (html) => String(html || "").replace(/<[^>]*>/g, "").trim() !== "";
+
+/**
+ * A band of the form.
+ *
+ * NOT its own card. Every section used to be a separate bordered box, and five
+ * boxes stacked down a page reads as five unrelated things rather than one
+ * form — so the sections now sit inside a single surface, separated by a
+ * hairline. Same information, a quarter of the furniture.
  *
  * Fields inside flow with `auto-fit`, measured against the SECTION's real width
- * rather than the viewport's — so four selects sit four-across on a wide
- * console, two-across when the sidebar is expanded on a laptop, and one-across
- * on a phone, with no breakpoints to guess at and no empty column left over at
- * any size. Anything that wants the whole row asks for `col-span-full`.
+ * rather than the viewport's — so they reflow to one column in the narrower
+ * main column of the two-column layout with no breakpoints to guess at.
+ * Anything that wants the whole row asks for `col-span-full`.
  */
-function Section({ title, hint, children, cols = true }) {
+function Section({ id, step, title, hint, optional, filled = 0, total = 0, collapsible, open = true, onToggle, summary, children, cols = true }) {
+  const done = total > 0 && filled === total;
   return (
-    <section className={`${card} p-5 sm:p-6`}>
-      <div className="mb-4 border-b border-gray-100 pb-3 dark:border-white/10">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-white/60">{title}</h2>
-        {hint ? <p className="mt-1 text-xs text-gray-400">{hint}</p> : null}
+    <section id={id} className="border-t border-gray-100 p-5 first:border-t-0 sm:p-6 dark:border-white/10">
+      <div
+        className={cn(
+          "flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-3 dark:border-white/10",
+          open ? "mb-4" : "mb-0 border-b-0 pb-0",
+        )}
+      >
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-white/60">
+            {/* A position in a list, not a status — so it stays grey. */}
+            <span className="tabular-nums text-gray-300 dark:text-white/25">{String(step).padStart(2, "0")}</span>
+            {title}
+            {optional ? <span className="font-normal normal-case tracking-normal text-gray-400">· optional</span> : null}
+          </h2>
+          {hint && open ? <p className="mt-1 text-xs text-gray-400">{hint}</p> : null}
+          {/* Folding a section away must not hide the fact that it has
+              something in it. */}
+          {!open && summary ? <p className="mt-1 text-xs text-gray-500 dark:text-white/50">{summary}</p> : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          {total > 0 ? (
+            <span className={cn("inline-flex items-center gap-1 text-[11px] tabular-nums", done ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400")}>
+              {done ? <Check className="h-3.5 w-3.5" /> : null}
+              {filled}/{total}
+            </span>
+          ) : null}
+          {collapsible ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={open}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-gray-400 transition-colors hover:text-accent"
+            >
+              {open ? "Hide" : "Add"}
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+            </button>
+          ) : null}
+        </div>
       </div>
-      <div className={cn(cols && "grid gap-x-5 gap-y-4 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]")}>
-        {children}
-      </div>
+      {/* Conditional render, not a `hidden` class: `hidden` and `grid` are both
+          display utilities and which one wins depends on stylesheet order, not
+          on the order they are written here. */}
+      {open ? (
+        <div className={cn(cols && "grid gap-x-5 gap-y-4 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]")}>
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -75,6 +144,7 @@ export default function TaskEditor() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const isEdit = !!id;
+  const confirm = useConfirm();
 
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState(null);
@@ -181,6 +251,63 @@ export default function TaskEditor() {
 
   const titleError = !form.title.trim();
 
+  /* ── sections: counts and collapse state ──────────────────────────────── */
+  const sections = useMemo(() => SECTIONS.filter((s) => !s.newOnly || !isEdit), [isEdit]);
+  const sectionStats = useMemo(() => {
+    const out = {};
+    for (const s of sections) {
+      out[s.id] = {
+        filled: s.count.filter((k) => (k === "description" ? hasText(form[k]) : isFilled(form[k]))).length,
+        total: s.count.length,
+      };
+    }
+    return out;
+  }, [sections, form]);
+
+  /* Optional sections start folded on a NEW task so the form opens as the
+     three things that matter — what, when, who. On an EDIT anything holding
+     content is open, because folding away what the record already says would
+     hide it. */
+  const [openSections, setOpenSections] = useState(null);
+  useEffect(() => {
+    if (openSections !== null || loading) return;
+    setOpenSections(new Set(sections.filter((s) => !s.optional || s.count.some((k) => isFilled(form[k]))).map((s) => s.id)));
+  }, [openSections, loading, sections, form]);
+  const isOpen = (sid) => !openSections || openSections.has(sid);
+  const toggleSection = (sid) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev || []);
+      if (next.has(sid)) next.delete(sid); else next.add(sid);
+      return next;
+    });
+
+  const sectionProps = (sid) => {
+    const i = sections.findIndex((s) => s.id === sid);
+    const s = sections[i] || {};
+    const st = sectionStats[sid] || { filled: 0, total: 0 };
+    return {
+      id: sid, step: i + 1, title: s.title, optional: s.optional,
+      filled: st.filled, total: st.total,
+      collapsible: !!s.optional, open: isOpen(sid), onToggle: () => toggleSection(sid),
+    };
+  };
+
+  /* ── unsaved-changes tracking ─────────────────────────────────────────── */
+  const formRef = useRef(null);
+  const pristineRef = useRef(null);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (loading) return;
+    if (pristineRef.current === null) { pristineRef.current = JSON.stringify(form); return; }
+    setDirty(JSON.stringify(form) !== pristineRef.current);
+  }, [form, loading]);
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
   const submit = async (e) => {
     e.preventDefault();
     if (titleError) { toast.error("Give the task a title"); return; }
@@ -204,6 +331,8 @@ export default function TaskEditor() {
           checklist: form.checklist,
         });
         superadminService.setTaskCache(res.data.task);
+        pristineRef.current = JSON.stringify(form);
+        setDirty(false);
         toast.success("Task created");
         navigate(`/tasks/${res.data.task._id}`, { replace: true });
         return;
@@ -223,6 +352,8 @@ export default function TaskEditor() {
         task = (await superadminService.assignTask(id, form.assigneeUserId || null)).data.task;
       }
       superadminService.setTaskCache(task);
+      pristineRef.current = JSON.stringify(form);
+      setDirty(false);
       toast.success("Task saved");
       navigate(`/tasks/${id}`);
     } catch (err) {
@@ -249,15 +380,75 @@ export default function TaskEditor() {
     [leadOptions, form.leadId],
   );
 
+  /* ── the card this will become ────────────────────────────────────────── */
+  const assigneeName = useMemo(
+    () => staff.find((s) => String(s._id) === String(form.assigneeUserId))?.name || "",
+    [staff, form.assigneeUserId],
+  );
+  const previewTask = useMemo(
+    () => ({
+      title: form.title.trim() || "Untitled task",
+      type: form.type,
+      priority: form.priority,
+      status: form.status,
+      dueAt: fromLocalInput(form.dueAt),
+      leadRef: relatedLead ? { _id: relatedLead._id, orgName: relatedLead.orgName } : null,
+      assignee: assigneeName ? { name: assigneeName } : null,
+      checklistTotal: form.checklist.length,
+      checklistDone: 0,
+    }),
+    [form.title, form.type, form.priority, form.status, form.dueAt, form.checklist.length, relatedLead, assigneeName],
+  );
+
+  /* The two facts that decide whether a task actually does anything. A task
+     with no due date never reaches anyone's day or the overdue list, and an
+     unassigned one is on nobody's plate — both are easy to not notice, and
+     neither is an error worth blocking a save over. */
+  const readiness = useMemo(() => {
+    const notes = [];
+    if (!form.dueAt) notes.push({ icon: CalendarClock, text: "No due date — it won’t appear on anyone’s day, or in Overdue." });
+    if (!form.assigneeUserId) notes.push({ icon: UserX, text: "Unassigned — it won’t show on an operator’s plate." });
+    return notes;
+  }, [form.dueAt, form.assigneeUserId]);
+
   // What the chosen date will actually SAY on the board and in the list. A
   // datetime input tells you the timestamp; this tells you it reads as
   // "Overdue by 2 days", which is the thing that is easy to get wrong.
   const duePreview = useMemo(() => dueMeta(fromLocalInput(form.dueAt), form.status), [form.dueAt, form.status]);
 
-  const back = () => navigate(isEdit ? `/tasks/${id}` : "/tasks");
+  const contextSummary = [
+    relatedLead?.orgName,
+    form.tags.length ? `${form.tags.length} tag${form.tags.length === 1 ? "" : "s"}` : "",
+  ].filter(Boolean).join(" · ");
+
+  const back = async () => {
+    const leave = () => navigate(isEdit ? `/tasks/${id}` : "/tasks");
+    if (!dirty) return leave();
+    const ok = await confirm({
+      title: "Discard your changes?",
+      message: "This task has edits that haven't been saved. Leaving now throws them away.",
+      tone: "danger",
+      confirmText: "Discard",
+      icon: AlertTriangle,
+    });
+    if (ok) leave();
+    return undefined;
+  };
+
+  /* ⌘/Ctrl+S saves — the same binding the lead editor uses, so the two forms
+     behave alike. */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s")) return;
+      e.preventDefault();
+      if (!saving && !titleError) formRef.current?.requestSubmit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [saving, titleError]);
 
   if (loading) {
-    return <div className="flex h-[60vh] items-center justify-center"><TabLoader label="Loading task…" /></div>;
+    return <SALoader label="Loading task…" />;
   }
   if (error) return <SAErrorState message={error} onRetry={load} />;
 
@@ -268,7 +459,7 @@ export default function TaskEditor() {
         <ArrowLeft className="h-4 w-4" /> {isEdit ? "Back to task" : "Back to tasks"}
       </button>
 
-      <motion.form onSubmit={submit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+      <motion.form ref={formRef} onSubmit={submit} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
         {/* Record header. Flat, not one of the gradient hero bands — those
             announce a SECTION of the console, and this announces one record. */}
         <div className={`${card} mb-4 flex flex-wrap items-center justify-between gap-4 p-5`}>
@@ -288,13 +479,43 @@ export default function TaskEditor() {
           ) : null}
         </div>
 
-        {/* Full-bleed sections. Each spreads its fields with auto-fit, so the
-            row fills whatever width the console gives it and reflows to one
-            column on a narrow screen — no breakpoint guesses, and no dead
-            column at any size, which is what the old fixed 2/3 + 1/3 grid left
-            behind once the short side ran out of content. */}
-        <div className="space-y-4">
-          <Section title="The task" hint="What needs doing, in the words the person doing it will read.">
+        {/* Two columns: the form on the left, and a rail that follows you down
+            it. The rail is STICKY and holds only things worth watching while
+            you type — that is what keeps it from being a strip of white space
+            parked at the right, which is what a plain 2/3 + 1/3 grid gives you
+            the moment one column runs out of content. Below `xl` it stacks,
+            preview first, because on a phone the card IS the summary. */}
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+          <aside className="xl:order-2 xl:sticky xl:top-20">
+            <div className={`${card} p-5`}>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">How it will look on the board</p>
+              {/* Not a mock-up — the REAL TaskCard the board and the lead's
+                  task tab render, fed from the form, so the preview cannot
+                  drift from the thing it previews. */}
+              <TaskCard task={previewTask} showLead />
+              <div className="mt-4 border-t border-gray-100 pt-3 dark:border-white/10">
+                {readiness.length ? (
+                  <ul className="space-y-1.5">
+                    {readiness.map((r) => (
+                      <li key={r.text} className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400/90">
+                        <r.icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        {r.text}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-400/90">
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    Due date and owner are both set — this will show up on their day.
+                  </p>
+                )}
+              </div>
+            </div>
+          </aside>
+
+          {/* One surface, hairline-separated sections — see Section above. */}
+          <div className={`${card} min-w-0 xl:order-1`}>
+          <Section {...sectionProps("task")} hint="What needs doing, in the words the person doing it will read.">
             <Field label="Title" required className="col-span-full">
               <input
                 autoFocus
@@ -315,7 +536,7 @@ export default function TaskEditor() {
             </div>
           </Section>
 
-          <Section title="Classification" hint="How it shows up on the board and in the list.">
+          <Section {...sectionProps("classification")} hint="How it shows up on the board and in the list.">
             <Field label="Type">
               <CustomSelect value={form.type} onChange={(v) => set({ type: v })} options={TASK_TYPES.map((t) => ({ value: t.value, label: t.label }))} className="w-full" triggerClassName={selectTrigger} />
             </Field>
@@ -330,7 +551,7 @@ export default function TaskEditor() {
             </Field>
           </Section>
 
-          <Section title="Schedule" hint="A task with no due date never appears on anyone's day.">
+          <Section {...sectionProps("schedule")} hint="A task with no due date never appears on anyone's day.">
             <Field label="Due">
               <input type="datetime-local" value={form.dueAt} onChange={(e) => set({ dueAt: e.target.value })} className={inputCls} />
             </Field>
@@ -363,7 +584,7 @@ export default function TaskEditor() {
             ) : null}
           </Section>
 
-          <Section title="Context" hint="Optional — a task can stand on its own.">
+          <Section {...sectionProps("context")} hint="A task can stand on its own." summary={contextSummary}>
             <Field label="Related lead">
               <CustomSelect
                 value={form.leadId}
@@ -410,7 +631,7 @@ export default function TaskEditor() {
               individually on the task page, which is a different action from
               editing the task, and each tick writes its own timeline entry. */}
           {!isEdit ? (
-            <Section title="Checklist" hint="Optional. Break the task into steps you can tick off." cols={false}>
+            <Section {...sectionProps("checklist")} hint="Break the task into steps you can tick off." cols={false} summary={form.checklist.length ? `${form.checklist.length} step${form.checklist.length === 1 ? "" : "s"}` : ""}>
               <div className="flex gap-2">
                 <input
                   value={checkDraft}
@@ -438,6 +659,7 @@ export default function TaskEditor() {
               ) : null}
             </Section>
           ) : null}
+          </div>
         </div>
 
         {/* Sticky action bar.
@@ -448,7 +670,15 @@ export default function TaskEditor() {
             the layout's own padding (px-4 / lg:px-6). */}
         <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 lg:-mx-6 lg:px-6 dark:border-white/10" style={{ backgroundColor: "var(--tenant-bg)" }}>
           <p className="min-w-0 text-xs text-gray-400">
-            {titleError ? "A title is required." : isEdit ? "Changes apply as soon as you save." : "You can edit everything afterwards."}
+            {titleError ? (
+              "A title is required."
+            ) : (
+              <>
+                {dirty ? <span className="font-medium text-amber-600 dark:text-amber-400">Unsaved changes · </span> : null}
+                {isEdit ? "Changes apply as soon as you save." : "You can edit everything afterwards."}
+                <span className="ml-1 hidden text-gray-300 sm:inline dark:text-white/25">⌘S</span>
+              </>
+            )}
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <button

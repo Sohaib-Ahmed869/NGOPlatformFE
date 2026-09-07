@@ -406,12 +406,12 @@ export default function PlansPage() {
                     <td className="px-6 py-5" />
                     {cardPlans.map((p) => (
                       <td key={p.key} className={`px-4 py-5 text-center ${p.popular ? "saas-comp-pop" : ""}`}>
-                        <Link to={`/register?plan=${p.key}&billing=monthly`}
+                        <Link to={`/get-started?plan=${p.key}&billing=monthly`}
                           className="saas-btn-primary group inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors"
                           style={p.popular
                             ? { background: `linear-gradient(180deg, ${V.primary}, ${V.primary2})`, color: "#fff" }
                             : { background: V.surface2, color: V.ink, border: `1px solid ${V.line}` }}>
-                          Choose <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+                          Enquire <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
                         </Link>
                       </td>
                     ))}
@@ -442,7 +442,7 @@ export default function PlansPage() {
       </section>
 
       {/* ── CTA ── */}
-      <CtaSection primaryLabel="Start your portal" primaryTo="/register" secondaryLabel="Express interest" secondaryTo="/get-started" />
+      <CtaSection primaryLabel="Talk to sales" primaryTo="/get-started" secondaryLabel="Contact us" secondaryTo="/contact" />
     </div>
   );
 }

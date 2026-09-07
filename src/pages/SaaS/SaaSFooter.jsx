@@ -10,7 +10,7 @@ const productLinks = [
   { label: "Features", to: "/#features" },
   { label: "How it works", to: "/#how" },
   { label: "Pricing", to: "/plans" },
-  { label: "Get started", to: "/register" },
+  { label: "Talk to sales", to: "/get-started" },
 ];
 const supportLinks = [
   { label: "FAQs", to: "/faq" },
@@ -62,10 +62,10 @@ export default function SaaSFooter() {
             <img src={logo} alt={name} className="h-9 w-auto max-w-[200px] object-contain" />
             <p className="mt-4 max-w-[300px] text-sm leading-relaxed text-white/55">{description}</p>
             <Link
-              to="/register"
+              to="/get-started"
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-accent-light"
             >
-              Start your portal <ArrowRight className="h-4 w-4" />
+              Talk to sales <ArrowRight className="h-4 w-4" />
             </Link>
 
             {social.length > 0 && (

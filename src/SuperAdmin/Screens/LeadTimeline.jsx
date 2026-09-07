@@ -11,7 +11,7 @@ import {
   XCircle,
   Filter,
 } from "lucide-react";
-import { TabLoader } from "../../components/TabLoader";
+import SALoader from "../SALoader";
 import { sanitizeRichText } from "../../components/RichTextEditor";
 import superadminService from "../../services/superadmin.service";
 import SAErrorState from "../components/SAErrorState";
@@ -144,7 +144,7 @@ export default function LeadTimeline() {
     return entries.filter((e) => e.kind === "stage");
   }, [entries, filter]);
 
-  if (loading) return <div className="flex h-[60vh] items-center justify-center"><TabLoader label="Loading lead…" /></div>;
+  if (loading) return <SALoader label="Loading lead…" />;
   if (error) return <SAErrorState message={error} onRetry={() => reload({ force: true })} />;
   if (!lead) return null;
 
@@ -173,7 +173,7 @@ export default function LeadTimeline() {
       </div>
 
       {tasksLoading ? (
-        <div className="flex h-40 items-center justify-center"><TabLoader label="Building the timeline…" /></div>
+        <SALoader label="Building the timeline…" minHeight="10rem" />
       ) : visible.length === 0 ? (
         <div className={`${card} py-16 text-center`}>
           <p className="text-sm text-gray-500">Nothing here yet</p>

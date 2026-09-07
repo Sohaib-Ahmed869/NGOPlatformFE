@@ -151,11 +151,18 @@ const LOADERS = {
   typing: TypingLoader,
 };
 
-export default function SALoader({ label = "Loading" }) {
+export default function SALoader({ label = "Loading", minHeight = "60vh" }) {
   // Unified loading across the whole console: the shared TabLoader (animated dots
   // → name sweep) — the same loader used in the tenant admin and the contact inbox.
+  //
+  // `minHeight` exists so a loader INSIDE an already-rendered page can use this
+  // component too. A screen whose shell is on screen and whose panel is still
+  // filling (the task list on a lead, the timeline) must not reserve 60vh, and
+  // before this existed those cases hand-rolled the wrapper instead — which is
+  // how the console ended up with two spellings of the same loader. Page-level
+  // callers pass nothing and get the 60vh they always had.
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight }}>
       <TabLoader label={label} />
     </div>
   );

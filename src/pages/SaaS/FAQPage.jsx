@@ -128,7 +128,7 @@ export default function FAQPage() {
       </section>
 
       {/* ── CTA ── */}
-      <CtaSection primaryLabel="Start your portal" primaryTo="/register" secondaryLabel="Express interest" secondaryTo="/get-started" />
+      <CtaSection primaryLabel="Talk to sales" primaryTo="/get-started" secondaryLabel="See the plans" secondaryTo="/plans" />
     </div>
   );
 }
